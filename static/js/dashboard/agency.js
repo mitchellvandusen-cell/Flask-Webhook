@@ -13,6 +13,10 @@
     // Track current period so agencyLoadStats uses the same period as the KPI view
     var _currentStatsPeriod = 'month';
 
+    // Audio playback state
+    var _currentAudio = null;
+    var _currentAudioUrl = null;
+
     // ── Members ──────────────────────────────────────────────────────────────
     window.agencyLoadMembers = function() {
         var tbody = document.getElementById('agencyMembersBody');
@@ -124,18 +128,37 @@
                     var sc = {completed:'var(--accent)','no-answer':'#ffa500',busy:'#ffa500',failed:'#ef4444'}[c.status] || '#888';
                     var hasRec = !!c.recording_url;
                     var hasTx = c.transcript && c.transcript.length > 0;
-                    var row = '<div class="agency-rec-row">';
-                    row += '<div style="display:flex;align-items:center;gap:6px;min-width:0;">';
+                    var callSid = c.call_sid || '';
+
+                    var row = '<div class="agency-rec-row" data-url="' + _esc(c.recording_url || '') + '">';
+                    row += '<div style="display:flex;align-items:center;gap:6px;min-width:0;flex:1;">';
                     row += '<span class="chr-name">' + _esc(c.contact_name || c.to_number || 'Unknown') + '</span>';
                     row += '<span class="chr-dir">' + _esc(c.direction || 'outbound') + '</span>';
                     row += '<span class="chr-date">' + dt + '</span>';
                     row += '</div>';
-                    row += '<div style="display:flex;align-items:center;gap:6px;margin-top:2px;">';
+                    row += '<div style="display:flex;flex-direction:column;gap:4px;margin-top:2px;flex:1;">';
+                    row += '<div style="display:flex;align-items:center;gap:6px;">';
                     row += '<span class="chr-status" style="color:' + sc + ';">' + _esc((c.status||'').replace(/-/g,' ')) + '</span>';
                     row += '<span class="chr-dur">' + dur + '</span>';
-                    if (hasRec) row += '<button onclick="playRecording(\'' + _esc(c.recording_url) + '\')" style="background:#1e3a5f;color:#fff;border:none;border-radius:4px;padding:4px 8px;font-size:.72rem;font-weight:600;cursor:pointer;" title="Play"><i class="fa-solid fa-play"></i></button>';
-                    if (hasRec) row += '<a href="' + _esc(c.recording_url) + '?dl=1" download style="background:#14532d;color:#fff;border:none;border-radius:4px;padding:4px 8px;font-size:.72rem;font-weight:600;cursor:pointer;text-decoration:none;" title="Download"><i class="fa-solid fa-download"></i></a>';
-                    if (hasTx) row += '<button onclick=\'showTranscript(' + JSON.stringify(c.transcript).replace(/'/g,"\\'") + ')\' style="background:#1e3a5f;color:#fff;border:none;border-radius:4px;padding:4px 8px;font-size:.72rem;font-weight:600;cursor:pointer;" title="Transcript"><i class="fa-solid fa-file-lines"></i></button>';
+                    row += '</div>';
+
+                    if (hasRec) {
+                        row += '<div class="audio-controls" style="display:flex;align-items:center;gap:8px;margin-top:4px;">';
+                        row += '<button onclick="playRecording(\'' + _esc(c.recording_url) + '\')" class="audio-btn audio-play-btn" title="Play"><i class="fa-solid fa-play"></i></button>';
+                        row += '<button onclick="pauseRecording(\'' + _esc(c.recording_url) + '\')" class="audio-btn audio-pause-btn" title="Pause" style="display:none;"><i class="fa-solid fa-pause"></i></button>';
+                        row += '<button onclick="stopRecording(\'' + _esc(c.recording_url) + '\')" class="audio-btn audio-stop-btn" title="Stop"><i class="fa-solid fa-stop"></i></button>';
+                        row += '<input type="range" class="audio-scrubber" min="0" max="100" value="0" oninput="seekRecording(\'' + _esc(c.recording_url) + '\', this.value)" style="flex:1;max-width:120px;">';
+                        row += '<span class="audio-current-time">0:00</span>';
+                        row += '<span class="audio-duration">' + (c.duration ? formatTime(c.duration) : '0:00') + '</span>';
+                        row += '<a href="' + _esc(c.recording_url) + '?dl=1" download class="audio-btn audio-download-btn" title="Download"><i class="fa-solid fa-download"></i></a>';
+                        row += '<button onclick="transcribeRecording(\'' + _esc(c.recording_url) + '\', \'' + _esc(callSid) + '\')" class="audio-btn audio-transcribe-btn" title="Transcribe"><i class="fa-solid fa-file-lines"></i></button>';
+                        row += '</div>';
+                    }
+
+                    if (hasTx) {
+                        row += '<button onclick=\'showTranscript(' + JSON.stringify(c.transcript).replace(/'/g,"\\'") + ')\' class="audio-btn audio-transcript-btn" title="View Transcript" style="margin-top:4px;"><i class="fa-solid fa-file-lines"></i> View Transcript</button>';
+                    }
+
                     row += '</div></div>';
                     return row;
                 }).join('');
@@ -581,5 +604,152 @@
         el.textContent = sign + val.toFixed(1) + '%';
         el.className = 'ak-tile-delta ' + (val >= 0 ? 'positive' : 'negative');
     }
+
+    // ── Audio Playback Controls ──────────────────────────────────────────────
+
+    function formatTime(seconds) {
+        if (!seconds || isNaN(seconds)) return '0:00';
+        var mins = Math.floor(seconds / 60);
+        var secs = Math.floor(seconds % 60);
+        return mins + ':' + String(secs).padStart(2, '0');
+    }
+
+    window.playRecording = function(url) {
+        // Same recording clicked — toggle play/pause
+        if (_currentAudioUrl === url && _currentAudio) {
+            if (_currentAudio.paused) {
+                _currentAudio.play();
+            } else {
+                _currentAudio.pause();
+            }
+            return;
+        }
+
+        // Different recording — stop current first
+        if (_currentAudio) {
+            _currentAudio.pause();
+            _currentAudio.currentTime = 0;
+            updatePlayButton(_currentAudioUrl, false);
+        }
+
+        // New recording - create new audio element
+        _currentAudio = new Audio(url);
+        _currentAudioUrl = url;
+
+        // Set up event listeners
+        _currentAudio.addEventListener('loadedmetadata', function() {
+            var duration = _currentAudio.duration;
+            updateDurationDisplay(url, duration);
+            updateScrubber(url, 0, duration);
+        });
+
+        _currentAudio.addEventListener('timeupdate', function() {
+            var currentTime = _currentAudio.currentTime;
+            var duration = _currentAudio.duration;
+            updateScrubber(url, currentTime, duration);
+            updateCurrentTimeDisplay(url, currentTime);
+        });
+
+        _currentAudio.addEventListener('ended', function() {
+            updatePlayButton(url, false);
+            _currentAudio.currentTime = 0;
+        });
+
+        _currentAudio.addEventListener('pause', function() {
+            updatePlayButton(url, false);
+        });
+
+        _currentAudio.addEventListener('play', function() {
+            updatePlayButton(url, true);
+        });
+
+        // Start playing
+        _currentAudio.play();
+        updatePlayButton(url, true);
+    };
+
+    window.pauseRecording = function(url) {
+        if (_currentAudio && _currentAudioUrl === url) {
+            _currentAudio.pause();
+        }
+    };
+
+    window.stopRecording = function(url) {
+        if (_currentAudio && _currentAudioUrl === url) {
+            _currentAudio.pause();
+            _currentAudio.currentTime = 0;
+            updatePlayButton(url, false);
+            updateScrubber(url, 0, _currentAudio.duration);
+        }
+    };
+
+    window.seekRecording = function(url, percentage) {
+        if (_currentAudio && _currentAudioUrl === url) {
+            var duration = _currentAudio.duration;
+            _currentAudio.currentTime = (percentage / 100) * duration;
+        }
+    };
+
+    function updatePlayButton(url, isPlaying) {
+        var playBtn = document.querySelector('.agency-rec-row[data-url="' + url.replace(/'/g, "\\'") + '"] .audio-play-btn');
+        var pauseBtn = document.querySelector('.agency-rec-row[data-url="' + url.replace(/'/g, "\\'") + '"] .audio-pause-btn');
+        if (playBtn) playBtn.style.display = isPlaying ? 'none' : 'inline-flex';
+        if (pauseBtn) pauseBtn.style.display = isPlaying ? 'inline-flex' : 'none';
+    }
+
+    function updateDurationDisplay(url, duration) {
+        var durationEl = document.querySelector('.agency-rec-row[data-url="' + url.replace(/'/g, "\\'") + '"] .audio-duration');
+        if (durationEl) {
+            durationEl.textContent = formatTime(duration);
+        }
+    }
+
+    function updateCurrentTimeDisplay(url, currentTime) {
+        var timeEl = document.querySelector('.agency-rec-row[data-url="' + url.replace(/'/g, "\\'") + '"] .audio-current-time');
+        if (timeEl) {
+            timeEl.textContent = formatTime(currentTime);
+        }
+    }
+
+    function updateScrubber(url, currentTime, duration) {
+        var scrubber = document.querySelector('.agency-rec-row[data-url="' + url.replace(/'/g, "\\'") + '"] .audio-scrubber');
+        if (scrubber) {
+            var percentage = duration > 0 ? (currentTime / duration) * 100 : 0;
+            scrubber.value = percentage;
+        }
+    }
+
+    window.transcribeRecording = function(url, callSid) {
+        var btn = document.querySelector('.agency-rec-row[data-url="' + url.replace(/'/g, "\\'") + '"] .audio-transcribe-btn');
+        if (btn) {
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+            btn.disabled = true;
+        }
+
+        fetch('/voice/transcribe-recording', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({call_sid: callSid, recording_url: url})
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(d) {
+            if (d.transcript) {
+                if (typeof _showDashToast === 'function') _showDashToast(true, 'Transcription complete');
+                if (typeof showTranscript === 'function') showTranscript(d.transcript);
+            } else {
+                if (typeof _showDashToast === 'function') _showDashToast(false, d.error || 'Transcription failed');
+            }
+        })
+        .catch(function(e) {
+            console.error('Transcription error:', e);
+            if (typeof _showDashToast === 'function') _showDashToast(false, 'Transcription failed');
+        })
+        .finally(function() {
+            if (btn) {
+                btn.innerHTML = '<i class="fa-solid fa-file-lines"></i>';
+                btn.disabled = false;
+            }
+        });
+    };
 
 })();

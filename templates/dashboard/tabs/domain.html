@@ -189,6 +189,27 @@
           <span class="domain-form-hint">Comma-separated. Shows as badges on your page.</span>
         </div>
 
+        <!-- Physical Address — required by ICANN for domain registration -->
+        <div class="domain-form-group">
+          <label>Street Address <span class="domain-req">*</span></label>
+          <input type="text" id="domainStreet" placeholder="123 Main St">
+          <span class="domain-form-hint">Required by ICANN for domain registration. PO Boxes not accepted.</span>
+        </div>
+        <div class="domain-form-row">
+          <div class="domain-form-group">
+            <label>City <span class="domain-req">*</span></label>
+            <input type="text" id="domainCity" placeholder="Austin">
+          </div>
+          <div class="domain-form-group">
+            <label>State <span class="domain-req">*</span></label>
+            <input type="text" id="domainStateReg" placeholder="TX" maxlength="2">
+          </div>
+          <div class="domain-form-group">
+            <label>ZIP Code <span class="domain-req">*</span></label>
+            <input type="text" id="domainZip" placeholder="78701" maxlength="10">
+          </div>
+        </div>
+
         <div class="domain-form-group">
           <label>Short Bio <span class="domain-optional">(optional)</span></label>
           <textarea id="domainBio" rows="3" placeholder="Helping families protect their future with affordable life insurance coverage..."></textarea>

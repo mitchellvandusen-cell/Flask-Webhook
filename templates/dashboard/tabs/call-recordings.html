@@ -1,0 +1,70 @@
+<div class="tab-pane fade" id="call-recordings" role="tabpanel">
+                <div class="vc-container">
+
+                    <!-- Header -->
+                    <div class="vc-status-bar">
+                        <i class="fa-solid fa-microphone-lines"></i>
+                        <span>Call Recordings</span>
+                        <span class="vc-status-val" id="recordingsCount"></span>
+                    </div>
+
+                    <!-- Filters and Sort -->
+                    <div class="recordings-filters">
+                        <div class="recordings-filter-group">
+                            <label class="vc-label">Sort by</label>
+                            <select id="recordingsSortBy" class="vc-select" onchange="filterCallRecordings()">
+                                <option value="newest">Date (Newest First)</option>
+                                <option value="oldest">Date (Oldest First)</option>
+                                <option value="duration_desc">Duration (Longest First)</option>
+                                <option value="duration_asc">Duration (Shortest First)</option>
+                                <option value="contact_name">Contact Name</option>
+                            </select>
+                        </div>
+                        <div class="recordings-filter-group">
+                            <label class="vc-label">Date Range</label>
+                            <select id="recordingsDateFilter" class="vc-select" onchange="filterCallRecordings()">
+                                <option value="">All Time</option>
+                                <option value="today">Today</option>
+                                <option value="yesterday">Yesterday</option>
+                                <option value="week">Last 7 Days</option>
+                                <option value="last_week">Last Week</option>
+                                <option value="month">This Month</option>
+                            </select>
+                        </div>
+                        <div class="recordings-filter-group">
+                            <label class="vc-label">Call Length</label>
+                            <select id="recordingsLengthFilter" class="vc-select" onchange="filterCallRecordings()">
+                                <option value="">All Calls</option>
+                                <option value="has_recording">Has Recording</option>
+                                <option value="short">Under 1 Minute</option>
+                                <option value="medium">1–5 Minutes</option>
+                                <option value="long">Over 5 Minutes</option>
+                            </select>
+                        </div>
+                        <div class="recordings-filter-group recordings-filter-action">
+                            <button class="vc-btn-secondary" onclick="loadCallRecordings()">
+                                <i class="fa-solid fa-rotate-right"></i> Refresh
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Recordings List -->
+                    <div id="recordingsContainer" class="recordings-container">
+                        <div class="recordings-empty-state">
+                            <i class="fa-solid fa-spinner fa-spin"></i>
+                            <span>Loading call recordings...</span>
+                        </div>
+                    </div>
+
+                    <!-- Pagination -->
+                    <div class="recordings-pagination" id="recordingsPagination" style="display:none;">
+                        <button class="vc-btn-secondary recordings-page-btn" id="recordingsPrev" onclick="loadCallRecordingsPage(-1)" disabled>
+                            <i class="fa-solid fa-arrow-left"></i> Previous
+                        </button>
+                        <span id="recordingsPageInfo" class="recordings-page-info"></span>
+                        <button class="vc-btn-secondary recordings-page-btn" id="recordingsNext" onclick="loadCallRecordingsPage(1)">
+                            Next <i class="fa-solid fa-arrow-right"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>

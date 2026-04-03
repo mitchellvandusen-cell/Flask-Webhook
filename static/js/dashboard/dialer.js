@@ -4306,6 +4306,12 @@
             panel.innerHTML = '<div style="text-align:center;padding:20px;"><i class="fa-solid fa-spinner fa-spin" style="color:#00ff88;"></i></div>';
 
             const filterContact = (!_dialerRecordingsShowAll && dialerActiveContact) ? dialerActiveContact : null;
+
+            // Get filter values from the phone UI controls
+            const sortBy = document.getElementById('dialerRecsSortBy')?.value || 'created_at';
+            const minutesFilter = document.getElementById('dialerRecsMinutesFilter')?.value || '';
+            const lengthFilter = document.getElementById('dialerRecsLengthFilter')?.value || '';
+
             if (label) label.textContent = filterContact ? (dialerActiveContact.firstName || dialerActiveContact.name) + "'s Recordings" : 'All Recordings';
             if (viewBtn) {
                 viewBtn.textContent = filterContact ? 'View All' : (dialerActiveContact ? (dialerActiveContact.firstName || dialerActiveContact.name) + ' Only' : 'View All');
@@ -4313,7 +4319,10 @@
             }
 
             try {
-                const r = await _fetchRetry('/voice/call-history?limit=100', {}, { retries: 1, timeout: 15000, label: 'call-history' });
+                let url = '/voice/call-history?limit=100&sort=' + sortBy;
+                if (minutesFilter) url += '&minutes_filter=' + minutesFilter;
+                if (lengthFilter) url += '&length_filter=' + lengthFilter;
+                const r = await _fetchRetry(url, {}, { retries: 1, timeout: 15000, label: 'call-history' });
                 if (!r.ok) { panel.innerHTML = '<div style="color:#888;padding:16px;text-align:center;font-size:.88rem;">Failed to load</div>'; return; }
                 const d = await r.json();
                 let recordings = (d.calls || []).filter(c => c.recording_url);

@@ -1849,22 +1849,39 @@
 
                                     <!-- ═══ RECORDINGS APP ═══ -->
                                     <div class="ios-app-view" id="iosAppRecordings" style="display:none;">
-                                        <div class="ios-nav-bar">
-                                            <button class="ios-back-btn" onclick="iosGoHome()">
-                                                <i class="fa-solid fa-chevron-left"></i><span class="ios-back-label">Back</span>
-                                            </button>
-                                            <div class="ios-nav-title">
-                                                <div style="font-weight:700;font-size:0.95rem;">Recordings</div>
-                                            </div>
-                                            <div style="display:flex;gap:4px;">
-                                                <button id="dialerRecsViewAllBtn" onclick="dialerToggleRecordingsScope()" class="ios-nav-action dlr-panel-10" style="font-size:0.75rem;padding:3px 8px;border-radius:12px">
-                                                    <span id="dialerRecordingsLabel" style="font-weight:600;">All</span>
-                                                </button>
-                                                <button onclick="dialerLoadRecordings()" class="ios-nav-action" title="Refresh">
-                                                    <i class="fa-solid fa-arrows-rotate"></i>
-                                                </button>
-                                            </div>
-                                        </div>
+                                         <div class="ios-nav-bar">
+                                             <button class="ios-back-btn" onclick="iosGoHome()">
+                                                 <i class="fa-solid fa-chevron-left"></i><span class="ios-back-label">Back</span>
+                                             </button>
+                                             <div class="ios-nav-title">
+                                                 <div style="font-weight:700;font-size:0.95rem;">Recordings</div>
+                                             </div>
+                                             <div style="display:flex;gap:4px;">
+                                                 <select id="dialerRecsSortBy" onchange="dialerLoadRecordings()" class="ios-nav-action" style="font-size:0.7rem;padding:3px 6px;border-radius:8px;min-width:80px;">
+                                                     <option value="created_at">Date</option>
+                                                     <option value="duration">Length</option>
+                                                 </select>
+                                                 <select id="dialerRecsMinutesFilter" onchange="dialerLoadRecordings()" class="ios-nav-action" style="font-size:0.7rem;padding:3px 6px;border-radius:8px;min-width:70px;">
+                                                     <option value="">All Minutes</option>
+                                                     <option value="0-1">0-1 min</option>
+                                                     <option value="1-2">1-2 min</option>
+                                                     <option value="2-5">2-5 min</option>
+                                                     <option value="5+">5+ min</option>
+                                                 </select>
+                                                 <select id="dialerRecsLengthFilter" onchange="dialerLoadRecordings()" class="ios-nav-action" style="font-size:0.7rem;padding:3px 6px;border-radius:8px;min-width:70px;">
+                                                     <option value="">All Lengths</option>
+                                                     <option value="short">Short (<30s)</option>
+                                                     <option value="medium">Medium (30s-2m)</option>
+                                                     <option value="long">Long (2m+)</option>
+                                                 </select>
+                                                 <button id="dialerRecsViewAllBtn" onclick="dialerToggleRecordingsScope()" class="ios-nav-action dlr-panel-10" style="font-size:0.75rem;padding:3px 8px;border-radius:12px">
+                                                     <span id="dialerRecordingsLabel" style="font-weight:600;">All</span>
+                                                 </button>
+                                                 <button onclick="dialerLoadRecordings()" class="ios-nav-action" title="Refresh">
+                                                     <i class="fa-solid fa-arrows-rotate"></i>
+                                                 </button>
+                                             </div>
+                                         </div>
                                         <div id="dlrHistoryRecordings" class="ios-voicemail-scroll">
                                             <div id="dialerRecordingsList" style="padding:0;">
                                                 <div class="ios-empty-state" style="padding-top:60px;">
@@ -2068,7 +2085,7 @@
                                                     <i class="fa-solid fa-calendar-day dlr-text-ios-red" ></i>
                                                 </div>
                                                 <div class="ios-empty-title">Select a Date</div>
-                                                <div class="ios-empty-sub dlr-misc-22 dlr-misc-21 dlr-misc-20">Tap any date to see events and available times<br><span style="display:inline-flex;align-items:center;gap:4px;margin-top:6px;fostyle="width:6px;height:6px;border-radius:50%;display:inline-block"9;display:inline-block;"></span> Appointstyle="width:6px;height:6px;border-radius:50%;display:inline-block;margin-left:6px"n-left:6px;"></span> Google <span style="width:6px;height:6px;border-radius:50%;display:inline-block;margin-left:6px"></span> Open slots</span></div>
+                                                <div class="ios-empty-sub dlr-misc-22 dlr-misc-21 dlr-misc-20">Tap any date to see events and available times<br><span style="display:inline-flex;align-items:center;gap:4px;margin-top:6px;"><span style="width:6px;height:6px;border-radius:50%;background:#FF3B30;display:inline-block;"></span> Appointments <span style="width:6px;height:6px;border-radius:50%;background:#4285F4;display:inline-block;margin-left:6px;"></span> Google <span style="width:6px;height:6px;border-radius:50%;background:#00ff88;display:inline-block;margin-left:6px;"></span> Open slots</span></div>
                                             </div>
                                         </div>
 

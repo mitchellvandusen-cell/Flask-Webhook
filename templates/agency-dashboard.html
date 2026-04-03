@@ -94,6 +94,88 @@
             background: #080810; backdrop-filter: none;
             position: sticky; top: 0; z-index: 50;
         }
+
+        /* Audio Controls */
+        .audio-controls {
+            background: rgba(255,255,255,0.02);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 8px;
+            padding: 8px 12px;
+        }
+
+        .audio-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 32px;
+            height: 32px;
+            background: rgba(0,255,136,0.1);
+            border: 1px solid rgba(0,255,136,0.3);
+            border-radius: 6px;
+            color: #00ff88;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-size: 14px;
+        }
+
+        .audio-btn:hover {
+            background: rgba(0,255,136,0.2);
+            border-color: rgba(0,255,136,0.5);
+            transform: translateY(-1px);
+        }
+
+        .audio-btn:active {
+            transform: translateY(0);
+        }
+
+        .audio-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .audio-scrubber {
+            -webkit-appearance: none;
+            appearance: none;
+            height: 4px;
+            background: rgba(255,255,255,0.2);
+            border-radius: 2px;
+            outline: none;
+            cursor: pointer;
+        }
+
+        .audio-scrubber::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 16px;
+            height: 16px;
+            background: #00ff88;
+            border-radius: 50%;
+            cursor: pointer;
+            box-shadow: 0 0 0 2px rgba(0,255,136,0.3);
+        }
+
+        .audio-scrubber::-moz-range-thumb {
+            width: 16px;
+            height: 16px;
+            background: #00ff88;
+            border-radius: 50%;
+            cursor: pointer;
+            border: none;
+            box-shadow: 0 0 0 2px rgba(0,255,136,0.3);
+        }
+
+        .audio-current-time,
+        .audio-duration {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 12px;
+            color: rgba(255,255,255,0.7);
+            min-width: 35px;
+            text-align: center;
+        }
+
+        .audio-current-time {
+            color: #00ff88;
+        }
         .ag-topbar h1 { font-size: 1.15rem; font-weight: 700; margin: 0; color: #fff; }
         .ag-topbar-right { margin-left: auto; display: flex; align-items: center; gap: 12px; }
         .ag-user-pill {
@@ -531,13 +613,27 @@
             <!-- Period Picker (shared across tabs) -->
             <div class="ag-period-bar" id="agPeriodBar">
                 <button class="ag-period-btn" data-period="today" onclick="agSetPeriod('today', this)">Today</button>
+                <button class="ag-period-btn" data-period="yesterday" onclick="agSetPeriod('yesterday', this)">Yesterday</button>
                 <button class="ag-period-btn" data-period="week" onclick="agSetPeriod('week', this)">7 Days</button>
                 <button class="ag-period-btn active" data-period="month" onclick="agSetPeriod('month', this)">30 Days</button>
+                <button class="ag-period-btn" data-period="year" onclick="agSetPeriod('year', this)">Year</button>
                 <button class="ag-period-btn" data-period="all" onclick="agSetPeriod('all', this)">All Time</button>
             </div>
 
             <!-- ═══ OVERVIEW TAB ═══ -->
             <div class="ag-tab active" id="agTabOverview">
+
+                <!-- Filters -->
+                <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;">
+                    <h3 class="t-primary" style="margin:0;font-weight:700;"><i class="fa-solid fa-chart-line me-2 ic-accent"></i>Agency Overview</h3>
+                    <!-- User filter dropdown -->
+                    <select id="agOverviewUserFilter" onchange="agFilterOverviewStats()" class="ag-select-filter">
+                        <option value="">All Agents</option>
+                        {% for sub in sub_accounts %}
+                        <option value="{{ sub.location_id }}">{{ sub.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
 
                 <!-- KPI Cards -->
                 <div class="ag-kpi-grid" id="agKpiGrid">
@@ -1164,6 +1260,41 @@
                 .then(function(r) { return r.json(); })
                 .then(function(d) { alert(d.message || 'Done'); })
                 .catch(function() { alert('Failed'); });
+        };
+
+        // ── User Filtering ──
+        window.agFilterOverviewStats = function() {
+            var userFilter = document.getElementById('agOverviewUserFilter').value;
+            var url = '/api/agency/kpis?period=' + period;
+            if (userFilter) {
+                url += '&agent=' + encodeURIComponent(userFilter);
+            }
+
+            fetch(url)
+                .then(function(r) { return r.json(); })
+                .then(function(d) {
+                    document.getElementById('agKpiCalls').textContent = fmtNum(d.total_calls);
+                    document.getElementById('agKpiConnected').textContent = fmtNum(d.connected_calls);
+                    document.getElementById('agKpiRate').textContent = d.connect_rate + '%';
+                    document.getElementById('agKpiHours').textContent = fmtHours(d.total_duration);
+                    document.getElementById('agKpiMessages').textContent = fmtNum(d.total_messages);
+                    document.getElementById('agKpiAgents').textContent = d.active_agents + '/' + d.total_agents;
+                    document.getElementById('agKpiAvgDur').textContent = Math.round(d.avg_duration);
+                    document.getElementById('agKpiPerDay').textContent = d.calls_per_day;
+
+                    // Deltas
+                    if (d.prior) {
+                        document.getElementById('agKpiCallsDelta').innerHTML = deltaHtml(d.prior.delta_calls);
+                        document.getElementById('agKpiConnectedDelta').innerHTML = deltaHtml(d.prior.delta_connected);
+                        document.getElementById('agKpiHoursDelta').innerHTML = deltaHtml(d.prior.delta_duration);
+                    }
+
+                    // Daily chart
+                    renderDailyChart(d.daily);
+                    // Hourly heatmap
+                    renderHourlyChart(d.hourly);
+                })
+                .catch(function(e) { console.error('Filtered KPI load error:', e); });
         };
 
         // ── Initial load ──

@@ -88,7 +88,7 @@ async function handleFormSubmit(request, config, env) {
     }
 
     // Forward to Flask API
-    const apiUrl = `${env.API_BASE_URL || 'https://app.insurancegrokbot.click'}/api/domain/contact-form`;
+    const apiUrl = `${env.API_BASE_URL || 'https://app.omnisconn.com'}/api/domain/contact-form`;
     const payload = {
       location_id: config.location_id,
       first_name: firstName,

@@ -184,12 +184,20 @@
         const forwardTo = document.getElementById('domainForwardTo').value.trim();
         const states = document.getElementById('domainStates').value.trim();
         const bio = document.getElementById('domainBio').value.trim();
+        const street = document.getElementById('domainStreet').value.trim();
+        const city = document.getElementById('domainCity').value.trim();
+        const stateReg = document.getElementById('domainStateReg').value.trim().toUpperCase();
+        const zip = document.getElementById('domainZip').value.trim();
         const disclaimer = document.getElementById('domainDisclaimer').checked;
 
         if (!agentName) { if (typeof _showDashToast === 'function') _showDashToast(false, 'Your name is required'); return; }
         if (!phone) { if (typeof _showDashToast === 'function') _showDashToast(false, 'Phone number is required'); return; }
         if (!emailPrefix) { if (typeof _showDashToast === 'function') _showDashToast(false, 'Email prefix is required'); return; }
         if (!forwardTo) { if (typeof _showDashToast === 'function') _showDashToast(false, 'Forwarding email is required'); return; }
+        if (!street) { if (typeof _showDashToast === 'function') _showDashToast(false, 'Street address is required (ICANN)'); return; }
+        if (!city) { if (typeof _showDashToast === 'function') _showDashToast(false, 'City is required (ICANN)'); return; }
+        if (!stateReg) { if (typeof _showDashToast === 'function') _showDashToast(false, 'State is required (ICANN)'); return; }
+        if (!zip) { if (typeof _showDashToast === 'function') _showDashToast(false, 'ZIP code is required (ICANN)'); return; }
         if (!disclaimer) { if (typeof _showDashToast === 'function') _showDashToast(false, 'You must accept the disclaimer'); return; }
 
         const btn = document.getElementById('domainPurchaseBtn');
@@ -215,6 +223,10 @@
                 forward_to: forwardTo,
                 licensed_states: licensedStates,
                 bio: bio,
+                street: street,
+                city: city,
+                state: stateReg,
+                zip: zip,
                 disclaimer_accepted: true,
             }),
         })

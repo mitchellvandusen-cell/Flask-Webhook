@@ -3,11 +3,11 @@ main = "src/worker.js"
 compatibility_date = "2024-12-01"
 
 [vars]
-API_BASE_URL = "https://app.insurancegrokbot.click"
+API_BASE_URL = "https://app.omnisconn.com"
 
 [[kv_namespaces]]
 binding = "AGENT_CONFIG"
-id = ""  # Set via: wrangler deploy --var KV_NAMESPACE_ID=your-namespace-id, or paste your KV namespace ID here locally
+id = "aa72913187f742b39b1c7b1a7a92fcec"
 
 [env.production]
-vars = { API_BASE_URL = "https://app.insurancegrokbot.click" }
+vars = { API_BASE_URL = "https://app.omnisconn.com" }

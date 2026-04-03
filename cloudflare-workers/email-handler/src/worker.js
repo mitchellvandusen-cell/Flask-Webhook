@@ -39,7 +39,7 @@ export default {
 
       // Call our API to auto-reply via Mailgun
       try {
-        const apiUrl = `${env.API_BASE_URL || 'https://app.insurancegrokbot.click'}/api/domain/auto-reply`;
+        const apiUrl = `${env.API_BASE_URL || 'https://app.omnisconn.com'}/api/domain/auto-reply`;
         await fetch(apiUrl, {
           method: 'POST',
           headers: {

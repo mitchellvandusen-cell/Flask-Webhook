@@ -609,12 +609,18 @@ def _get_period_range(period, tz_name='America/Chicago'):
     if period == 'today':
         start = now.replace(hour=0, minute=0, second=0, microsecond=0)
         days = 1
+    elif period == 'yesterday':
+        start = now.replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(days=1)
+        days = 1
     elif period == 'week':
         start = now - timedelta(days=7)
         days = 7
     elif period == 'month':
         start = now - timedelta(days=30)
         days = 30
+    elif period == 'year':
+        start = now - timedelta(days=365)
+        days = 365
     else:
         start = datetime(2000, 1, 1, tzinfo=pytz.utc)
         days = 0  # will compute from data
@@ -655,6 +661,11 @@ def agency_kpis():
         period = request.args.get('period', 'month')
         tz_name = (current_user.timezone or 'America/Chicago').replace(' ', '_')
         start_utc, days, now = _get_period_range(period, tz_name)
+
+        # Optional per-agent filter
+        agent_filter = request.args.get('agent', '').strip()
+        if agent_filter and agent_filter in location_ids:
+            location_ids = [agent_filter]
 
         cur = conn.cursor(cursor_factory=RealDictCursor)
 
