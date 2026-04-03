@@ -41,5 +41,8 @@ docs/
 # Old nested repo clone
 Flask-Webhook/
 
+# Cloudflare Wrangler local cache (contains account IDs)
+.wrangler/
+
 # Backup files
 CLAUDE.md.local
