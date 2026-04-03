@@ -1190,6 +1190,25 @@ def oauth_callback():
                 sub_accounts_raw = _generate_location_tokens(headers_ghl, company_id, installed_locs)
                 for entry in sub_accounts_raw:
                     loc_tok = entry.get('_loc_token')
+                    _loc_headers = {'Authorization': f'Bearer {loc_tok}', 'Version': '2021-07-28'} if loc_tok else None
+
+                    # locations.readonly: enrich with accurate name/timezone.
+                    # installedLocations may return incomplete data; per-location token gives full access.
+                    if loc_tok:
+                        _loc_resp, _ = _ghl_api_call(
+                            'GET', f"https://services.leadconnectorhq.com/locations/{entry['id']}",
+                            headers=_loc_headers, timeout=10, label=f"/locations/{entry['id']}"
+                        )
+                        if _loc_resp and _loc_resp.ok:
+                            try:
+                                _loc_data = _loc_resp.json().get('location', _loc_resp.json())
+                                if _loc_data.get('name'):
+                                    entry['name'] = _loc_data['name']
+                                if _loc_data.get('timezone'):
+                                    entry['timezone'] = _loc_data['timezone']
+                            except (ValueError, KeyError):
+                                pass  # Keep installedLocations data
+
                     # users.readonly: get real user emails for this location
                     loc_users = _fetch_location_users(entry['id'], loc_tok) if loc_tok else []
                     entry['_loc_users'] = loc_users
@@ -1515,6 +1534,38 @@ def oauth_callback():
                     token_user_type_used
                 )
                 logger.info(f"Step 10a: Agency owner upserted: {user_email}")
+
+                # Upgrade access_token to per-location token for the owner's primary location.
+                # _upsert_agency_owner stores the company token in both access_token and
+                # company_access_token. Now that we have a location-scoped token from
+                # oauth.write → POST /oauth/locationToken, use it as access_token so all
+                # webhook/contact API calls run under the correct location scope.
+                # The company token remains in company_access_token for cross-location ops.
+                _owner_sub = next(
+                    (s for s in sub_accounts if s['id'] == agency_location_id and s.get('_loc_token')),
+                    None
+                )
+                if _owner_sub:
+                    _own_tok = _owner_sub['_loc_token']
+                    _own_ref = _owner_sub.get('_loc_refresh')
+                    _own_exp = _owner_sub.get('_loc_expires') or expires_in
+                    cur.execute("""
+                        UPDATE subscribers
+                        SET access_token = %s,
+                            refresh_token = COALESCE(%s, refresh_token),
+                            token_expires_at = NOW() + interval '%s seconds',
+                            updated_at = NOW()
+                        WHERE email = %s
+                    """, (
+                        encrypt_token(_own_tok),
+                        encrypt_token(_own_ref) if _own_ref else None,
+                        _own_exp,
+                        user_email,
+                    ))
+                    logger.info(
+                        f"Agency owner {user_email}: access_token upgraded to per-location token "
+                        f"for {agency_location_id} (company token retained in company_access_token)"
+                    )
 
             # 10b: Check for existing location row (reconnect scenario)
             # Skip for agency owners — Step 10a already handled their
