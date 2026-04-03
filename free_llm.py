@@ -63,7 +63,7 @@ def get_free_llm(tier: str = "quality"):
             api_key=or_key,
             base_url=_OR_BASE_URL,
             default_headers={
-                "HTTP-Referer": os.getenv("YOUR_DOMAIN", "https://insurancegrokbot.click"),
+                "HTTP-Referer": os.getenv("YOUR_DOMAIN", "https://omnisconn.com"),
                 "X-Title": "Omnisconn",
             },
         )

@@ -162,7 +162,7 @@ def _build_uninstall_feedback_email(name: str, domain_url: str, feedback_id: int
 <tr>
 <td style="padding: 10px 40px 10px;">
     <p style="margin: 0; font-size: 13px; color: #666; line-height: 1.6; text-align: center;">
-        Questions? Reach us at <a href="mailto:support@insurancegrokbot.com" style="color: #00c853; text-decoration: none;">support@insurancegrokbot.com</a>
+        Questions? Reach us at <a href="mailto:support@omnisconn.com" style="color: #00c853; text-decoration: none;">support@omnisconn.com</a>
     </p>
 </td>
 </tr>

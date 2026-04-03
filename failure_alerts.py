@@ -14,7 +14,7 @@ from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
-YOUR_DOMAIN = os.getenv('YOUR_DOMAIN', 'https://insurancegrokbot.click')
+YOUR_DOMAIN = os.getenv('YOUR_DOMAIN', 'https://omnisconn.com')
 
 # Rate limit: {email:failure_type: timestamp} — in-memory, resets on deploy
 _sent_cache = {}

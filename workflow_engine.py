@@ -836,7 +836,7 @@ def _handle_ai_call(cur, conn, run_id, step, config, location_id, contact_id, co
         if not sub_sid or not sub_token:
             return {"status": "error", "error": "Twilio credentials not configured", "continue": True}
 
-        domain = subscriber.get("your_domain") or "https://insurancegrokbot.click"
+        domain = subscriber.get("your_domain") or "https://omnisconn.com"
         twiml_url = f"{domain}/voice/twiml/outbound?location_id={location_id}&contact_id={contact_id}"
 
         client = twilio_provisioning.get_sub_account_client_native(sub_sid, sub_token)

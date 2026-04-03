@@ -3087,7 +3087,7 @@ def resubmit_voice_integrity(
         new_tp = client.trusthub.v1.trust_products.create(
             friendly_name=f"Voice Integrity: {business_name or sub_account_sid}",
             policy_sid=VOICE_INTEGRITY_POLICY_SID,
-            email=contact_email or "support@insurancegrokbot.com",
+            email=contact_email or "support@omnisconn.com",
         )
         new_tp_sid = new_tp.sid
         logger.info(f"[VoiceIntegrity] Created new Trust Product: {new_tp_sid} (replacing {trust_product_sid})")
@@ -3589,7 +3589,7 @@ def resubmit_shaken_stir(
         new_tp = client.trusthub.v1.trust_products.create(
             friendly_name=f"SHAKEN/STIR: {business_name or sub_account_sid}",
             policy_sid=SHAKEN_STIR_POLICY_SID,
-            email=contact_email or "support@insurancegrokbot.com",
+            email=contact_email or "support@omnisconn.com",
         )
         new_tp_sid = new_tp.sid
         logger.info(f"[SHAKEN/STIR] Created new Trust Product: {new_tp_sid} (replacing {trust_product_sid})")
