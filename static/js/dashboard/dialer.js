@@ -229,7 +229,7 @@
                 btn.title = 'Google Calendar connected' + (_calGoogleEmail ? ' (' + _calGoogleEmail + ')' : '');
                 btn.onclick = function() { _calShowGoogleMenu(); };
             } else {
-                btn.innerHTML = '<i class="fa-brands fa-google" style="color:#666;"></i>';
+                btn.innerHTML = '<i class="fa-brands fa-google" style="color:#999;"></i>';
                 btn.title = 'Connect Google Calendar';
                 btn.onclick = function() { window.location.href = '/google-calendar/connect'; };
             }
@@ -241,7 +241,7 @@
             const btn = document.getElementById('iosCalGoogleBtn');
             const menu = document.createElement('div');
             menu.id = 'iosCalGoogleMenu';
-            menu.style.cssText = 'position:absolute;top:100%;right:0;background:rgba(30,30,30,0.95);border:1px solid rgba(255,255,255,0.1);border-radius:10px;padding:8px 0;min-width:180px;z-index:100;backdrop-filter:blur(12px);box-shadow:0 8px 24px rgba(0,0,0,0.4);';
+            menu.style.cssText = 'position:absolute;top:100%;right:0;background:#1a1a1a;border:1px solid #2a2a2a;border-radius:10px;padding:8px 0;min-width:180px;z-index:100;box-shadow:0 8px 24px rgba(0,0,0,0.4);';
             menu.innerHTML = `
                 <div style="padding:6px 14px;font-size:0.75rem;color:#34C759;font-weight:600;"><i class="fa-brands fa-google" style="margin-right:4px;"></i> Connected${_calGoogleEmail ? ' — ' + dialerEsc(_calGoogleEmail) : ''}</div>
                 <div style="height:1px;background:rgba(255,255,255,0.06);margin:4px 0;"></div>

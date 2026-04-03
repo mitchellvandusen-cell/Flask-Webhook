@@ -41,6 +41,174 @@
 {% endblock %}
 
 {% block content %}
+<style>
+/* ── comparison.html remediation ──
+   Solid-background overrides for legacy rgba/glass patterns.
+   No backdrop-filter. No translucent backgrounds.
+*/
+
+/* Hero h1 font-size */
+.comp-hero-h1 { font-size: 3rem; }
+
+/* Section 1 header margin */
+.comp-section-header { margin-bottom: 32px; }
+
+/* Table wrapper — replaces mkt-inset-glass with inline overflow:auto */
+.comp-table-wrap {
+    overflow-x: auto;
+    padding: 0;
+    background: #0a0a0a;
+    border: 1px solid #1a1a1a;
+    border-radius: 12px;
+}
+
+/* Table */
+.comp-table { width: 100%; border-collapse: collapse; min-width: 1400px; }
+.comp-table thead tr {
+    background: #0d1f14;
+    border-bottom: 2px solid rgba(0,255,136,0.20);
+}
+.comp-table thead th {
+    padding: 16px 8px;
+    text-align: center;
+    font-weight: 600;
+    font-size: 0.82rem;
+}
+.comp-table thead th.comp-th-feat {
+    padding: 16px 12px;
+    text-align: left;
+    color: var(--accent);
+    min-width: 180px;
+}
+.comp-table thead th.comp-th-igb { color: var(--accent); }
+.comp-table thead th.comp-th-other { color: #777; }
+.comp-table tbody tr { border-bottom: 1px solid #111; }
+.comp-table tbody tr.comp-tr-highlight { background: #060e07; }
+.comp-table tbody td {
+    padding: 14px 8px;
+    font-size: 0.85rem;
+    color: #ddd;
+    text-align: center;
+}
+.comp-table tbody td.comp-td-feat {
+    padding: 14px 12px;
+    text-align: left;
+    color: #ddd;
+}
+.comp-table tbody td.comp-td-feat-wide {
+    padding: 20px;
+    text-align: left;
+    color: #ddd;
+}
+.comp-table tbody td.comp-td-center-wide { padding: 20px; text-align: center; }
+.comp-td-center { padding: 14px 8px; text-align: center; }
+.comp-tr-section-header { border-bottom: 1px solid rgba(0,255,136,0.15); }
+.comp-td-section-header {
+    padding: 16px 12px;
+    color: var(--accent);
+    font-weight: 700;
+    font-size: 0.9rem;
+    background: #0d1f14;
+    letter-spacing: 0.5px;
+}
+body.light-theme .comp-tr-section-header { border-bottom-color: rgba(5,150,105,0.2); }
+body.light-theme .comp-td-section-header { background: #e8f7f0; color: var(--lt-accent); }
+.comp-td-yes { color: var(--accent); font-size: 1.1rem; }
+.comp-td-yes-lg { color: var(--accent); font-size: 1.3rem; }
+.comp-td-no { color: #b0b0b0; }
+.comp-td-partial { color: #999; font-size: 0.75rem; }
+
+/* Voice AI section wrapper */
+.comp-voice-section {
+    background: #0a0a0a;
+    border: 1px solid #1a1a1a;
+    border-radius: 12px;
+    padding: 40px;
+    margin-top: 60px;
+    margin-bottom: 40px;
+}
+
+/* Voice AI badge */
+.comp-voice-badge {
+    display: inline-block;
+    background: #0d1f14;
+    padding: 8px 20px;
+    border-radius: 20px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    color: var(--accent);
+    border: 1px solid rgba(0,255,136,0.2);
+    margin-bottom: 30px;
+}
+
+/* Icon circles in voice comparison columns */
+.comp-col-icon-igb {
+    width: 48px; height: 48px;
+    background: #0d1f14;
+    border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+}
+.comp-col-icon-generic {
+    width: 48px; height: 48px;
+    background: #1a1a1a;
+    border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+}
+.comp-col-icon-igb i { font-size: 1.3rem; color: var(--accent); }
+.comp-col-icon-generic i { font-size: 1.3rem; color: #b0b0b0; }
+
+/* Stat numbers in voice bar */
+.comp-stat-num { font-size: 1.8rem; font-weight: 700; color: var(--accent); }
+.comp-stat-lbl { color: #999; font-size: 0.82rem; }
+
+/* One-of-a-kind card */
+.comp-oneof-card {
+    background: #0a0a0a;
+    border: 2px solid rgba(0,255,136,0.2);
+    border-radius: 12px;
+    padding: 40px;
+    margin-top: 50px;
+    text-align: center;
+}
+
+/* Final CTA card */
+.comp-cta-card {
+    background: #0a0a0a;
+    border: 2px solid rgba(0,255,136,0.2);
+    border-radius: 16px;
+    padding: 60px 40px;
+    margin-top: 60px;
+    text-align: center;
+}
+.comp-cta-btn-lg { min-width: 200px; }
+
+/* Mkt-tag inline padding */
+.comp-tag { padding: 6px 16px; border-radius: 20px; font-size: 0.8rem; font-weight: 600; }
+
+/* Light theme */
+body.light-theme .comp-voice-section { background: #fff; border-color: #e8e8e8; }
+body.light-theme .comp-voice-badge { background: #e8f7f0; color: var(--lt-accent); border-color: rgba(5,150,105,0.2); }
+body.light-theme .comp-col-icon-igb { background: #e8f7f0; }
+body.light-theme .comp-col-icon-igb i { color: var(--lt-accent); }
+body.light-theme .comp-col-icon-generic { background: #f0f0f0; }
+body.light-theme .comp-stat-num { color: var(--lt-accent); }
+body.light-theme .comp-oneof-card { background: #fff; border-color: rgba(5,150,105,0.2); }
+body.light-theme .comp-cta-card { background: #fff; border-color: rgba(5,150,105,0.2); }
+
+/* Light theme */
+body.light-theme .comp-table-wrap { background: #fff; border-color: #e8e8e8; }
+body.light-theme .comp-table thead tr { background: #f0faf5; border-bottom-color: rgba(5,150,105,0.25); }
+body.light-theme .comp-table thead th.comp-th-igb { color: var(--lt-accent); }
+body.light-theme .comp-table tbody tr.comp-tr-highlight { background: #f7fdf9; }
+body.light-theme .comp-table tbody tr { border-bottom-color: #f0f0f0; }
+body.light-theme .comp-table tbody td { color: #444; }
+body.light-theme .comp-table tbody td.comp-td-feat { color: #444; }
+body.light-theme .comp-table tbody td.comp-td-feat-wide { color: #444; }
+body.light-theme .comp-td-yes { color: var(--lt-accent); }
+body.light-theme .comp-td-yes-lg { color: var(--lt-accent); }
+body.light-theme .comp-td-no { color: #bbb; }
+</style>
 <nav class="ios-section-dots" id="iosSectionDots">
     <div class="ios-section-dot active" data-section="0" title="Hero"></div>
     <div class="ios-section-dot" data-section="1" title="Feature Table"></div>
@@ -56,9 +224,9 @@
 <!-- Section 0: Hero -->
 <section class="ios-snap-section ios-hero" id="iosSection0">
     <div class="container">
-        <div class="main-header" data-aos="fade-down" style="text-align: center;">
+        <div class="main-header text-center" data-aos="fade-down">
             <span class="ios-section-label">Comparison</span>
-            <h1 class="ios-section-h2" style="font-size: 3rem;">Built for Agents<br>Who <span>Actually Dial.</span></h1>
+            <h1 class="ios-section-h2 comp-hero-h1">Built for Agents<br>Who <span>Actually Dial.</span></h1>
             <p class="ios-section-sub">Most tools dial or text. Very few do both. None were built specifically for insurance sales. See exactly how InsuranceGrokBot stacks up.</p>
         </div>
     </div>
@@ -67,167 +235,167 @@
 <!-- Section 1: Feature-by-Feature Table (auto-height -- table is too tall for 100vh) -->
 <section class="ios-snap-section auto-height" id="iosSection1">
     <div class="container">
-        <div class="text-center" data-aos="fade-up" style="margin-bottom: 32px;">
+        <div class="text-center comp-section-header" data-aos="fade-up">
             <span class="ios-section-label ios-section-label--accent">Feature Comparison</span>
             <h2 class="ios-section-h2">Feature-by-Feature <span>Breakdown</span></h2>
         </div>
 
-    <div class="mkt-inset-glass" data-aos="fade-up" style="overflow-x: auto; padding: 0;">
-        <table style="width: 100%; border-collapse: collapse; min-width: 1400px;">
+    <div class="comp-table-wrap" data-aos="fade-up">
+        <table class="comp-table">
             <thead>
-                <tr style="background: rgba(0,255,136,0.04); border-bottom: 2px solid rgba(0,255,136,0.20);">
-                    <th style="padding: 16px 12px; text-align: left; font-weight: 600; color: var(--accent); font-size: 0.82rem; min-width: 180px;">Feature</th>
-                    <th style="padding: 16px 8px; text-align: center; font-weight: 600; color: var(--accent); font-size: 0.82rem;">InsuranceGrokBot</th>
-                    <th style="padding: 16px 8px; text-align: center; font-weight: 600; color: #777; font-size: 0.82rem;">WAVV</th>
-                    <th style="padding: 16px 8px; text-align: center; font-weight: 600; color: #777; font-size: 0.82rem;">Mojo</th>
-                    <th style="padding: 16px 8px; text-align: center; font-weight: 600; color: #777; font-size: 0.82rem;">PhoneBurner</th>
-                    <th style="padding: 16px 8px; text-align: center; font-weight: 600; color: #777; font-size: 0.82rem;">CloseBot</th>
-                    <th style="padding: 16px 8px; text-align: center; font-weight: 600; color: #777; font-size: 0.82rem;">Setter AI</th>
-                    <th style="padding: 16px 8px; text-align: center; font-weight: 600; color: #777; font-size: 0.82rem;">Sonant AI</th>
-                    <th style="padding: 16px 8px; text-align: center; font-weight: 600; color: #777; font-size: 0.82rem;">Agent CRM</th>
-                    <th style="padding: 16px 8px; text-align: center; font-weight: 600; color: #777; font-size: 0.82rem;">InsureIO</th>
-                    <th style="padding: 16px 8px; text-align: center; font-weight: 600; color: #777; font-size: 0.82rem;">Retell AI</th>
-                    <th style="padding: 16px 8px; text-align: center; font-weight: 600; color: #777; font-size: 0.82rem;">ChatGPT</th>
-                    <th style="padding: 16px 8px; text-align: center; font-weight: 600; color: #777; font-size: 0.82rem;">Grok</th>
+                <tr>
+                    <th class="comp-th-feat">Feature</th>
+                    <th class="comp-th-igb">InsuranceGrokBot</th>
+                    <th class="comp-th-other">WAVV</th>
+                    <th class="comp-th-other">Mojo</th>
+                    <th class="comp-th-other">PhoneBurner</th>
+                    <th class="comp-th-other">CloseBot</th>
+                    <th class="comp-th-other">Setter AI</th>
+                    <th class="comp-th-other">Sonant AI</th>
+                    <th class="comp-th-other">Agent CRM</th>
+                    <th class="comp-th-other">InsureIO</th>
+                    <th class="comp-th-other">Retell AI</th>
+                    <th class="comp-th-other">ChatGPT</th>
+                    <th class="comp-th-other">Grok</th>
                 </tr>
             </thead>
             <tbody>
                 <!-- Sales & Conversation -->
-                <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
-                    <td style="padding: 14px 12px; color: #ddd; font-size: 0.85rem;">Insurance Sales Training</td>
-                    <td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-check" style="color: var(--accent); font-size: 1.1rem;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><span style="color: #999; font-size: 0.75rem;">P&C Only</span></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td>
+                <tr>
+                    <td class="comp-td-feat">Insurance Sales Training</td>
+                    <td class="comp-td-center"><i class="fa-solid fa-check comp-td-yes"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><span class="comp-td-partial">P&C Only</span></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td>
                 </tr>
-                <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
-                    <td style="padding: 14px 12px; color: #ddd; font-size: 0.85rem;">5 Sales Frameworks Integrated</td>
-                    <td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-check" style="color: var(--accent); font-size: 1.1rem;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td>
+                <tr>
+                    <td class="comp-td-feat">5 Sales Frameworks Integrated</td>
+                    <td class="comp-td-center"><i class="fa-solid fa-check comp-td-yes"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td>
                 </tr>
-                <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
-                    <td style="padding: 14px 12px; color: #ddd; font-size: 0.85rem;">Persistent Memory Across Conversations</td>
-                    <td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-check" style="color: var(--accent); font-size: 1.1rem;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><span style="color: #999; font-size: 0.75rem;">Limited</span></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td>
+                <tr>
+                    <td class="comp-td-feat">Persistent Memory Across Conversations</td>
+                    <td class="comp-td-center"><i class="fa-solid fa-check comp-td-yes"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><span class="comp-td-partial">Limited</span></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td>
                 </tr>
-                <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
-                    <td style="padding: 14px 12px; color: #ddd; font-size: 0.85rem;">Adaptive Stage Progression</td>
-                    <td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-check" style="color: var(--accent); font-size: 1.1rem;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><span style="color: #999; font-size: 0.75rem;">Basic</span></td><td style="padding: 14px 8px; text-align: center;"><span style="color: #999; font-size: 0.75rem;">Scripted</span></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td>
+                <tr>
+                    <td class="comp-td-feat">Adaptive Stage Progression</td>
+                    <td class="comp-td-center"><i class="fa-solid fa-check comp-td-yes"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><span class="comp-td-partial">Basic</span></td><td class="comp-td-center"><span class="comp-td-partial">Scripted</span></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td>
                 </tr>
-                <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
-                    <td style="padding: 14px 12px; color: #ddd; font-size: 0.85rem;">Re-Engagement Mode (Dead Lead Revival)</td>
-                    <td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-check" style="color: var(--accent); font-size: 1.1rem;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td>
+                <tr>
+                    <td class="comp-td-feat">Re-Engagement Mode (Dead Lead Revival)</td>
+                    <td class="comp-td-center"><i class="fa-solid fa-check comp-td-yes"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td>
                 </tr>
-                <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
-                    <td style="padding: 14px 12px; color: #ddd; font-size: 0.85rem;">LLM-Powered Conversations</td>
-                    <td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-check" style="color: var(--accent); font-size: 1.1rem;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-check" style="color: var(--accent); font-size: 1.1rem;"></i></td><td style="padding: 14px 8px; text-align: center;"><span style="color: #999; font-size: 0.75rem;">Scripted</span></td><td style="padding: 14px 8px; text-align: center;"><span style="color: #999; font-size: 0.75rem;">Voice Only</span></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-check" style="color: var(--accent); font-size: 1.1rem;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-check" style="color: var(--accent); font-size: 1.1rem;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-check" style="color: var(--accent); font-size: 1.1rem;"></i></td>
+                <tr>
+                    <td class="comp-td-feat">LLM-Powered Conversations</td>
+                    <td class="comp-td-center"><i class="fa-solid fa-check comp-td-yes"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-check comp-td-yes"></i></td><td class="comp-td-center"><span class="comp-td-partial">Scripted</span></td><td class="comp-td-center"><span class="comp-td-partial">Voice Only</span></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-check comp-td-yes"></i></td><td class="comp-td-center"><i class="fa-solid fa-check comp-td-yes"></i></td><td class="comp-td-center"><i class="fa-solid fa-check comp-td-yes"></i></td>
                 </tr>
 
                 <!-- Carrier & Underwriting Intelligence -->
-                <tr style="border-bottom: 1px solid rgba(255,255,255,0.05); background: rgba(0,255,136,0.02);">
-                    <td style="padding: 20px; color: #ddd; font-size: 0.85rem;">270+ Carrier Recognition Database</td>
-                    <td style="padding: 20px; text-align: center;"><i class="fa-solid fa-check" style="color: var(--accent); font-size: 1.3rem;"></i></td><td style="padding: 20px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 20px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 20px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 20px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 20px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 20px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 20px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 20px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 20px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 20px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 20px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td>
+                <tr class="comp-tr-highlight">
+                    <td class="comp-td-feat-wide">270+ Carrier Recognition Database</td>
+                    <td class="comp-td-center-wide"><i class="fa-solid fa-check comp-td-yes-lg"></i></td><td class="comp-td-center-wide"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center-wide"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center-wide"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center-wide"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center-wide"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center-wide"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center-wide"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center-wide"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center-wide"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center-wide"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center-wide"><i class="fa-solid fa-xmark comp-td-no"></i></td>
                 </tr>
-                <tr style="border-bottom: 1px solid rgba(255,255,255,0.05); background: rgba(0,255,136,0.02);">
-                    <td style="padding: 20px; color: #ddd; font-size: 0.85rem;">Live Underwriting Rules (Real-Time Data)</td>
-                    <td style="padding: 20px; text-align: center;"><i class="fa-solid fa-check" style="color: var(--accent); font-size: 1.3rem;"></i></td><td style="padding: 20px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 20px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 20px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 20px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 20px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 20px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 20px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 20px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 20px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 20px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 20px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td>
+                <tr class="comp-tr-highlight">
+                    <td class="comp-td-feat-wide">Live Underwriting Rules (Real-Time Data)</td>
+                    <td class="comp-td-center-wide"><i class="fa-solid fa-check comp-td-yes-lg"></i></td><td class="comp-td-center-wide"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center-wide"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center-wide"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center-wide"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center-wide"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center-wide"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center-wide"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center-wide"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center-wide"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center-wide"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center-wide"><i class="fa-solid fa-xmark comp-td-no"></i></td>
                 </tr>
-                <tr style="border-bottom: 1px solid rgba(255,255,255,0.05); background: rgba(0,255,136,0.02);">
-                    <td style="padding: 20px; color: #ddd; font-size: 0.85rem;">Carrier Type Classification (GI, Employer, Bundled)</td>
-                    <td style="padding: 20px; text-align: center;"><i class="fa-solid fa-check" style="color: var(--accent); font-size: 1.3rem;"></i></td><td style="padding: 20px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 20px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 20px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 20px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 20px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 20px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 20px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 20px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 20px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 20px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 20px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td>
+                <tr class="comp-tr-highlight">
+                    <td class="comp-td-feat-wide">Carrier Type Classification (GI, Employer, Bundled)</td>
+                    <td class="comp-td-center-wide"><i class="fa-solid fa-check comp-td-yes-lg"></i></td><td class="comp-td-center-wide"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center-wide"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center-wide"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center-wide"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center-wide"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center-wide"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center-wide"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center-wide"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center-wide"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center-wide"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center-wide"><i class="fa-solid fa-xmark comp-td-no"></i></td>
                 </tr>
-                <tr style="border-bottom: 1px solid rgba(255,255,255,0.05); background: rgba(0,255,136,0.02);">
-                    <td style="padding: 20px; color: #ddd; font-size: 0.85rem;">7 CRM Integrations + Universal API</td>
-                    <td style="padding: 20px; text-align: center;"><i class="fa-solid fa-check" style="color: var(--accent); font-size: 1.3rem;"></i></td><td style="padding: 20px; text-align: center;"><span style="color: #999; font-size: 0.75rem;">1-2</span></td><td style="padding: 20px; text-align: center;"><span style="color: #999; font-size: 0.75rem;">1-2</span></td><td style="padding: 20px; text-align: center;"><span style="color: #999; font-size: 0.75rem;">Via Zapier</span></td><td style="padding: 20px; text-align: center;"><span style="color: #999; font-size: 0.75rem;">Via Plugin</span></td><td style="padding: 20px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 20px; text-align: center;"><span style="color: #999; font-size: 0.75rem;">1-2</span></td><td style="padding: 20px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 20px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 20px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 20px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 20px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td>
+                <tr class="comp-tr-highlight">
+                    <td class="comp-td-feat-wide">7 CRM Integrations + Universal API</td>
+                    <td class="comp-td-center-wide"><i class="fa-solid fa-check comp-td-yes-lg"></i></td><td class="comp-td-center-wide"><span class="comp-td-partial">1-2</span></td><td class="comp-td-center-wide"><span class="comp-td-partial">1-2</span></td><td class="comp-td-center-wide"><span class="comp-td-partial">Via Zapier</span></td><td class="comp-td-center-wide"><span class="comp-td-partial">Via Plugin</span></td><td class="comp-td-center-wide"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center-wide"><span class="comp-td-partial">1-2</span></td><td class="comp-td-center-wide"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center-wide"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center-wide"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center-wide"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center-wide"><i class="fa-solid fa-xmark comp-td-no"></i></td>
                 </tr>
 
                 <!-- Technical Integration -->
-                <tr style="border-bottom: 1px solid rgba(255,255,255,0.05); background: rgba(0,255,136,0.02);">
-                    <td style="padding: 14px 12px; color: #ddd; font-size: 0.85rem;">Direct Calendar Integration</td>
-                    <td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-check" style="color: var(--accent); font-size: 1.1rem;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-check" style="color: var(--accent); font-size: 1.1rem;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-check" style="color: var(--accent); font-size: 1.1rem;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-check" style="color: var(--accent); font-size: 1.1rem;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-check" style="color: var(--accent); font-size: 1.1rem;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-check" style="color: var(--accent); font-size: 1.1rem;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-check" style="color: var(--accent); font-size: 1.1rem;"></i></td><td style="padding: 14px 8px; text-align: center;"><span style="color: #999; font-size: 0.75rem;">Via API</span></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td>
+                <tr class="comp-tr-highlight">
+                    <td class="comp-td-feat">Direct Calendar Integration</td>
+                    <td class="comp-td-center"><i class="fa-solid fa-check comp-td-yes"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-check comp-td-yes"></i></td><td class="comp-td-center"><i class="fa-solid fa-check comp-td-yes"></i></td><td class="comp-td-center"><i class="fa-solid fa-check comp-td-yes"></i></td><td class="comp-td-center"><i class="fa-solid fa-check comp-td-yes"></i></td><td class="comp-td-center"><i class="fa-solid fa-check comp-td-yes"></i></td><td class="comp-td-center"><i class="fa-solid fa-check comp-td-yes"></i></td><td class="comp-td-center"><span class="comp-td-partial">Via API</span></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td>
                 </tr>
-                <tr style="border-bottom: 1px solid rgba(255,255,255,0.05); background: rgba(0,255,136,0.02);">
-                    <td style="padding: 14px 12px; color: #ddd; font-size: 0.85rem;">Smart Booking Detection (5 Cases)</td>
-                    <td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-check" style="color: var(--accent); font-size: 1.1rem;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td>
+                <tr class="comp-tr-highlight">
+                    <td class="comp-td-feat">Smart Booking Detection (5 Cases)</td>
+                    <td class="comp-td-center"><i class="fa-solid fa-check comp-td-yes"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td>
                 </tr>
-                <tr style="border-bottom: 1px solid rgba(255,255,255,0.05); background: rgba(0,255,136,0.02);">
-                    <td style="padding: 14px 12px; color: #ddd; font-size: 0.85rem;">Anti-Hallucination Booking Safeguards</td>
-                    <td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-check" style="color: var(--accent); font-size: 1.1rem;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td>
+                <tr class="comp-tr-highlight">
+                    <td class="comp-td-feat">Anti-Hallucination Booking Safeguards</td>
+                    <td class="comp-td-center"><i class="fa-solid fa-check comp-td-yes"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td>
                 </tr>
-                <tr style="border-bottom: 1px solid rgba(255,255,255,0.05); background: rgba(0,255,136,0.02);">
-                    <td style="padding: 14px 12px; color: #ddd; font-size: 0.85rem;">SMS Outbound Sales</td>
-                    <td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-check" style="color: var(--accent); font-size: 1.1rem;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><span style="color: #999; font-size: 0.75rem;">Basic</span></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-check" style="color: var(--accent); font-size: 1.1rem;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-check" style="color: var(--accent); font-size: 1.1rem;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><span style="color: #999; font-size: 0.75rem;">Drip Only</span></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><span style="color: #999; font-size: 0.75rem;">Via API</span></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td>
+                <tr class="comp-tr-highlight">
+                    <td class="comp-td-feat">SMS Outbound Sales</td>
+                    <td class="comp-td-center"><i class="fa-solid fa-check comp-td-yes"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><span class="comp-td-partial">Basic</span></td><td class="comp-td-center"><i class="fa-solid fa-check comp-td-yes"></i></td><td class="comp-td-center"><i class="fa-solid fa-check comp-td-yes"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><span class="comp-td-partial">Drip Only</span></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><span class="comp-td-partial">Via API</span></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td>
                 </tr>
-                <tr style="border-bottom: 1px solid rgba(255,255,255,0.05); background: rgba(0,255,136,0.02);">
-                    <td style="padding: 14px 12px; color: #ddd; font-size: 0.85rem;">Lead Connector Integration</td>
-                    <td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-check" style="color: var(--accent); font-size: 1.1rem;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-check" style="color: var(--accent); font-size: 1.1rem;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-check" style="color: var(--accent); font-size: 1.1rem;"></i></td><td style="padding: 14px 8px; text-align: center;"><span style="color: #999; font-size: 0.75rem;">Limited</span></td><td style="padding: 14px 8px; text-align: center;"><span style="color: #999; font-size: 0.75rem;">Limited</span></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-check" style="color: var(--accent); font-size: 1.1rem;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><span style="color: #999; font-size: 0.75rem;">Via API</span></td><td style="padding: 14px 8px; text-align: center;"><span style="color: #999; font-size: 0.75rem;">Via API</span></td><td style="padding: 14px 8px; text-align: center;"><span style="color: #999; font-size: 0.75rem;">Via API</span></td>
+                <tr class="comp-tr-highlight">
+                    <td class="comp-td-feat">Lead Connector Integration</td>
+                    <td class="comp-td-center"><i class="fa-solid fa-check comp-td-yes"></i></td><td class="comp-td-center"><i class="fa-solid fa-check comp-td-yes"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-check comp-td-yes"></i></td><td class="comp-td-center"><span class="comp-td-partial">Limited</span></td><td class="comp-td-center"><span class="comp-td-partial">Limited</span></td><td class="comp-td-center"><i class="fa-solid fa-check comp-td-yes"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><span class="comp-td-partial">Via API</span></td><td class="comp-td-center"><span class="comp-td-partial">Via API</span></td><td class="comp-td-center"><span class="comp-td-partial">Via API</span></td>
                 </tr>
-                <tr style="border-bottom: 1px solid rgba(255,255,255,0.05); background: rgba(0,255,136,0.02);">
-                    <td style="padding: 14px 12px; color: #ddd; font-size: 0.85rem;">Multi-CRM Support</td>
-                    <td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-check" style="color: var(--accent); font-size: 1.1rem;"></i></td><td style="padding: 14px 8px; text-align: center;"><span style="color: #999; font-size: 0.75rem;">LC Only</span></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><span style="color: #999; font-size: 0.75rem;">Via Zapier</span></td><td style="padding: 14px 8px; text-align: center;"><span style="color: #999; font-size: 0.75rem;">LC Only</span></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><span style="color: #999; font-size: 0.75rem;">LC Only</span></td><td style="padding: 14px 8px; text-align: center;"><span style="color: #999; font-size: 0.75rem;">Own CRM</span></td><td style="padding: 14px 8px; text-align: center;"><span style="color: #999; font-size: 0.75rem;">Via API</span></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td>
+                <tr class="comp-tr-highlight">
+                    <td class="comp-td-feat">Multi-CRM Support</td>
+                    <td class="comp-td-center"><i class="fa-solid fa-check comp-td-yes"></i></td><td class="comp-td-center"><span class="comp-td-partial">LC Only</span></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><span class="comp-td-partial">Via Zapier</span></td><td class="comp-td-center"><span class="comp-td-partial">LC Only</span></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><span class="comp-td-partial">LC Only</span></td><td class="comp-td-center"><span class="comp-td-partial">Own CRM</span></td><td class="comp-td-center"><span class="comp-td-partial">Via API</span></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td>
                 </tr>
-                <tr style="border-bottom: 1px solid rgba(255,255,255,0.05); background: rgba(0,255,136,0.02);">
-                    <td style="padding: 14px 12px; color: #ddd; font-size: 0.85rem;">Phone-First Contact Resolution (99%)</td>
-                    <td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-check" style="color: var(--accent); font-size: 1.1rem;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td>
+                <tr class="comp-tr-highlight">
+                    <td class="comp-td-feat">Phone-First Contact Resolution (99%)</td>
+                    <td class="comp-td-center"><i class="fa-solid fa-check comp-td-yes"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td>
                 </tr>
 
                 <!-- Scale & Reliability -->
-                <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
-                    <td style="padding: 14px 12px; color: #ddd; font-size: 0.85rem;">Agency Multi-Tenancy</td>
-                    <td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-check" style="color: var(--accent); font-size: 1.1rem;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-check" style="color: var(--accent); font-size: 1.1rem;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td>
+                <tr>
+                    <td class="comp-td-feat">Agency Multi-Tenancy</td>
+                    <td class="comp-td-center"><i class="fa-solid fa-check comp-td-yes"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-check comp-td-yes"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td>
                 </tr>
-                <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
-                    <td style="padding: 14px 12px; color: #ddd; font-size: 0.85rem;">No Developer Setup Required</td>
-                    <td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-check" style="color: var(--accent); font-size: 1.1rem;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-check" style="color: var(--accent); font-size: 1.1rem;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-check" style="color: var(--accent); font-size: 1.1rem;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-check" style="color: var(--accent); font-size: 1.1rem;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-check" style="color: var(--accent); font-size: 1.1rem;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-check" style="color: var(--accent); font-size: 1.1rem;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-check" style="color: var(--accent); font-size: 1.1rem;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-check" style="color: var(--accent); font-size: 1.1rem;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-check" style="color: var(--accent); font-size: 1.1rem;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-check" style="color: var(--accent); font-size: 1.1rem;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-check" style="color: var(--accent); font-size: 1.1rem;"></i></td>
+                <tr>
+                    <td class="comp-td-feat">No Developer Setup Required</td>
+                    <td class="comp-td-center"><i class="fa-solid fa-check comp-td-yes"></i></td><td class="comp-td-center"><i class="fa-solid fa-check comp-td-yes"></i></td><td class="comp-td-center"><i class="fa-solid fa-check comp-td-yes"></i></td><td class="comp-td-center"><i class="fa-solid fa-check comp-td-yes"></i></td><td class="comp-td-center"><i class="fa-solid fa-check comp-td-yes"></i></td><td class="comp-td-center"><i class="fa-solid fa-check comp-td-yes"></i></td><td class="comp-td-center"><i class="fa-solid fa-check comp-td-yes"></i></td><td class="comp-td-center"><i class="fa-solid fa-check comp-td-yes"></i></td><td class="comp-td-center"><i class="fa-solid fa-check comp-td-yes"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-check comp-td-yes"></i></td><td class="comp-td-center"><i class="fa-solid fa-check comp-td-yes"></i></td>
                 </tr>
-                <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
-                    <td style="padding: 14px 12px; color: #ddd; font-size: 0.85rem;">Demo Mode for Instant Testing</td>
-                    <td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-check" style="color: var(--accent); font-size: 1.1rem;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-check" style="color: var(--accent); font-size: 1.1rem;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td>
+                <tr>
+                    <td class="comp-td-feat">Demo Mode for Instant Testing</td>
+                    <td class="comp-td-center"><i class="fa-solid fa-check comp-td-yes"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-check comp-td-yes"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td>
                 </tr>
-                <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
-                    <td style="padding: 14px 12px; color: #ddd; font-size: 0.85rem;">Life Insurance Focused</td>
-                    <td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-check" style="color: var(--accent); font-size: 1.1rem;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><span style="color: #999; font-size: 0.75rem;">P&C Only</span></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><span style="color: #999; font-size: 0.75rem;">All Lines</span></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td>
+                <tr>
+                    <td class="comp-td-feat">Life Insurance Focused</td>
+                    <td class="comp-td-center"><i class="fa-solid fa-check comp-td-yes"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><span class="comp-td-partial">P&C Only</span></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><span class="comp-td-partial">All Lines</span></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td>
                 </tr>
 
-                <tr style="border-bottom: 1px solid rgba(0,255,136,0.15);">
-                    <td colspan="13" style="padding: 16px 12px; color: var(--accent); font-weight: 700; font-size: 0.9rem; background: rgba(0,255,136,0.04); letter-spacing: 0.5px;">
+                <tr class="comp-tr-section-header">
+                    <td colspan="13" class="comp-td-section-header">
                         <i class="fa-solid fa-phone-volume me-2"></i>DIALER, AI CALLING &amp; TEXTING
                     </td>
                 </tr>
-                <tr style="border-bottom: 1px solid rgba(255,255,255,0.05); background: rgba(0,255,136,0.02);">
-                    <td style="padding: 14px 12px; color: #ddd; font-size: 0.85rem;">Smart Dialer (auto-retry up to 6 attempts)</td>
-                    <td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-check" style="color: var(--accent); font-size: 1.1rem;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td>
+                <tr class="comp-tr-highlight">
+                    <td class="comp-td-feat">Smart Dialer (auto-retry up to 6 attempts)</td>
+                    <td class="comp-td-center"><i class="fa-solid fa-check comp-td-yes"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td>
                 </tr>
-                <tr style="border-bottom: 1px solid rgba(255,255,255,0.05); background: rgba(0,255,136,0.02);">
-                    <td style="padding: 14px 12px; color: #ddd; font-size: 0.85rem;">Smart Lead Scoring (Hot/Warm/Cool/Cold)</td>
-                    <td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-check" style="color: var(--accent); font-size: 1.1rem;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td>
+                <tr class="comp-tr-highlight">
+                    <td class="comp-td-feat">Smart Lead Scoring (Hot/Warm/Cool/Cold)</td>
+                    <td class="comp-td-center"><i class="fa-solid fa-check comp-td-yes"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td>
                 </tr>
-                <tr style="border-bottom: 1px solid rgba(255,255,255,0.05); background: rgba(0,255,136,0.02);">
-                    <td style="padding: 14px 12px; color: #ddd; font-size: 0.85rem;">Smart Filters (Auto-Group Hot/Warm/Cold)</td>
-                    <td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-check" style="color: var(--accent); font-size: 1.1rem;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td>
+                <tr class="comp-tr-highlight">
+                    <td class="comp-td-feat">Smart Filters (Auto-Group Hot/Warm/Cold)</td>
+                    <td class="comp-td-center"><i class="fa-solid fa-check comp-td-yes"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td>
                 </tr>
-                <tr style="border-bottom: 1px solid rgba(255,255,255,0.05); background: rgba(0,255,136,0.02);">
-                    <td style="padding: 14px 12px; color: #ddd; font-size: 0.85rem;">Engagement Timeline &amp; AI Summary</td>
-                    <td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-check" style="color: var(--accent); font-size: 1.1rem;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td>
+                <tr class="comp-tr-highlight">
+                    <td class="comp-td-feat">Engagement Timeline &amp; AI Summary</td>
+                    <td class="comp-td-center"><i class="fa-solid fa-check comp-td-yes"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td>
                 </tr>
-                <tr style="border-bottom: 1px solid rgba(255,255,255,0.05); background: rgba(0,255,136,0.02);">
-                    <td style="padding: 14px 12px; color: #ddd; font-size: 0.85rem;">AI-to-Human Live Handoff &amp; Intercept</td>
-                    <td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-check" style="color: var(--accent); font-size: 1.1rem;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td>
+                <tr class="comp-tr-highlight">
+                    <td class="comp-td-feat">AI-to-Human Live Handoff &amp; Intercept</td>
+                    <td class="comp-td-center"><i class="fa-solid fa-check comp-td-yes"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td>
                 </tr>
-                <tr style="border-bottom: 1px solid rgba(255,255,255,0.05); background: rgba(0,255,136,0.02);">
-                    <td style="padding: 14px 12px; color: #ddd; font-size: 0.85rem;">AI &harr; Human Mode Switching (Mid-Call)</td>
-                    <td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-check" style="color: var(--accent); font-size: 1.1rem;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td>
+                <tr class="comp-tr-highlight">
+                    <td class="comp-td-feat">AI &harr; Human Mode Switching (Mid-Call)</td>
+                    <td class="comp-td-center"><i class="fa-solid fa-check comp-td-yes"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td>
                 </tr>
-                <tr style="border-bottom: 1px solid rgba(255,255,255,0.05); background: rgba(0,255,136,0.02);">
-                    <td style="padding: 14px 12px; color: #ddd; font-size: 0.85rem;">Autonomous AI Phone Calls (Speech-to-Speech)</td>
-                    <td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-check" style="color: var(--accent); font-size: 1.1rem;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><span style="color: #999; font-size: 0.75rem;">STT/TTS</span></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><span style="color: #999; font-size: 0.75rem;">STT/TTS</span></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td>
+                <tr class="comp-tr-highlight">
+                    <td class="comp-td-feat">Autonomous AI Phone Calls (Speech-to-Speech)</td>
+                    <td class="comp-td-center"><i class="fa-solid fa-check comp-td-yes"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><span class="comp-td-partial">STT/TTS</span></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><span class="comp-td-partial">STT/TTS</span></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td>
                 </tr>
-                <tr style="border-bottom: 1px solid rgba(255,255,255,0.05); background: rgba(0,255,136,0.02);">
-                    <td style="padding: 14px 12px; color: #ddd; font-size: 0.85rem;">AI Texting (Outbound, Inbound, Replies, Booking)</td>
-                    <td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-check" style="color: var(--accent); font-size: 1.1rem;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><span style="color: #999; font-size: 0.75rem;">Basic</span></td><td style="padding: 14px 8px; text-align: center;"><span style="color: #999; font-size: 0.75rem;">Scripted</span></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><span style="color: #999; font-size: 0.75rem;">Drip Only</span></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><span style="color: #999; font-size: 0.75rem;">Via API</span></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td>
+                <tr class="comp-tr-highlight">
+                    <td class="comp-td-feat">AI Texting (Outbound, Inbound, Replies, Booking)</td>
+                    <td class="comp-td-center"><i class="fa-solid fa-check comp-td-yes"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><span class="comp-td-partial">Basic</span></td><td class="comp-td-center"><span class="comp-td-partial">Scripted</span></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><span class="comp-td-partial">Drip Only</span></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><span class="comp-td-partial">Via API</span></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td>
                 </tr>
-                <tr style="border-bottom: 1px solid rgba(255,255,255,0.05); background: rgba(0,255,136,0.02);">
-                    <td style="padding: 14px 12px; color: #ddd; font-size: 0.85rem;">Spam Protection &amp; Number Monitoring</td>
-                    <td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-check" style="color: var(--accent); font-size: 1.1rem;"></i></td><td style="padding: 14px 8px; text-align: center;"><span style="color: #999; font-size: 0.75rem;">Basic</span></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><span style="color: #999; font-size: 0.75rem;">Basic</span></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td>
+                <tr class="comp-tr-highlight">
+                    <td class="comp-td-feat">Spam Protection &amp; Number Monitoring</td>
+                    <td class="comp-td-center"><i class="fa-solid fa-check comp-td-yes"></i></td><td class="comp-td-center"><span class="comp-td-partial">Basic</span></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><span class="comp-td-partial">Basic</span></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td>
                 </tr>
-                <tr style="border-bottom: 1px solid rgba(255,255,255,0.05); background: rgba(0,255,136,0.02);">
-                    <td style="padding: 14px 12px; color: #ddd; font-size: 0.85rem;">5,000 Minutes Included*</td>
-                    <td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-check" style="color: var(--accent); font-size: 1.1rem;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><span style="color: #999; font-size: 0.75rem;">Per Min</span></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><span style="color: #999; font-size: 0.75rem;">Per Min</span></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td><td style="padding: 14px 8px; text-align: center;"><i class="fa-solid fa-xmark" style="color: #b0b0b0;"></i></td>
+                <tr class="comp-tr-highlight">
+                    <td class="comp-td-feat">5,000 Minutes Included*</td>
+                    <td class="comp-td-center"><i class="fa-solid fa-check comp-td-yes"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><span class="comp-td-partial">Per Min</span></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><span class="comp-td-partial">Per Min</span></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td><td class="comp-td-center"><i class="fa-solid fa-xmark comp-td-no"></i></td>
                 </tr>
             </tbody>
         </table>
@@ -352,7 +520,7 @@
         </div>
         <div class="comp-carousel-container" id="carousel-ai-platforms">
         <div class="comp-card glass-card carnival-card prev">
-            <div class="carnival-icon" style="background: rgba(16,163,127,0.15); border-color: rgba(16,163,127,0.3);"><i class="fa-solid fa-comment-dots" style="color: #10a37f;"></i></div>
+            <div class="carnival-icon ci-teal"><i class="fa-solid fa-comment-dots" style="color: #10a37f;"></i></div>
             <h4>ChatGPT</h4>
             <div class="carnival-type">General AI Chat</div>
             <ul class="competitor-list">
@@ -365,7 +533,7 @@
         </div>
 
         <div class="comp-card glass-card carnival-card active">
-            <div class="carnival-icon" style="background: rgba(0,255,136,0.15); border-color: rgba(0,255,136,0.3);"><i class="fa-solid fa-bolt" style="color: var(--accent);"></i></div>
+            <div class="carnival-icon ci-green"><i class="fa-solid fa-bolt" style="color: var(--accent);"></i></div>
             <h4>Grok (Base)</h4>
             <div class="carnival-type">xAI Chat Model</div>
             <ul class="competitor-list">
@@ -378,7 +546,7 @@
         </div>
 
         <div class="comp-card glass-card carnival-card next">
-            <div class="carnival-icon" style="background: rgba(66,133,244,0.15); border-color: rgba(66,133,244,0.3);"><i class="fa-solid fa-gem" style="color: #4285f4;"></i></div>
+            <div class="carnival-icon ci-blue"><i class="fa-solid fa-gem" style="color: #4285f4;"></i></div>
             <h4>Google Gemini</h4>
             <div class="carnival-type">General AI Chat</div>
             <ul class="competitor-list">
@@ -401,7 +569,7 @@
         </div>
         <div class="comp-carousel-container" id="carousel-insurance-tools">
         <div class="comp-card glass-card carnival-card prev">
-            <div class="carnival-icon" style="background: rgba(255,193,7,0.15); border-color: rgba(255,193,7,0.3);"><i class="fa-solid fa-phone-volume" style="color: #ffc107;"></i></div>
+            <div class="carnival-icon ci-yellow"><i class="fa-solid fa-phone-volume" style="color: #ffc107;"></i></div>
             <h4>Sonant AI</h4>
             <div class="carnival-type">AI Phone Receptionist</div>
             <ul class="competitor-list">
@@ -415,7 +583,7 @@
         </div>
 
         <div class="comp-card glass-card carnival-card active">
-            <div class="carnival-icon" style="background: rgba(0,200,83,0.15); border-color: rgba(0,200,83,0.3);"><i class="fa-solid fa-address-book" style="color: #00c853;"></i></div>
+            <div class="carnival-icon ci-limegreen"><i class="fa-solid fa-address-book" style="color: #00c853;"></i></div>
             <h4>Agent CRM</h4>
             <div class="carnival-type">Insurance CRM (LC White-Label)</div>
             <ul class="competitor-list">
@@ -429,7 +597,7 @@
         </div>
 
         <div class="comp-card glass-card carnival-card next">
-            <div class="carnival-icon" style="background: rgba(123,104,238,0.15); border-color: rgba(123,104,238,0.3);"><i class="fa-solid fa-shield-halved" style="color: #7b68ee;"></i></div>
+            <div class="carnival-icon ci-purple"><i class="fa-solid fa-shield-halved" style="color: #7b68ee;"></i></div>
             <h4>InsuredMine</h4>
             <div class="carnival-type">Insurance CRM + Basic AI</div>
             <ul class="competitor-list">
@@ -453,7 +621,7 @@
         </div>
         <div class="comp-carousel-container" id="carousel-dialers">
         <div class="comp-card glass-card carnival-card prev">
-            <div class="carnival-icon" style="background: rgba(0,150,255,0.15); border-color: rgba(0,150,255,0.3);"><i class="fa-solid fa-phone-volume" style="color: #0096ff;"></i></div>
+            <div class="carnival-icon ci-skyblue"><i class="fa-solid fa-phone-volume" style="color: #0096ff;"></i></div>
             <h4>WAVV</h4>
             <div class="carnival-type">Insurance Power Dialer (GHL)</div>
             <ul class="competitor-list">
@@ -468,7 +636,7 @@
         </div>
 
         <div class="comp-card glass-card carnival-card active">
-            <div class="carnival-icon" style="background: rgba(255,87,34,0.15); border-color: rgba(255,87,34,0.3);"><i class="fa-solid fa-bolt-lightning" style="color: #ff5722;"></i></div>
+            <div class="carnival-icon ci-orange"><i class="fa-solid fa-bolt-lightning" style="color: #ff5722;"></i></div>
             <h4>Mojo Dialer</h4>
             <div class="carnival-type">Multi-Line Power Dialer</div>
             <ul class="competitor-list">
@@ -483,7 +651,7 @@
         </div>
 
         <div class="comp-card glass-card carnival-card next">
-            <div class="carnival-icon" style="background: rgba(76,175,80,0.15); border-color: rgba(76,175,80,0.3);"><i class="fa-solid fa-fire-flame-curved" style="color: #4caf50;"></i></div>
+            <div class="carnival-icon ci-mid-green"><i class="fa-solid fa-fire-flame-curved" style="color: #4caf50;"></i></div>
             <h4>PhoneBurner</h4>
             <div class="carnival-type">Power Dialer + CRM Lite</div>
             <ul class="competitor-list">
@@ -508,7 +676,7 @@
         </div>
         <div class="comp-carousel-container" id="carousel-sales-tools">
         <div class="comp-card glass-card carnival-card">
-            <div class="carnival-icon" style="background: rgba(255,87,34,0.15); border-color: rgba(255,87,34,0.3);"><i class="fa-solid fa-robot" style="color: #ff5722;"></i></div>
+            <div class="carnival-icon ci-orange"><i class="fa-solid fa-robot" style="color: #ff5722;"></i></div>
             <h4>CloseBot</h4>
             <div class="carnival-type">AI Agent Builder (Lead Connector)</div>
             <ul class="competitor-list">
@@ -522,7 +690,7 @@
         </div>
 
         <div class="comp-card glass-card carnival-card">
-            <div class="carnival-icon" style="background: rgba(3,169,244,0.15); border-color: rgba(3,169,244,0.3);"><i class="fa-solid fa-calendar-check" style="color: #03a9f4;"></i></div>
+            <div class="carnival-icon ci-cyan"><i class="fa-solid fa-calendar-check" style="color: #03a9f4;"></i></div>
             <h4>Setter AI</h4>
             <div class="carnival-type">AI Appointment Setter</div>
             <ul class="competitor-list">
@@ -536,7 +704,7 @@
         </div>
 
         <div class="comp-card glass-card carnival-card">
-            <div class="carnival-icon" style="background: rgba(156,39,176,0.15); border-color: rgba(156,39,176,0.3);"><i class="fa-solid fa-microphone" style="color: #9c27b0;"></i></div>
+            <div class="carnival-icon ci-mauve"><i class="fa-solid fa-microphone" style="color: #9c27b0;"></i></div>
             <h4>Retell AI</h4>
             <div class="carnival-type">Voice AI Platform (Dev Tools)</div>
             <ul class="competitor-list">
@@ -550,7 +718,7 @@
         </div>
 
         <div class="comp-card glass-card carnival-card">
-            <div class="carnival-icon" style="background: rgba(76,175,80,0.15); border-color: rgba(76,175,80,0.3);"><i class="fa-solid fa-headset" style="color: #4caf50;"></i></div>
+            <div class="carnival-icon ci-mid-green"><i class="fa-solid fa-headset" style="color: #4caf50;"></i></div>
             <h4>My AI Front Desk</h4>
             <div class="carnival-type">AI Phone Receptionist</div>
             <ul class="competitor-list">
@@ -564,7 +732,7 @@
         </div>
 
         <div class="comp-card glass-card carnival-card">
-            <div class="carnival-icon" style="background: rgba(255,152,0,0.15); border-color: rgba(255,152,0,0.3);"><i class="fa-solid fa-road" style="color: #ff9800;"></i></div>
+            <div class="carnival-icon ci-amber"><i class="fa-solid fa-road" style="color: #ff9800;"></i></div>
             <h4>Strada AI</h4>
             <div class="carnival-type">Insurance Voice AI (Carrier-Focused)</div>
             <ul class="competitor-list">
@@ -578,7 +746,7 @@
         </div>
 
         <div class="comp-card glass-card carnival-card">
-            <div class="carnival-icon" style="background: rgba(96,125,139,0.15); border-color: rgba(96,125,139,0.3);"><i class="fa-solid fa-comments" style="color: #607d8b;"></i></div>
+            <div class="carnival-icon ci-slate"><i class="fa-solid fa-comments" style="color: #607d8b;"></i></div>
             <h4>Podium</h4>
             <div class="carnival-type">Local Business AI Platform</div>
             <ul class="competitor-list">
@@ -598,9 +766,9 @@
 <section class="ios-snap-section auto-height" id="iosSection7">
     <div class="container">
     <!-- Voice AI Comparison Section -->
-    <div class="glass-card" data-aos="fade-up" style="margin-top: 60px; margin-bottom: 40px; padding: 40px;">
-        <div style="text-align: center; margin-bottom: 30px;">
-            <span style="background: linear-gradient(135deg, var(--accent), #0066ff); padding: 8px 20px; border-radius: 20px; font-size: 0.85rem; font-weight: 600; letter-spacing: 0.5px;">VOICE AI</span>
+    <div class="comp-voice-section" data-aos="fade-up">
+        <div class="text-center">
+            <span class="comp-voice-badge">VOICE AI</span>
         </div>
         <h2 style="text-align: center; margin-bottom: 15px; font-size: 2rem;">Voice AI Agent</h2>
         <p style="text-align: center; color: #999; font-size: 1rem; margin-bottom: 40px; max-width: 700px; margin-left: auto; margin-right: auto;">Real-time voice conversations powered by Grok speech-to-speech. No transcription bottleneck. No awkward pauses.</p>
@@ -610,8 +778,8 @@
             <div class="col-lg-6 mb-4">
                 <div class="cmp-voice-card cmp-voice-card--igb">
                     <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 24px;">
-                        <div style="width: 48px; height: 48px; background: rgba(0,255,136,0.15); border-radius: 12px; display: flex; align-items: center; justify-content: center;">
-                            <i class="fa-solid fa-waveform-lines" style="font-size: 1.3rem; color: var(--accent);"></i>
+                        <div class="comp-col-icon-igb">
+                            <i class="fa-solid fa-waveform-lines"></i>
                         </div>
                         <div>
                             <h4 style="margin: 0; color: #fff; font-size: 1.15rem;">InsuranceGrokBot</h4>
@@ -655,8 +823,8 @@
             <div class="col-lg-6 mb-4">
                 <div class="cmp-voice-card cmp-voice-card--generic">
                     <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 24px;">
-                        <div style="width: 48px; height: 48px; background: rgba(255,255,255,0.05); border-radius: 12px; display: flex; align-items: center; justify-content: center;">
-                            <i class="fa-solid fa-robot" style="font-size: 1.3rem; color: #b0b0b0;"></i>
+                        <div class="comp-col-icon-generic">
+                            <i class="fa-solid fa-robot"></i>
                         </div>
                         <div>
                             <h4 style="margin: 0; color: #b0b0b0; font-size: 1.15rem;">Generic Chatbots</h4>
@@ -701,20 +869,20 @@
         <div class="cmp-stats-bar">
             <div class="row text-center">
                 <div class="col-md-3 col-6 mb-3 mb-md-0">
-                    <div style="font-size: 1.8rem; font-weight: 700; color: var(--accent);">0ms</div>
-                    <div style="color: #999; font-size: 0.82rem;">Transcription Delay</div>
+                    <div class="comp-stat-num">0ms</div>
+                    <div class="comp-stat-lbl">Transcription Delay</div>
                 </div>
                 <div class="col-md-3 col-6 mb-3 mb-md-0">
-                    <div style="font-size: 1.8rem; font-weight: 700; color: var(--accent);">7</div>
-                    <div style="color: #999; font-size: 0.82rem;">Voice Options</div>
+                    <div class="comp-stat-num">7</div>
+                    <div class="comp-stat-lbl">Voice Options</div>
                 </div>
                 <div class="col-md-3 col-6">
-                    <div style="font-size: 1.8rem; font-weight: 700; color: var(--accent);">G.711</div>
-                    <div style="color: #999; font-size: 0.82rem;">Native Audio Codec</div>
+                    <div class="comp-stat-num">G.711</div>
+                    <div class="comp-stat-lbl">Native Audio Codec</div>
                 </div>
                 <div class="col-md-3 col-6">
-                    <div style="font-size: 1.8rem; font-weight: 700; color: var(--accent);">$0.07</div>
-                    <div style="color: #999; font-size: 0.82rem;">Per Minute</div>
+                    <div class="comp-stat-num">$0.07</div>
+                    <div class="comp-stat-lbl">Per Minute</div>
                 </div>
             </div>
         </div>
@@ -727,7 +895,7 @@
 <section class="ios-snap-section" id="iosSection8">
     <div class="container">
     <!-- The 1-of-1 Statement -->
-    <div class="mkt-glass-card" data-aos="zoom-in" style="margin-top: 50px; text-align: center; padding: 40px; border: 2px solid rgba(0,255,136,0.3);">
+    <div class="comp-oneof-card" data-aos="zoom-in">
         <div style="font-size: 3rem; margin-bottom: 15px;">
             <i class="fa-solid fa-trophy" style="color: var(--accent);"></i>
         </div>
@@ -736,28 +904,28 @@
             No other tool combines: <strong style="color:#fff;">LLM-powered SMS sales conversations</strong> + <strong style="color:#fff;">smart lead scoring &amp; smart filters</strong> + <strong style="color:#fff;">7-CRM webhook integration</strong> + <strong style="color:#fff;">AI appointment booking</strong> + <strong style="color:#fff;">smart dialer with auto-retry</strong> + <strong style="color:#fff;">autonomous AI calling</strong> + <strong style="color:#fff;">multi-tenant agency billing</strong> + <strong style="color:#fff;">life insurance domain training</strong>. That combination exists in exactly one application.
         </p>
         <div style="display: flex; justify-content: center; gap: 12px; flex-wrap: wrap;">
-            <span class="mkt-tag--accent" style="padding: 6px 16px; border-radius: 20px; font-size: 0.8rem; font-weight: 600;">Lead Scoring</span>
-            <span class="mkt-tag--accent" style="padding: 6px 16px; border-radius: 20px; font-size: 0.8rem; font-weight: 600;">Smart Filters</span>
-            <span class="mkt-tag--accent" style="padding: 6px 16px; border-radius: 20px; font-size: 0.8rem; font-weight: 600;">Webhook-Native</span>
-            <span class="mkt-tag--accent" style="padding: 6px 16px; border-radius: 20px; font-size: 0.8rem; font-weight: 600;">7 CRM Adapters</span>
-            <span class="mkt-tag--accent" style="padding: 6px 16px; border-radius: 20px; font-size: 0.8rem; font-weight: 600;">LLM Sales Brain</span>
-            <span class="mkt-tag--accent" style="padding: 6px 16px; border-radius: 20px; font-size: 0.8rem; font-weight: 600;">Agency Multi-Tenant</span>
-            <span class="mkt-tag--accent" style="padding: 6px 16px; border-radius: 20px; font-size: 0.8rem; font-weight: 600;">Life Insurance Domain</span>
+            <span class="mkt-tag--accent comp-tag">Lead Scoring</span>
+            <span class="mkt-tag--accent comp-tag">Smart Filters</span>
+            <span class="mkt-tag--accent comp-tag">Webhook-Native</span>
+            <span class="mkt-tag--accent comp-tag">7 CRM Adapters</span>
+            <span class="mkt-tag--accent comp-tag">LLM Sales Brain</span>
+            <span class="mkt-tag--accent comp-tag">Agency Multi-Tenant</span>
+            <span class="mkt-tag--accent comp-tag">Life Insurance Domain</span>
         </div>
     </div>
 
     <!-- Final CTA -->
-    <div class="mkt-glass-card mkt-glass-card--cyan" data-aos="fade-up" style="margin-top: 60px; text-align: center; padding: 60px 40px;">
+    <div class="comp-cta-card" data-aos="fade-up">
         <h2 class="mkt-h2" style="font-size: 2.5rem; margin-bottom: 20px;">Ready to Automate Your Sales?</h2>
         <p style="font-size: 1.2rem; color: #bbb; margin-bottom: 40px; max-width: 700px; margin-left: auto; margin-right: auto;">
             Stop losing leads to generic AI. Get a purpose-built system that actually books appointments and closes deals.
         </p>
 
         <div style="display: flex; gap: 20px; justify-content: center; flex-wrap: wrap;">
-            <a href="/" class="btn btn-primary btn-lg" style="min-width: 200px;">
+            <a href="/" class="btn btn-primary btn-lg comp-cta-btn-lg">
                 Get Started Now
             </a>
-            <a href="/demo-chat" class="btn btn-secondary btn-lg" style="min-width: 200px;">
+            <a href="/demo-chat" class="btn btn-secondary btn-lg comp-cta-btn-lg">
                 Try Demo First
             </a>
         </div>
@@ -792,9 +960,9 @@
     transition: all 0.25s ease;
 }
 .cmp-deep-item:hover {
-    background: var(--glass-bg-strong);
+    background: #111111;
     transform: translateY(-2px);
-    box-shadow: var(--glass-shadow-hover);
+    box-shadow: 0 8px 32px rgba(0,0,0,0.4);
 }
 .cmp-deep-icon { font-size: 1.1rem; margin-bottom: 8px; display: block; }
 .cmp-deep-icon--accent { color: var(--accent); }
@@ -815,7 +983,7 @@
     border-radius: 10px;
     overflow: hidden;
     border: 1px solid rgba(0,255,136,0.12);
-    background: rgba(0,255,136,0.02);
+    background: #081108;
     transition: transform 0.3s, border-color 0.3s;
 }
 .cmp-screenshot-card:hover {
@@ -852,9 +1020,9 @@
     letter-spacing: 0.5px;
     border: 1px solid;
 }
-.cmp-row-label--cyan { background: rgba(0,255,136,0.1); color: var(--accent); border-color: rgba(0,255,136,0.2); }
-.cmp-row-label--orange { background: rgba(255,255,255,0.06); color: #b0b0b0; border-color: rgba(255,255,255,0.12); }
-.cmp-row-label--pink { background: rgba(255,255,255,0.06); color: #b0b0b0; border-color: rgba(255,255,255,0.12); }
+.cmp-row-label--cyan { background: #0d1f14; color: var(--accent); border-color: rgba(0,255,136,0.2); }
+.cmp-row-label--orange { background: #1a1a1a; color: #b0b0b0; border-color: #333; }
+.cmp-row-label--pink { background: #1a1a1a; color: #b0b0b0; border-color: #333; }
 
 @media (max-width: 991px) {
     .cmp-deep-grid { grid-template-columns: repeat(2, 1fr); }
@@ -976,13 +1144,13 @@
 }
 
 .btn-secondary {
-    background: rgba(255,255,255,0.05);
+    background: #111;
     border: 2px solid rgba(0,255,136,0.3);
     color: var(--accent);
 }
 
 .btn-secondary:hover {
-    background: rgba(0,255,136,0.1);
+    background: #1a1a1a;
     border-color: var(--accent);
     color: #fff;
 }
@@ -1022,6 +1190,53 @@
         grid-template-columns: 1fr;
     }
 }
+
+/* ── Light Theme ── */
+body.light-theme .cmp-deep-item { background: #fff; border-color: #e0e0e0; }
+body.light-theme .cmp-deep-item:hover { background: #f4f5f7; box-shadow: 0 8px 32px rgba(0,0,0,0.06); }
+body.light-theme .cmp-deep-title { color: #111; }
+body.light-theme .cmp-deep-desc { color: #666; }
+body.light-theme .cmp-screenshot-card { background: #f4f5f7; border-color: rgba(5,150,105,0.15); }
+body.light-theme .cmp-screenshot-card:hover { border-color: rgba(5,150,105,0.35); }
+body.light-theme .cmp-screenshot-label { color: var(--lt-accent); }
+body.light-theme .cmp-stat-bar { border-top-color: #e0e0e0; }
+body.light-theme .cmp-stat-lbl { color: #666; }
+body.light-theme .cmp-row-label--cyan { background: rgba(5,150,105,0.08); color: var(--lt-accent); border-color: rgba(5,150,105,0.2); }
+body.light-theme .cmp-row-label--orange { background: #f4f5f7; color: #666; border-color: #e0e0e0; }
+body.light-theme .cmp-row-label--pink { background: #f4f5f7; color: #666; border-color: #e0e0e0; }
+body.light-theme .carnival-type { color: #666; }
+body.light-theme .carnival-verdict { border-top-color: #e8e8e8; color: #666; }
+body.light-theme .competitor-list li { color: #444; }
+body.light-theme .btn-secondary { background: #f4f5f7; border-color: rgba(5,150,105,0.3); color: var(--lt-accent); }
+body.light-theme .btn-secondary:hover { background: #e8f7f0; border-color: var(--lt-accent); color: #111; }
+
+/* Carnival icon solid backgrounds — one class per brand color */
+.ci-teal    { background: #071a15; border-color: rgba(16,163,127,0.3); }
+.ci-green   { background: #0d1f14; border-color: rgba(0,255,136,0.3); }
+.ci-blue    { background: #071020; border-color: rgba(66,133,244,0.3); }
+.ci-yellow  { background: #1a1500; border-color: rgba(255,193,7,0.3); }
+.ci-limegreen { background: #071a07; border-color: rgba(0,200,83,0.3); }
+.ci-purple  { background: #130a1a; border-color: rgba(123,104,238,0.3); }
+.ci-skyblue { background: #07121a; border-color: rgba(0,150,255,0.3); }
+.ci-orange  { background: #1a0a07; border-color: rgba(255,87,34,0.3); }
+.ci-mid-green { background: #071207; border-color: rgba(76,175,80,0.3); }
+.ci-cyan    { background: #071518; border-color: rgba(3,169,244,0.3); }
+.ci-mauve   { background: #13071a; border-color: rgba(156,39,176,0.3); }
+.ci-amber   { background: #1a1007; border-color: rgba(255,152,0,0.3); }
+.ci-slate   { background: #0a0d0e; border-color: rgba(96,125,139,0.3); }
+body.light-theme .ci-teal    { background: #e8faf5; }
+body.light-theme .ci-green   { background: #e8f7f0; }
+body.light-theme .ci-blue    { background: #e8f0ff; }
+body.light-theme .ci-yellow  { background: #fffbe8; }
+body.light-theme .ci-limegreen { background: #e8fae8; }
+body.light-theme .ci-purple  { background: #f3e8ff; }
+body.light-theme .ci-skyblue { background: #e8f5ff; }
+body.light-theme .ci-orange  { background: #fff0e8; }
+body.light-theme .ci-mid-green { background: #eaf7ea; }
+body.light-theme .ci-cyan    { background: #e8f8ff; }
+body.light-theme .ci-mauve   { background: #f8e8ff; }
+body.light-theme .ci-amber   { background: #fff7e8; }
+body.light-theme .ci-slate   { background: #eaecee; }
 </style>
 {% endblock %}
 

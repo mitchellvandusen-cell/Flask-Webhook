@@ -8,7 +8,7 @@
 <style>
     .sms-hero { padding: 150px 0 80px; position: relative; overflow: hidden; }
     .sms-hero::before { content: ''; position: absolute; inset: 0; background: radial-gradient(ellipse at 30% 20%, rgba(0,255,136,0.08) 0%, transparent 55%), radial-gradient(ellipse at 70% 80%, rgba(0,255,136,0.03) 0%, transparent 50%); pointer-events: none; }
-    .sms-tag { display: inline-block; background: rgba(0,255,136,0.08); border: 1px solid rgba(0,255,136,0.25); color: var(--accent); padding: 6px 20px; border-radius: 24px; font-size: 0.78rem; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 20px; }
+    .sms-tag { display: inline-block; background: #0d1f14; border: 1px solid rgba(0,255,136,0.25); color: var(--accent); padding: 6px 20px; border-radius: 24px; font-size: 0.78rem; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 20px; }
     .sms-h1 { font-size: clamp(2.4rem, 4.5vw, 3.6rem); font-weight: 900; line-height: 1.08; margin-bottom: 20px; }
     .sms-h1 span { color: var(--accent); }
     .sms-sub { color: #b0b0b0; font-size: 1.1rem; max-width: 660px; margin: 0 auto 32px; line-height: 1.65; }
@@ -16,8 +16,8 @@
     /* Conversation mockup */
     .sms-mock { max-width: 380px; margin: 0 auto; }
     .sms-bubble { padding: 10px 14px; border-radius: 14px; font-size: 0.82rem; margin-bottom: 8px; max-width: 85%; line-height: 1.55; }
-    .sms-bubble.lead { background: rgba(255,255,255,0.04); border: 1px solid #1a1a1a; color: #bbb; }
-    .sms-bubble.bot { background: rgba(0,255,136,0.06); border: 1px solid rgba(0,255,136,0.1); color: #bbb; margin-left: auto; }
+    .sms-bubble.lead { background: #0d0d0d; border: 1px solid #1a1a1a; color: #bbb; }
+    .sms-bubble.bot { background: #050d09; border: 1px solid #0d2414; color: #bbb; margin-left: auto; }
     .sms-bubble .ts { font-size: 0.65rem; color: #b0b0b0; margin-top: 4px; }
     .sms-bubble .sys { font-size: 0.6rem; color: #b0b0b0; font-style: italic; text-align: center; margin: 4px 0; max-width: 100%; }
 
@@ -43,7 +43,7 @@
     .obj-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
     @media (max-width: 991px) { .obj-grid { grid-template-columns: 1fr 1fr; } }
     @media (max-width: 575px) { .obj-grid { grid-template-columns: 1fr; } }
-    .obj-card { background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); border-radius: 14px; padding: 20px; }
+    .obj-card { background: #0a0a0a; border: 1px solid #111; border-radius: 14px; padding: 20px; }
     .obj-card .obj-type { font-size: 0.7rem; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase; margin-bottom: 6px; }
     .obj-card .obj-quote { font-size: 0.88rem; font-weight: 700; color: #fff; margin-bottom: 8px; }
     .obj-card .obj-how { font-size: 0.78rem; color: #b0b0b0; line-height: 1.55; }
@@ -53,7 +53,7 @@
     .lt-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
     @media (max-width: 991px) { .lt-grid { grid-template-columns: repeat(2, 1fr); } }
     @media (max-width: 575px) { .lt-grid { grid-template-columns: 1fr; } }
-    .lt-card { background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); border-radius: 14px; padding: 20px; }
+    .lt-card { background: #0a0a0a; border: 1px solid #111; border-radius: 14px; padding: 20px; }
     .lt-card h6 { font-weight: 700; font-size: 0.88rem; margin-bottom: 6px; color: #fff; }
     .lt-card p { color: #b0b0b0; font-size: 0.78rem; line-height: 1.5; margin: 0; }
 
@@ -66,6 +66,31 @@
     .age-cell .avoid { font-size: 0.72rem; color: #ef4444; margin-top: 6px; }
     @media (max-width: 991px) { .age-grid { grid-template-columns: repeat(2, 1fr); } }
     @media (max-width: 575px) { .age-grid { grid-template-columns: 1fr; } }
+
+    /* ── Light Theme ── */
+    body.light-theme .sms-hero::before { background: radial-gradient(ellipse at 30% 20%, rgba(5,150,105,0.06) 0%, transparent 55%), radial-gradient(ellipse at 70% 80%, rgba(5,150,105,0.03) 0%, transparent 50%); }
+    body.light-theme .sms-tag { background: rgba(5,150,105,0.08); border-color: rgba(5,150,105,0.25); color: var(--lt-accent); }
+    body.light-theme .sms-h1 { color: #111; }
+    body.light-theme .sms-h1 span { color: var(--lt-accent); }
+    body.light-theme .sms-sub { color: #666; }
+    body.light-theme .sms-bubble.lead { background: #f4f5f7; border-color: #e0e0e0; color: #444; }
+    body.light-theme .sms-bubble.bot { background: rgba(5,150,105,0.06); border-color: rgba(5,150,105,0.15); color: #444; }
+    body.light-theme .sms-bubble .ts { color: #999; }
+    body.light-theme .sms-bubble .sys { color: #999; }
+    body.light-theme .pipe-stage { background: #f4f5f7 !important; }
+    body.light-theme .pipe-stage h6 { color: #111 !important; }
+    body.light-theme .pipe-stage p { color: #666 !important; }
+    body.light-theme .obj-card { background: #fff; border-color: #e0e0e0; }
+    body.light-theme .obj-card .obj-quote { color: #111; }
+    body.light-theme .obj-card .obj-how { color: #666; }
+    body.light-theme .lt-card { background: #fff; border-color: #e0e0e0; }
+    body.light-theme .lt-card h6 { color: #111; }
+    body.light-theme .lt-card p { color: #666; }
+    body.light-theme .age-grid { background: #e0e0e0; }
+    body.light-theme .age-cell { background: #fff; }
+    body.light-theme .age-cell h6 { color: #111; }
+    body.light-theme .age-cell .range { color: #444; }
+    body.light-theme .age-cell .prods { color: #666; }
 </style>
 
 
@@ -123,11 +148,11 @@
                 <h6 style="color: #b0b0b0;">Rapport</h6>
                 <p style="color: #b0b0b0;">Builds trust first. Responds to personal details, finds common ground, earns the right to ask.</p>
             </div>
-            <div class="pipe-stage" style="background: rgba(255,255,255,0.03);">
+            <div class="pipe-stage" style="background: #0d0d0d;">
                 <h6 style="color: #fff;">Qualifying</h6>
                 <p style="color: #b0b0b0;">Discovers goals, obstacles, and impact. Asks why coverage matters to them personally.</p>
             </div>
-            <div class="pipe-stage" style="background: rgba(255,255,255,0.03);">
+            <div class="pipe-stage" style="background: #0d0d0d;">
                 <h6 style="color: #fff;">Objection</h6>
                 <p style="color: #b0b0b0;">Solves the logistical concern first. If it still sticks, addresses the fear underneath.</p>
             </div>

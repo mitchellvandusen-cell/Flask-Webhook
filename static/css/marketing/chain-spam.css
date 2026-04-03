@@ -150,16 +150,16 @@
 .chain-branch-arrow i { transition: transform 0.18s ease; }
 
 /* light theme */
-[data-theme="light"] .chain-next { background: #f8f9fb; border-top-color: #e8e8e8; }
-[data-theme="light"] .chain-next::before { background: radial-gradient(ellipse, rgba(5,150,105,0.06) 0%, transparent 65%); }
-[data-theme="light"] .chain-next-heading { color: #111; }
-[data-theme="light"] .chain-next-sub { color: #888; }
-[data-theme="light"] .chain-next-cta { border-color: rgba(5,150,105,0.35); color: var(--lt-accent); }
-[data-theme="light"] .chain-next-cta:hover { background: var(--lt-accent); color: #fff; }
-[data-theme="light"] .chain-branch-card { background: #fff; border-color: #e0e0e0; }
-[data-theme="light"] .chain-branch-card:hover { background: #f8f9fb; border-color: rgba(5,150,105,0.25); }
-[data-theme="light"] .chain-branch-title { color: #111; }
-[data-theme="light"] .chain-branch-desc { color: #888; }
+body.light-theme .chain-next { background: #f8f9fb; border-top-color: #e8e8e8; }
+body.light-theme .chain-next::before { background: radial-gradient(ellipse, rgba(5,150,105,0.06) 0%, transparent 65%); }
+body.light-theme .chain-next-heading { color: #111; }
+body.light-theme .chain-next-sub { color: #888; }
+body.light-theme .chain-next-cta { border-color: rgba(5,150,105,0.35); color: var(--lt-accent); }
+body.light-theme .chain-next-cta:hover { background: var(--lt-accent); color: #fff; }
+body.light-theme .chain-branch-card { background: #fff; border-color: #e0e0e0; }
+body.light-theme .chain-branch-card:hover { background: #f8f9fb; border-color: rgba(5,150,105,0.25); }
+body.light-theme .chain-branch-title { color: #111; }
+body.light-theme .chain-branch-desc { color: #888; }
 
 /* ────────────────────────────────────────────────────────────────
    SPAM PROTECTION PROMO BLOCK
@@ -326,11 +326,11 @@
     margin-top: 4px;
 }
 
-[data-theme="light"] .sp-promo { background: #f0f2f5; border-top-color: #ddd; border-bottom-color: #ddd; }
-[data-theme="light"] .sp-promo-phone { background: #fff; border-color: #ddd; box-shadow: 0 16px 40px rgba(0,0,0,0.12); }
-[data-theme="light"] .sp-promo-h2 { color: #111; }
-[data-theme="light"] .sp-promo-body { color: #777; }
-[data-theme="light"] .sp-promo-stat-lbl { color: #888; }
+body.light-theme .sp-promo { background: #f0f2f5; border-top-color: #ddd; border-bottom-color: #ddd; }
+body.light-theme .sp-promo-phone { background: #fff; border-color: #ddd; box-shadow: 0 16px 40px rgba(0,0,0,0.12); }
+body.light-theme .sp-promo-h2 { color: #111; }
+body.light-theme .sp-promo-body { color: #777; }
+body.light-theme .sp-promo-stat-lbl { color: #888; }
 
 /* ────────────────────────────────────────────────────────────────
    HOME HERO HOOK
@@ -367,5 +367,5 @@
     opacity: 1;
     margin-bottom: 16px;
 }
-[data-theme="light"] .hp-hook-line { color: #666; }
-[data-theme="light"] .hp-hook-task { color: #dc2626; }
+body.light-theme .hp-hook-line { color: #666; }
+body.light-theme .hp-hook-task { color: #dc2626; }

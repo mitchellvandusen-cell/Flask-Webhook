@@ -1229,16 +1229,27 @@ def oauth_callback():
             f"(method={resolution_method})"
         )
 
-        # Synthesize sub_account entry if we have a location but no sub_accounts
+        # Synthesize sub_account entry if we have a location but no sub_accounts.
+        # For location-scoped tokens, empty sub_accounts is NORMAL — we got the
+        # location from the token itself, not from the locations discovery API.
+        # Only flag as a real fallback for company-token flows where we expected
+        # to discover locations but couldn't.
         if not sub_accounts and primary_location_id:
-            using_location_fallback = True
+            _company_token_flow = (token_user_type_used == 'Company')
+            using_location_fallback = _company_token_flow
             sub_accounts = [{'id': primary_location_id,
                              'name': user_name or 'Primary Location',
                              'timezone': None}]
-            logger.warning(
-                f"No locations discovered but have locationId={primary_location_id}. "
-                f"Using token-based fallback."
-            )
+            if _company_token_flow:
+                logger.warning(
+                    f"No locations discovered (company token) but have "
+                    f"locationId={primary_location_id}. Using token-based fallback."
+                )
+            else:
+                logger.info(
+                    f"Location-scoped token: synthesizing sub_accounts from "
+                    f"locationId={primary_location_id}. Normal operation — user is connected."
+                )
 
         # Last resort: companyId as location_id
         if not primary_location_id and company_id:
@@ -1660,30 +1671,32 @@ def oauth_callback():
         except Exception as e:
             logger.debug(f"mark_install_oauth_complete note: {e}")
 
-        # Persistent alert if location fetch returned 0 results
+        # Persistent alert only for true company-token discovery failures
+        # (location-scoped tokens never trigger this — their fallback is normal operation)
         if using_location_fallback:
             try:
-                alert_msg = (
-                    "Your Lead Connector account connected successfully, but the "
-                    "locations API returned no results. This may indicate a temporary "
-                    "API issue or insufficient permissions. "
-                    "Your primary location is active and the bot is operational. "
-                )
                 if use_agency_flow:
-                    alert_msg += (
-                        "However, your sub-account locations could not be discovered. "
-                        "Try reconnecting via the Connect tab. "
-                        "Contact support if this persists."
+                    alert_msg = (
+                        "Your account is connected and operational. However, some of your "
+                        "sub-account locations couldn't be loaded automatically — this is "
+                        "usually a temporary GHL API delay. Try reconnecting via the Connect "
+                        "tab if any locations are missing."
                     )
+                    alert_severity = "info"
                 else:
-                    alert_msg += "Try reconnecting via the Connect tab if issues persist."
+                    alert_msg = (
+                        "Your account connected successfully and the bot is active. "
+                        "One detail couldn't be loaded automatically — reconnect via the "
+                        "Connect tab if anything looks off."
+                    )
+                    alert_severity = "info"
 
                 save_persistent_alert(
                     email=user_email,
                     alert_type="scope_locations_readonly",
-                    title="Location Discovery Issue",
+                    title="Account Connected",
                     message=alert_msg,
-                    severity="warning" if use_agency_flow else "info",
+                    severity=alert_severity,
                     location_id=primary_location_id,
                 )
                 log_webhook_event(

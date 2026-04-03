@@ -80,6 +80,7 @@
     border-top: 1px solid #141414;
     border-bottom: 1px solid #141414;
 }
+body.light-theme .ag-stats { background: var(--lt-bg); border-color: var(--lt-border); }
 .ag-stat {
     flex: 1;
     text-align: center;
@@ -110,6 +111,13 @@
 /* ── Shared ── */
 .ag-section   { padding: 100px 0; }
 .ag-sep       { border: none; border-top: 1px solid #111; margin: 0; }
+.ag-bg-black  { background: #000; }
+.ag-bg-dark   { background: #060606; }
+.ag-container-fw { width: 100%; }
+.ag-mkt-body-560 { max-width: 560px; margin: 0 auto; }
+.ag-mkt-body-580 { max-width: 580px; margin: 0 auto; }
+body.light-theme .ag-bg-black { background: var(--lt-bg); }
+body.light-theme .ag-bg-dark  { background: var(--lt-surface); }
 
 /* ── Pain grid — big number cards ── */
 .ag-pain-grid {
@@ -308,6 +316,46 @@
 .ag-price-feat li i { color: var(--accent); font-size: 0.75rem; margin-top: 3px; flex-shrink: 0; }
 .ag-price-footnote { text-align: center; color: #666; font-size: 0.78rem; margin-top: 24px; }
 
+/* ── Price cents ── */
+.ag-price-cents { font-size: 1.1rem; font-weight: 900; color: #fff; }
+.ag-price-cents-accent { font-size: 1.1rem; font-weight: 900; color: var(--accent); }
+body.light-theme .ag-price-cents { color: #111; }
+body.light-theme .ag-price-cents-accent { color: var(--lt-accent); }
+
+/* ── Pricing button variants ── */
+.ag-price-btn-secondary {
+    font-weight: 700;
+    background: #1a1a1a;
+    border: 1px solid #333;
+    color: #fff;
+}
+.ag-price-btn-secondary:hover {
+    background: #222;
+    border-color: rgba(0,255,136,0.3);
+    color: #fff;
+}
+body.light-theme .ag-price-btn-secondary {
+    background: #f0f0f0;
+    border-color: #ddd;
+    color: #111;
+}
+body.light-theme .ag-price-btn-secondary:hover {
+    background: #e8e8e8;
+    border-color: rgba(5,150,105,0.3);
+    color: #111;
+}
+
+/* ── Inline stat override — small compact number ── */
+.ag-stat-num-compact {
+    font-size: clamp(1.2rem, 2.5vw, 1.8rem);
+    letter-spacing: -1px;
+}
+
+/* ── Inline agent accent ── */
+.ag-agent-accent { color: var(--accent); }
+.ag-agent-danger { color: #ef4444; }
+body.light-theme .ag-agent-accent { color: var(--lt-accent); }
+
 /* ── Model explanation ── */
 .ag-model-box {
     background: rgba(0,255,136,0.03);
@@ -409,7 +457,7 @@ body.light-theme .ag-price-footnote { color: var(--lt-text-muted); }
             <span class="ag-stat-lbl">Agents Managed</span>
         </div>
         <div class="ag-stat">
-            <span class="ag-stat-num" style="font-size:clamp(1.2rem,2.5vw,1.8rem);letter-spacing:-1px;">15 vs 150</span>
+            <span class="ag-stat-num ag-stat-num-compact">15 vs 150</span>
             <span class="ag-stat-lbl">You'll Know the Difference</span>
         </div>
         <div class="ag-stat">
@@ -425,14 +473,14 @@ body.light-theme .ag-price-footnote { color: var(--lt-text-muted); }
 
 
 <!-- ═══ SECTION 1: THE PROBLEM ═══ -->
-<section class="ios-snap-section auto-height" id="iosSection1" style="background:#000;">
-    <div class="container" style="width:100%;">
+<section class="ios-snap-section auto-height ag-bg-black" id="iosSection1">
+    <div class="container ag-container-fw">
         <hr class="ag-sep">
         <div class="ag-section">
             <div class="text-center" data-aos="fade-up">
                 <span class="mkt-label">The Problem</span>
                 <h2 class="mkt-h2">Right Now You're Coaching<br><em>in the Dark.</em></h2>
-                <p class="mkt-body" style="max-width:560px;margin:0 auto;">
+                <p class="mkt-body ag-mkt-body-560">
                     You're running an agency on vibes and weekly check-ins. The data is there — you just can't see it.
                 </p>
             </div>
@@ -464,13 +512,13 @@ body.light-theme .ag-price-footnote { color: var(--lt-text-muted); }
 
 
 <!-- ═══ SECTION 2: DASHBOARD FEATURES ═══ -->
-<section class="ios-snap-section auto-height" id="iosSection2" style="background:#060606;">
-    <div class="container" style="width:100%;">
+<section class="ios-snap-section auto-height ag-bg-dark" id="iosSection2">
+    <div class="container ag-container-fw">
         <div class="ag-section">
             <div class="text-center" data-aos="fade-up">
                 <span class="mkt-label">Agency Dashboard</span>
                 <h2 class="mkt-h2">One Dashboard.<br>Every Agent. <em>Every Number.</em></h2>
-                <p class="mkt-body" style="max-width:580px;margin:0 auto;">
+                <p class="mkt-body ag-mkt-body-580">
                     Everything you need to coach, manage, and hold agents accountable — updated live. No spreadsheets. No asking.
                 </p>
             </div>
@@ -513,14 +561,14 @@ body.light-theme .ag-price-footnote { color: var(--lt-text-muted); }
 
 
 <!-- ═══ SECTION 3: LIVE DATA MOCKUP ═══ -->
-<section class="ios-snap-section auto-height" id="iosSection3" style="background:#000;">
-    <div class="container" style="width:100%;">
+<section class="ios-snap-section auto-height ag-bg-black" id="iosSection3">
+    <div class="container ag-container-fw">
         <hr class="ag-sep">
         <div class="ag-section">
             <div class="text-center" data-aos="fade-up">
                 <span class="mkt-label">Real-Time Data</span>
                 <h2 class="mkt-h2">Today at 2:14pm.<br><em>You Already Know Who to Call.</em></h2>
-                <p class="mkt-body" style="max-width:560px;margin:0 auto;">
+                <p class="mkt-body ag-mkt-body-560">
                     Open the dashboard and see every number that matters — right now, no waiting, no spreadsheets.
                 </p>
             </div>
@@ -557,7 +605,7 @@ body.light-theme .ag-price-footnote { color: var(--lt-text-muted); }
                 <div class="ag-agent-row">
                     <div class="ag-agent-dot green"></div>
                     <span class="ag-agent-name">Sarah M.<span class="ag-agent-badge top">Top Producer</span></span>
-                    <span class="ag-agent-stats">94 calls &bull; 41 connects &bull; <span style="color:var(--accent);">43.6%</span> &bull; avg 6m 14s</span>
+                    <span class="ag-agent-stats">94 calls &bull; 41 connects &bull; <span class="ag-agent-accent">43.6%</span> &bull; avg 6m 14s</span>
                 </div>
                 <div class="ag-agent-row">
                     <div class="ag-agent-dot green"></div>
@@ -572,7 +620,7 @@ body.light-theme .ag-price-footnote { color: var(--lt-text-muted); }
                 <div class="ag-agent-row">
                     <div class="ag-agent-dot red"></div>
                     <span class="ag-agent-name">Mike K.<span class="ag-agent-badge coach">Needs Coaching</span></span>
-                    <span class="ag-agent-stats">23 calls &bull; 4 connects &bull; <span style="color:#ef4444;">17.4%</span> &bull; avg 1m 12s</span>
+                    <span class="ag-agent-stats">23 calls &bull; 4 connects &bull; <span class="ag-agent-danger">17.4%</span> &bull; avg 1m 12s</span>
                 </div>
 
                 <p class="ag-mock-footer">Every number updates live. No weekly report to wait for.</p>
@@ -584,8 +632,8 @@ body.light-theme .ag-price-footnote { color: var(--lt-text-muted); }
 
 
 <!-- ═══ SECTION 4: PRICING ═══ -->
-<section class="ios-snap-section auto-height" id="iosSection4" style="background:#060606;">
-    <div class="container" style="width:100%;">
+<section class="ios-snap-section auto-height ag-bg-dark" id="iosSection4">
+    <div class="container ag-container-fw">
         <div class="ag-section">
             <div class="text-center" data-aos="fade-up">
                 <span class="mkt-label">Pricing</span>
@@ -605,7 +653,7 @@ body.light-theme .ag-price-footnote { color: var(--lt-text-muted); }
                 <div class="ag-price-card">
                     <h4>Power Dialer</h4>
                     <div>
-                        <span class="ag-price-amount green">$149</span><span style="color:var(--accent);font-weight:900;font-size:1.1rem;">.99</span><span class="ag-price-period">/mo per agent</span>
+                        <span class="ag-price-amount green">$149</span><span class="ag-price-cents-accent">.99</span><span class="ag-price-period">/mo per agent</span>
                     </div>
                     <p class="ag-price-sub">Human dialer + full platform</p>
                     <ul class="ag-price-feat">
@@ -615,13 +663,13 @@ body.light-theme .ag-price-footnote { color: var(--lt-text-muted); }
                         <li><i class="fa-solid fa-check"></i> Spam protection + CNAM</li>
                         <li><i class="fa-solid fa-check"></i> Full call history + recordings</li>
                     </ul>
-                    <a href="/checkout" class="btn btn-primary w-100 py-2" style="font-weight:700;">Start Free Trial</a>
+                    <a href="/checkout" class="btn btn-primary w-100 py-2 fw-bold">Start Free Trial</a>
                 </div>
 
                 <div class="ag-price-card">
                     <h4>Pro Dialer</h4>
                     <div>
-                        <span class="ag-price-amount">$224</span><span style="color:#fff;font-weight:900;font-size:1.1rem;">.99</span><span class="ag-price-period">/mo per agent</span>
+                        <span class="ag-price-amount">$224</span><span class="ag-price-cents">.99</span><span class="ag-price-period">/mo per agent</span>
                     </div>
                     <p class="ag-price-sub">4 concurrent lines</p>
                     <ul class="ag-price-feat">
@@ -630,13 +678,13 @@ body.light-theme .ag-price-footnote { color: var(--lt-text-muted); }
                         <li><i class="fa-solid fa-check"></i> Connect rate analytics</li>
                         <li><i class="fa-solid fa-check"></i> Priority queue</li>
                     </ul>
-                    <a href="/checkout/pro-dialer" class="btn w-100 py-2" style="font-weight:700; background:#111; border:1px solid #2a2a2a; color:#fff;">Start Free Trial</a>
+                    <a href="/checkout/pro-dialer" class="btn w-100 py-2 ag-price-btn-secondary">Start Free Trial</a>
                 </div>
 
                 <div class="ag-price-card">
                     <h4>Solo Predictive</h4>
                     <div>
-                        <span class="ag-price-amount">$349</span><span style="color:#fff;font-weight:900;font-size:1.1rem;">.98</span><span class="ag-price-period">/mo per agent</span>
+                        <span class="ag-price-amount">$349</span><span class="ag-price-cents">.98</span><span class="ag-price-period">/mo per agent</span>
                     </div>
                     <p class="ag-price-sub">Erlang-C pacing + AI overflow</p>
                     <ul class="ag-price-feat">
@@ -645,7 +693,7 @@ body.light-theme .ag-price-footnote { color: var(--lt-text-muted); }
                         <li><i class="fa-solid fa-check"></i> Everything in Pro Dialer</li>
                         <li><i class="fa-solid fa-check"></i> TCPA compliance dashboard</li>
                     </ul>
-                    <a href="/checkout/predictive-dialer" class="btn w-100 py-2" style="font-weight:700; background:#111; border:1px solid #2a2a2a; color:#fff;">Start Free Trial</a>
+                    <a href="/checkout/predictive-dialer" class="btn w-100 py-2 ag-price-btn-secondary">Start Free Trial</a>
                 </div>
             </div>
 

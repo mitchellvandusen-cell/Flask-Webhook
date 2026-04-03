@@ -165,33 +165,24 @@
         50% { opacity: 0.4; transform: scale(0.7); }
     }
 
-    /* Headline — split lines, each staggered */
+    /* Headline — single dominant line */
     .hp-hero-h1 {
-        font-size: clamp(3rem, 6vw, 5.5rem);
+        font-size: clamp(3.5rem, 7.5vw, 6.5rem);
         font-weight: 900;
-        color: #fff;
+        color: #00ff88;
         line-height: 1.0;
         letter-spacing: -3px;
         margin-bottom: 24px;
         max-width: 900px;
-    }
-    .h1-line {
-        display: block;
         opacity: 0;
         transform: translateY(24px);
+        animation: fadeSlideUp 0.5s cubic-bezier(0.2,1,0.4,1) 0.75s forwards;
     }
-    .h1-line:nth-child(1) { animation: fadeSlideUp 0.5s cubic-bezier(0.2,1,0.4,1) 0.75s forwards; }
-    .h1-line:nth-child(2) { animation: fadeSlideUp 0.5s cubic-bezier(0.2,1,0.4,1) 0.90s forwards; }
-    .h1-line:nth-child(3) {
-        animation: fadeSlideUp 0.5s cubic-bezier(0.2,1,0.4,1) 1.05s forwards;
-        color: #00ff88;
-    }
-    /* Underline accent on green line */
-    .h1-line:nth-child(3) em {
+    .hp-hero-h1 em {
         font-style: normal;
         position: relative;
     }
-    .h1-line:nth-child(3) em::after {
+    .hp-hero-h1 em::after {
         content: '';
         position: absolute;
         bottom: 4px; left: 0; right: 0;
@@ -210,7 +201,7 @@
     .hp-hero-ticker {
         font-size: clamp(0.92rem, 1.8vw, 1.15rem);
         font-weight: 500;
-        color: #555;
+        color: #999;
         margin-bottom: 36px;
         opacity: 0;
         animation: fadeSlideUp 0.45s ease 1.2s forwards;
@@ -218,7 +209,7 @@
         font-family: 'JetBrains Mono', monospace;
         letter-spacing: -0.3px;
     }
-    .hp-ticker-prefix { color: #444; }
+    .hp-ticker-prefix { color: #888; }
     .hp-ticker-value {
         color: #ffffff;
         display: inline-block;
@@ -317,7 +308,7 @@
     .hp-trust-item {
         font-size: 0.72rem;
         font-weight: 600;
-        color: #666;
+        color: #999;
         display: flex;
         align-items: center;
         gap: 6px;
@@ -359,7 +350,7 @@
         font-weight: 600;
         letter-spacing: 1.5px;
         text-transform: uppercase;
-        color: #444;
+        color: #666;
         margin-top: 8px;
         display: block;
     }
@@ -406,12 +397,12 @@
     .hp-phone-notch { width: 100px; height: 20px; background: #000; border-radius: 0 0 12px 12px; margin: 0 auto 10px; }
     .hp-phone-header { text-align: center; padding: 6px 0 10px; border-bottom: 1px solid #141414; margin-bottom: 10px; }
     .hp-phone-name { font-weight: 700; font-size: 0.88rem; color: #fff; }
-    .hp-phone-sub { font-size: 0.68rem; color: #555; }
+    .hp-phone-sub { font-size: 0.68rem; color: #888; }
     .hp-phone-chat { min-height: 260px; display: flex; flex-direction: column; gap: 7px; padding: 4px 0; overflow: hidden; }
     .hp-bubble { padding: 9px 13px; border-radius: 14px; font-size: 0.8rem; line-height: 1.5; max-width: 82%; opacity: 0; transform: translateY(8px); animation: bubbleIn 0.35s ease forwards; }
     .hp-bubble--lead { background: #111; border: 1px solid #1e1e1e; color: #c0c0c0; align-self: flex-start; }
     .hp-bubble--bot { background: rgba(0,255,136,0.07); border: 1px solid rgba(0,255,136,0.15); color: #d0d0d0; align-self: flex-end; }
-    .hp-bubble--sys { font-size: 0.65rem; color: #444; text-align: center; align-self: center; font-style: italic; }
+    .hp-bubble--sys { font-size: 0.65rem; color: #999; text-align: center; align-self: center; font-style: italic; }
     .hp-typing { display: flex; gap: 4px; align-items: center; padding: 9px 13px; align-self: flex-end; }
     .hp-dot { width: 5px; height: 5px; border-radius: 50%; background: #00ff88; animation: dotPulse 1.2s ease-in-out infinite; }
     .hp-dot:nth-child(2) { animation-delay: 0.2s; }
@@ -478,13 +469,13 @@
     }
     .hp-price-amount { font-size: 3.2rem; font-weight: 900; color: #fff; line-height: 1; letter-spacing: -2px; }
     .hp-price-amount.green { color: #00ff88; }
-    .hp-price-period { color: #555; font-size: 0.88rem; }
-    .hp-price-sub { font-size: 0.78rem; font-weight: 600; color: #666; margin-top: 6px; }
+    .hp-price-period { color: #888; font-size: 0.88rem; }
+    .hp-price-sub { font-size: 0.78rem; font-weight: 600; color: #999; margin-top: 6px; }
     .hp-price-trial { font-size: 0.75rem; font-weight: 700; color: #00ff88; margin: 4px 0 0; }
     .hp-price-feat { list-style: none; padding: 0; margin: 20px 0; flex: 1; }
     .hp-price-feat li { display: flex; align-items: flex-start; gap: 8px; padding: 4px 0; color: #c0c0c0; font-size: 0.83rem; }
     .hp-price-feat li i { color: #00ff88; font-size: 0.75rem; margin-top: 3px; flex-shrink: 0; }
-    .hp-footnote { color: #444; font-size: 0.74rem; text-align: center; margin-top: 20px; }
+    .hp-footnote { color: #666; font-size: 0.74rem; text-align: center; margin-top: 20px; }
     .hp-footnote a { color: #00ff88; }
     .hp-agency-note { color: #666; font-size: 0.82rem; text-align: center; margin-top: 10px; }
     .hp-agency-note a { color: #00ff88; }
@@ -514,18 +505,20 @@
     }
     .hp-cta h2 { font-size: clamp(2.2rem, 4vw, 3.5rem); font-weight: 900; color: #fff; letter-spacing: -1.5px; margin-bottom: 16px; }
     .hp-cta h2 em { font-style: normal; color: var(--accent); }
-    .hp-cta p { color: #555; font-size: 1rem; max-width: 520px; margin: 0 auto 40px; line-height: 1.65; }
+    .hp-cta p { color: #888; font-size: 1rem; max-width: 520px; margin: 0 auto 40px; line-height: 1.65; }
     .hp-cta-primary-btn { padding: 14px 36px !important; font-size: 1rem !important; font-weight: 700 !important; }
     .hp-cta-secondary-btn { padding: 13px 28px !important; font-size: 1rem !important; }
-    .hp-cta-trust { font-size: 0.78rem; color: #383838; margin-top: 28px; letter-spacing: 0.3px; }
+    .hp-cta-trust { font-size: 0.78rem; color: #666; margin-top: 28px; letter-spacing: 0.3px; }
     .chain-branch-mt { margin-top: 36px; }
 
-    body.light-theme .hp-cta-stat { text-shadow: 0 0 40px rgba(5,150,105,0.2); }
-    body.light-theme .hp-cta p { color: #888; }
+    body.light-theme .hp-cta-stat { color: #059669; text-shadow: 0 0 40px rgba(5,150,105,0.2); }
+    body.light-theme .hp-cta h2 { color: #111; }
+    body.light-theme .hp-cta h2 em { color: #059669; }
+    body.light-theme .hp-cta p { color: #666; }
     body.light-theme .hp-hero-section, body.light-theme .hp-dialer-section,
     body.light-theme .hp-how-section, body.light-theme .hp-cta-section { background: #f8f9fb; }
     body.light-theme .hp-ai-section, body.light-theme .hp-pricing-section { background: #f3f5f8; }
-    body.light-theme .hp-cta-trust { color: #b0b0b0; }
+    body.light-theme .hp-cta-trust { color: #888; }
 
     .hp-mkt-body-wide { max-width: 580px; margin: 0 auto; }
     .hp-mkt-body-std  { max-width: 520px; margin: 0 auto; }
@@ -552,7 +545,7 @@
     .hp-price-cents.accent { color: var(--accent); }
     .hp-pricing-btn { font-weight: 700 !important; background: transparent !important; border: 1px solid rgba(255,255,255,0.15) !important; color: #fff !important; }
     .hp-pricing-btn:hover { background: rgba(255,255,255,0.05) !important; border-color: rgba(255,255,255,0.25) !important; }
-    .hp-comparison-disclaimer { color: #333; font-size: 0.7rem; text-align: center; margin-top: 10px; }
+    .hp-comparison-disclaimer { color: #666; font-size: 0.7rem; text-align: center; margin-top: 10px; }
     body.light-theme .hp-price-cents { color: #111; }
     body.light-theme .hp-pricing-btn { background: #f0f0f0 !important; border-color: #ddd !important; color: #111 !important; }
     body.light-theme .hp-pricing-btn:hover { background: #e8e8e8 !important; }
@@ -568,10 +561,36 @@
         to   { opacity: 1; }
     }
 
-    /* ── Hero line accent (light theme) ── */
-    body.light-theme .hero-line-accent,
-    body.light-theme .h1-line:nth-child(3) { color: #059669; }
-    body.light-theme .h1-line:nth-child(3) em::after { background: #059669; }
+    /* ── Hero (light theme) ── */
+    body.light-theme .hp-hero-h1 { color: #059669; }
+    body.light-theme .hp-hero-h1 em::after { background: #059669; }
+    body.light-theme .hp-hero { background: #f8f9fb; }
+    body.light-theme .hp-hero::before { background: radial-gradient(ellipse at 50% 100%, rgba(5,150,105,0.08) 0%, rgba(5,150,105,0.03) 40%, transparent 70%); }
+    body.light-theme .hp-hero::after { background: linear-gradient(90deg, transparent, rgba(5,150,105,0.25) 30%, rgba(5,150,105,0.50) 50%, rgba(5,150,105,0.25) 70%, transparent); }
+    body.light-theme .hp-hero-label { color: #059669; border-color: rgba(5,150,105,0.25); background: rgba(5,150,105,0.05); }
+    body.light-theme .hp-hero-label::before { background: #059669; box-shadow: 0 0 8px #059669; }
+    body.light-theme .hp-hero-ticker { color: #666; }
+    body.light-theme .hp-ticker-prefix { color: #888; }
+    body.light-theme .hp-ticker-value { color: #111; }
+    body.light-theme .hp-ticker-cursor { background: #059669; }
+    body.light-theme .hp-btn-trial { background: #059669; color: #fff; box-shadow: none; animation: none; }
+    body.light-theme .hp-btn-trial:hover { background: #047857; color: #fff; }
+    body.light-theme .hp-btn-demo { color: #666; border-color: #ddd; }
+    body.light-theme .hp-btn-demo:hover { color: #111; border-color: #bbb; }
+    body.light-theme .hp-corner::before, body.light-theme .hp-corner::after { background: #059669; }
+    body.light-theme .hp-scanline { background: linear-gradient(90deg, transparent 0%, rgba(5,150,105,0.4) 20%, rgba(5,150,105,0.7) 50%, rgba(5,150,105,0.4) 80%, transparent 100%); }
+    body.light-theme .hp-stats { background: #f8f9fb; border-color: #e8e8e8; }
+    body.light-theme .hp-stat { border-right-color: #e8e8e8; }
+    body.light-theme .hp-stat-num { color: #111; }
+    body.light-theme .hp-stat-num.green { color: #059669; }
+    body.light-theme .hp-stat-lbl { color: #888; }
+    body.light-theme .hp-section-sep { border-top-color: #e8e8e8; }
+    body.light-theme .hp-footnote { color: #999; }
+    body.light-theme .hp-footnote a { color: #059669; }
+    body.light-theme .hp-agency-note a { color: #059669; }
+    body.light-theme .hp-price-period { color: #888; }
+    body.light-theme .hp-price-sub { color: #888; }
+    body.light-theme .hp-price-trial { color: #059669; }
 
     /* ── Featured pricing button ── */
     .hp-pricing-btn-featured { font-weight: 700; background: #00ff88; color: #000; border: none; }
@@ -715,11 +734,7 @@
             <div class="hp-hero-inner">
                 <div class="hp-hero-label">Power Dialer for Life Insurance Agents</div>
 
-                <h1 class="hp-hero-h1">
-                    <span class="h1-line">4 Lines Dialing.</span>
-                    <span class="h1-line">AI Books the Appointments.</span>
-                    <span class="h1-line hero-line-accent"><em>No More Spam Likely.</em></span>
-                </h1>
+                <h1 class="hp-hero-h1"><em>No More Spam Likely.</em></h1>
 
                 <div class="hp-hero-ticker">
                     <span class="hp-ticker-prefix">Built for agents who want </span><span class="hp-ticker-value" id="heroRotate">4 lines simultaneously.</span><span class="hp-ticker-cursor"></span>
@@ -737,9 +752,9 @@
                 </div>
 
                 <div class="hp-trust-strip">
-                    <span class="hp-trust-item"><i class="fa-solid fa-check"></i> No credit card required</span>
                     <span class="hp-trust-item"><i class="fa-solid fa-check"></i> Cancel anytime</span>
                     <span class="hp-trust-item"><i class="fa-solid fa-check"></i> 7 days free</span>
+                    <span class="hp-trust-item"><i class="fa-solid fa-check"></i> No long-term contract</span>
                 </div>
             </div>
         </div>

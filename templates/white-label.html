@@ -18,7 +18,7 @@
 <style>
     .wl-hero { padding: 150px 0 80px; position: relative; overflow: hidden; }
     .wl-hero::before { content: ''; position: absolute; inset: 0; background: radial-gradient(ellipse at 30% 20%, rgba(139,92,246,0.12) 0%, transparent 60%), radial-gradient(ellipse at 70% 80%, rgba(0,255,136,0.06) 0%, transparent 50%); pointer-events: none; }
-    .wl-tag { display: inline-block; background: rgba(139,92,246,0.08); border: 1px solid rgba(139,92,246,0.25); color: #a78bfa; padding: 5px 16px; border-radius: 20px; font-size: 0.72rem; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 16px; }
+    .wl-tag { display: inline-block; background: #13071a; border: 1px solid rgba(139,92,246,0.25); color: #a78bfa; padding: 5px 16px; border-radius: 20px; font-size: 0.72rem; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 16px; }
     .wl-h1 { font-size: clamp(2.4rem, 4.5vw, 3.6rem); font-weight: 900; line-height: 1.08; margin-bottom: 20px; color: #fff; }
     .wl-h1 span { background: linear-gradient(135deg, #8b5cf6, #a78bfa, #c4b5fd); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
     .wl-sub { color: #999; font-size: 1.1rem; max-width: 600px; margin: 0 auto 32px; line-height: 1.7; }
@@ -26,7 +26,7 @@
     .wl-brand-mockup .mock-brand-row { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
     .wl-brand-mockup .mock-logo { width: 32px; height: 32px; border-radius: 8px; background: linear-gradient(135deg, #8b5cf6, #6366f1); display: flex; align-items: center; justify-content: center; color: #fff; font-weight: 800; font-size: 0.9rem; }
     .wl-brand-mockup .mock-name { font-size: 1.1rem; font-weight: 700; color: #fff; }
-    .wl-brand-mockup .mock-bar { height: 8px; border-radius: 4px; background: rgba(255,255,255,0.06); margin-bottom: 8px; }
+    .wl-brand-mockup .mock-bar { height: 8px; border-radius: 4px; background: #161616; margin-bottom: 8px; }
     .wl-brand-mockup .mock-bar.short { width: 60%; }
     .wl-brand-mockup .mock-bar.medium { width: 80%; }
     .wl-grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
@@ -35,6 +35,78 @@
     body.light-theme .wl-sub { color: var(--lt-text-secondary); }
     body.light-theme .wl-brand-mockup .mock-name { color: var(--lt-text-primary); }
     body.light-theme .wl-brand-mockup .mock-bar { background: rgba(0,0,0,0.06); }
+    body.light-theme .wl-tag { background: rgba(139,92,246,0.08); }
+
+    /* Container helpers */
+    .wl-full-w-z2 { position: relative; z-index: 2; width: 100%; }
+    .wl-full-w    { width: 100%; }
+
+    /* Icon helpers */
+    .wl-ic-purple { color: #8b5cf6; font-size: 1.2rem; margin-bottom: 12px; display: block; }
+    .wl-ic-accent { color: var(--accent); font-size: 1.2rem; margin-bottom: 12px; display: block; }
+    .wl-ic-accent-lg { color: var(--accent); font-size: 1.5rem; margin-bottom: 16px; display: block; }
+    .wl-ic-purple-lg { color: #8b5cf6; font-size: 1.5rem; margin-bottom: 16px; display: block; }
+    .wl-ic-green-lg  { color: #00ff88; font-size: 1.5rem; margin-bottom: 16px; display: block; }
+    .wl-ic-check { color: #8b5cf6; }
+
+    /* Card text */
+    .wl-card-h5 { font-weight: 700; color: #fff; margin-bottom: 8px; }
+    .wl-card-p  { color: #bbb; font-size: 0.88rem; line-height: 1.65; margin: 0; }
+    .wl-cap-p   { color: #888; font-size: 0.82rem; line-height: 1.6; margin: 0; }
+
+    /* Mock sidebar */
+    .wl-mock-company { display: flex; align-items: center; gap: 2px; flex-direction: column; }
+    .wl-mock-col { display: flex; flex-direction: column; gap: 6px; }
+    .wl-mock-logo-box { width: 28px; height: 28px; border-radius: 6px; background: linear-gradient(135deg,#8b5cf6,#6366f1); display: flex; align-items: center; justify-content: center; color: #fff; font-weight: 800; font-size: 0.75rem; }
+    .wl-mock-company-name { font-weight: 700; color: #fff; font-size: 0.95rem; }
+    .wl-mock-item-active { background: #1a0d2e; border-radius: 6px; padding: 8px 12px; color: #a78bfa; font-size: 0.78rem; font-weight: 600; }
+    .wl-mock-item { background: #141414; border-radius: 6px; padding: 8px 12px; color: #888; font-size: 0.78rem; }
+
+    /* How It Works steps */
+    .wl-steps { display: flex; flex-direction: column; gap: 20px; margin-top: 24px; }
+    .wl-step   { display: flex; gap: 14px; align-items: flex-start; }
+    .wl-step-num-purple { width: 32px; height: 32px; border-radius: 50%; background: #1a0d2e; display: flex; align-items: center; justify-content: center; color: #8b5cf6; font-weight: 800; font-size: 0.85rem; flex-shrink: 0; }
+    .wl-step-num-green  { width: 32px; height: 32px; border-radius: 50%; background: #0d1f14; display: flex; align-items: center; justify-content: center; color: var(--accent); font-weight: 800; font-size: 0.85rem; flex-shrink: 0; }
+    .wl-step-h6 { font-weight: 700; color: #fff; margin-bottom: 4px; }
+    .wl-step-p  { color: #888; font-size: 0.85rem; margin: 0; }
+
+    /* Inset glass mock */
+    .wl-inset-inner { text-align: center; padding: 40px 20px; }
+    .wl-inset-ic    { font-size: 3rem; color: #8b5cf6; opacity: 0.3; margin-bottom: 16px; display: block; }
+    .wl-inset-hint  { font-size: 0.85rem; color: #888; }
+    .wl-inset-dots  { margin-top: 20px; display: flex; justify-content: center; gap: 8px; }
+    .wl-dot-purple  { width: 10px; height: 10px; border-radius: 50%; background: #8b5cf6; }
+    .wl-dot-green   { width: 10px; height: 10px; border-radius: 50%; background: var(--accent); }
+
+    /* Section sub helpers */
+    .wl-sub-narrow { max-width: 600px; margin: 8px auto 0; }
+
+    /* Section padding */
+    .wl-sec-pb60 { padding-bottom: 60px; }
+
+    /* CTA card */
+    .wl-cta-card     { padding: 60px 40px; max-width: 720px; margin: 0 auto; }
+    .wl-cta-h2       { font-weight: 900; font-size: 2rem; margin-bottom: 12px; color: #fff; }
+    .wl-cta-sub      { color: #888; font-size: 0.95rem; max-width: 480px; margin: 0 auto 24px; }
+    .wl-cta-btn-fw   { font-weight: 700; }
+
+    body.light-theme .wl-ic-check        { color: #8b5cf6; }
+    body.light-theme .wl-card-h5         { color: #111; }
+    body.light-theme .wl-card-p          { color: #555; }
+    body.light-theme .wl-cap-p           { color: #555; }
+    body.light-theme .wl-mock-company-name { color: #111; }
+    body.light-theme .wl-mock-item       { background: #f5f5f5; color: #555; }
+    body.light-theme .wl-mock-item-active { background: rgba(139,92,246,0.1); color: #7c3aed; }
+    body.light-theme .wl-step-num-purple { background: rgba(139,92,246,0.1); }
+    body.light-theme .wl-step-num-green  { background: rgba(5,150,105,0.1); color: var(--lt-accent); }
+    body.light-theme .wl-step-h6         { color: #111; }
+    body.light-theme .wl-step-p          { color: #555; }
+    body.light-theme .wl-inset-hint      { color: #666; }
+    body.light-theme .wl-dot-green       { background: var(--lt-accent); }
+    body.light-theme .wl-cta-h2          { color: #111; }
+    body.light-theme .wl-cta-sub         { color: #555; }
+    body.light-theme .wl-ic-accent       { color: var(--lt-accent); }
+    body.light-theme .wl-ic-accent-lg    { color: var(--lt-accent); }
 </style>
 
 <!-- Side Dots Navigation -->
@@ -49,7 +121,7 @@
 
 <!-- ═══ SECTION 0: HERO ═══ -->
 <section class="ios-snap-section ios-hero wl-hero" id="iosSection0">
-    <div class="container" style="position: relative; z-index: 2; width: 100%;">
+    <div class="container wl-full-w-z2">
         <div class="text-center" data-aos="fade-up">
             <span class="wl-tag">White Label</span>
             <h1 class="wl-h1">Your Brand.<br><span>Your Platform.</span></h1>
@@ -75,29 +147,29 @@
 
 <!-- ═══ SECTION 1: YOUR BRAND, EVERYWHERE ═══ -->
 <section class="ios-snap-section" id="iosSection1">
-    <div class="container" style="width: 100%;">
+    <div class="container wl-full-w">
         <div class="ios-feat-grid" data-aos="fade-up">
             <div>
                 <span class="ios-section-label ios-section-label--purple">Your Identity</span>
                 <h2 class="ios-section-h2">Your Logo. Your Name.<br><span>Everywhere.</span></h2>
                 <p class="ios-section-sub">When your agents log in, they see your agency's brand — not ours. The sidebar, the topbar, the page titles — all customized to match your identity.</p>
                 <ul class="ios-feat-list">
-                    <li><i class="fa-solid fa-check" style="color: #8b5cf6;"></i> Your company logo in the sidebar and header</li>
-                    <li><i class="fa-solid fa-check" style="color: #8b5cf6;"></i> Your agency name with custom font and styling</li>
-                    <li><i class="fa-solid fa-check" style="color: #8b5cf6;"></i> Light and dark themes that work with any brand</li>
-                    <li><i class="fa-solid fa-check" style="color: #8b5cf6;"></i> Your agents never see "InsuranceGrokBot"</li>
+                    <li><i class="fa-solid fa-check wl-ic-check"></i> Your company logo in the sidebar and header</li>
+                    <li><i class="fa-solid fa-check wl-ic-check"></i> Your agency name with custom font and styling</li>
+                    <li><i class="fa-solid fa-check wl-ic-check"></i> Light and dark themes that work with any brand</li>
+                    <li><i class="fa-solid fa-check wl-ic-check"></i> Your agents never see "InsuranceGrokBot"</li>
                 </ul>
             </div>
             <div class="mock-panel mock-panel--purple" data-aos="fade-left">
                 <div class="d-flex align-items-center gap-2 mb-3">
-                    <div style="width:28px;height:28px;border-radius:6px;background:linear-gradient(135deg,#8b5cf6,#6366f1);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:0.75rem;">A</div>
-                    <span style="font-weight:700;color:#fff;font-size:0.95rem;">Acme Insurance</span>
+                    <div class="wl-mock-logo-box">A</div>
+                    <span class="wl-mock-company-name">Acme Insurance</span>
                 </div>
-                <div style="display:flex;flex-direction:column;gap:6px;">
-                    <div style="background:rgba(139,92,246,0.12);border-radius:6px;padding:8px 12px;color:#a78bfa;font-size:0.78rem;font-weight:600;"><i class="fa-solid fa-phone-volume me-2"></i>Dialer</div>
-                    <div style="background:rgba(255,255,255,0.04);border-radius:6px;padding:8px 12px;color:#888;font-size:0.78rem;"><i class="fa-solid fa-comment-sms me-2"></i>SMS Config</div>
-                    <div style="background:rgba(255,255,255,0.04);border-radius:6px;padding:8px 12px;color:#888;font-size:0.78rem;"><i class="fa-solid fa-chart-line me-2"></i>Agency KPIs</div>
-                    <div style="background:rgba(255,255,255,0.04);border-radius:6px;padding:8px 12px;color:#888;font-size:0.78rem;"><i class="fa-solid fa-palette me-2"></i>White Label</div>
+                <div class="wl-mock-col">
+                    <div class="wl-mock-item-active"><i class="fa-solid fa-phone-volume me-2"></i>Dialer</div>
+                    <div class="wl-mock-item"><i class="fa-solid fa-comment-sms me-2"></i>SMS Config</div>
+                    <div class="wl-mock-item"><i class="fa-solid fa-chart-line me-2"></i>Agency KPIs</div>
+                    <div class="wl-mock-item"><i class="fa-solid fa-palette me-2"></i>White Label</div>
                 </div>
             </div>
         </div>
@@ -106,28 +178,28 @@
 
 <!-- ═══ SECTION 2: WHAT YOU CONTROL ═══ -->
 <section class="ios-snap-section auto-height" id="iosSection2">
-    <div class="container" style="width: 100%;">
+    <div class="container wl-full-w">
         <div class="text-center mb-5" data-aos="fade-up">
             <span class="ios-section-label ios-section-label--accent">Customization</span>
             <h2 class="ios-section-h2">Simple Controls. <span>Big Impact.</span></h2>
-            <p class="ios-section-sub" style="max-width: 600px; margin: 8px auto 0;">No design degree required. Set your brand in under 60 seconds.</p>
+            <p class="ios-section-sub wl-sub-narrow">No design degree required. Set your brand in under 60 seconds.</p>
         </div>
 
         <div class="wl-grid-3" data-aos="fade-up">
             <div class="mkt-glass-card mkt-glass-card--purple">
-                <i class="fa-solid fa-image" style="font-size: 1.5rem; color: #8b5cf6; margin-bottom: 16px; display: block;"></i>
-                <h5 style="font-weight: 700; color: #fff; margin-bottom: 8px;">Upload Your Logo</h5>
-                <p style="color: #bbb; font-size: 0.88rem; line-height: 1.65; margin: 0;">Drop in your agency logo — PNG, SVG, or JPG. We size it perfectly for the sidebar, topbar, and mobile views.</p>
+                <i class="fa-solid fa-image wl-ic-purple-lg"></i>
+                <h5 class="wl-card-h5">Upload Your Logo</h5>
+                <p class="wl-card-p">Drop in your agency logo — PNG, SVG, or JPG. We size it perfectly for the sidebar, topbar, and mobile views.</p>
             </div>
             <div class="mkt-glass-card mkt-glass-card--cyan">
-                <i class="fa-solid fa-font" style="font-size: 1.5rem; color: #00ff88; margin-bottom: 16px; display: block;"></i>
-                <h5 style="font-weight: 700; color: #fff; margin-bottom: 8px;">Style Your Name</h5>
-                <p style="color: #bbb; font-size: 0.88rem; line-height: 1.65; margin: 0;">Pick from 10 professional fonts. Add bold, italic, or underline. See a live preview before you save.</p>
+                <i class="fa-solid fa-font wl-ic-green-lg"></i>
+                <h5 class="wl-card-h5">Style Your Name</h5>
+                <p class="wl-card-p">Pick from 10 professional fonts. Add bold, italic, or underline. See a live preview before you save.</p>
             </div>
             <div class="mkt-glass-card">
-                <i class="fa-solid fa-moon" style="font-size: 1.5rem; color: var(--accent); margin-bottom: 16px; display: block;"></i>
-                <h5 style="font-weight: 700; color: #fff; margin-bottom: 8px;">Light & Dark Themes</h5>
-                <p style="color: #bbb; font-size: 0.88rem; line-height: 1.65; margin: 0;">Both themes are built in. Your agents pick the one they prefer. Your brand looks great either way.</p>
+                <i class="fa-solid fa-moon wl-ic-accent-lg"></i>
+                <h5 class="wl-card-h5">Light & Dark Themes</h5>
+                <p class="wl-card-p">Both themes are built in. Your agents pick the one they prefer. Your brand looks great either way.</p>
             </div>
         </div>
     </div>
@@ -135,44 +207,44 @@
 
 <!-- ═══ SECTION 3: HOW IT WORKS ═══ -->
 <section class="ios-snap-section" id="iosSection3">
-    <div class="container" style="width: 100%;">
+    <div class="container wl-full-w">
         <div class="ios-feat-grid reverse" data-aos="fade-up">
             <div>
                 <span class="ios-section-label">Setup</span>
                 <h2 class="ios-section-h2">Three Steps. <span>Done.</span></h2>
                 <p class="ios-section-sub">No developers, no custom CSS, no IT tickets.</p>
-                <div style="display: flex; flex-direction: column; gap: 20px; margin-top: 24px;">
-                    <div style="display: flex; gap: 14px; align-items: flex-start;">
-                        <div style="width:32px;height:32px;border-radius:50%;background:rgba(139,92,246,0.15);display:flex;align-items:center;justify-content:center;color:#8b5cf6;font-weight:800;font-size:0.85rem;flex-shrink:0;">1</div>
+                <div class="wl-steps">
+                    <div class="wl-step">
+                        <div class="wl-step-num-purple">1</div>
                         <div>
-                            <h6 style="font-weight:700;color:#fff;margin-bottom:4px;">Open White Label settings</h6>
-                            <p style="color:#888;font-size:0.85rem;margin:0;">In your dashboard sidebar, click "White Label" under the Agency section.</p>
+                            <h6 class="wl-step-h6">Open White Label settings</h6>
+                            <p class="wl-step-p">In your dashboard sidebar, click "White Label" under the Agency section.</p>
                         </div>
                     </div>
-                    <div style="display: flex; gap: 14px; align-items: flex-start;">
-                        <div style="width:32px;height:32px;border-radius:50%;background:rgba(0,255,136,0.12);display:flex;align-items:center;justify-content:center;color:var(--accent);font-weight:800;font-size:0.85rem;flex-shrink:0;">2</div>
+                    <div class="wl-step">
+                        <div class="wl-step-num-green">2</div>
                         <div>
-                            <h6 style="font-weight:700;color:#fff;margin-bottom:4px;">Add your logo and name</h6>
-                            <p style="color:#888;font-size:0.85rem;margin:0;">Upload your logo, type your agency name, pick a font, and style it.</p>
+                            <h6 class="wl-step-h6">Add your logo and name</h6>
+                            <p class="wl-step-p">Upload your logo, type your agency name, pick a font, and style it.</p>
                         </div>
                     </div>
-                    <div style="display: flex; gap: 14px; align-items: flex-start;">
-                        <div style="width:32px;height:32px;border-radius:50%;background:rgba(0,255,136,0.12);display:flex;align-items:center;justify-content:center;color:#00ff88;font-weight:800;font-size:0.85rem;flex-shrink:0;">3</div>
+                    <div class="wl-step">
+                        <div class="wl-step-num-green">3</div>
                         <div>
-                            <h6 style="font-weight:700;color:#fff;margin-bottom:4px;">Hit save — that's it</h6>
-                            <p style="color:#888;font-size:0.85rem;margin:0;">Every agent in your agency sees your brand the next time they load the dashboard.</p>
+                            <h6 class="wl-step-h6">Hit save — that's it</h6>
+                            <p class="wl-step-p">Every agent in your agency sees your brand the next time they load the dashboard.</p>
                         </div>
                     </div>
                 </div>
             </div>
             <div class="mkt-inset-glass" data-aos="fade-right">
-                <div style="text-align:center;padding:40px 20px;">
-                    <i class="fa-solid fa-palette" style="font-size:3rem;color:#8b5cf6;opacity:0.3;margin-bottom:16px;display:block;"></i>
-                    <div style="font-size:0.85rem;color:#888;">Upload logo, type name, save.</div>
-                    <div style="margin-top:20px;display:flex;justify-content:center;gap:8px;">
-                        <div style="width:10px;height:10px;border-radius:50%;background:#8b5cf6;"></div>
-                        <div style="width:10px;height:10px;border-radius:50%;background:var(--accent);"></div>
-                        <div style="width:10px;height:10px;border-radius:50%;background:#00ff88;"></div>
+                <div class="wl-inset-inner">
+                    <i class="fa-solid fa-palette wl-inset-ic"></i>
+                    <div class="wl-inset-hint">Upload logo, type name, save.</div>
+                    <div class="wl-inset-dots">
+                        <div class="wl-dot-purple"></div>
+                        <div class="wl-dot-green"></div>
+                        <div class="wl-dot-green"></div>
                     </div>
                 </div>
             </div>
@@ -182,47 +254,47 @@
 
 <!-- ═══ SECTION 4: WHY IT MATTERS ═══ -->
 <section class="ios-snap-section auto-height" id="iosSection4">
-    <div class="container" style="width: 100%;">
+    <div class="container wl-full-w">
         <div class="text-center mb-5" data-aos="fade-up">
             <span class="ios-section-label ios-section-label--orange">Why It Matters</span>
             <h2 class="ios-section-h2">Your Brand Builds <span>Trust.</span></h2>
-            <p class="ios-section-sub" style="max-width: 600px; margin: 8px auto 0;">Your agents trust tools that look like they belong to your organization — not some third-party they've never heard of.</p>
+            <p class="ios-section-sub wl-sub-narrow">Your agents trust tools that look like they belong to your organization — not some third-party they've never heard of.</p>
         </div>
 
         <div class="ios-cap-grid" data-aos="fade-up">
             <div class="ios-cap-item">
-                <i class="fa-solid fa-shield-halved" style="color: var(--accent); font-size: 1.2rem; margin-bottom: 12px; display: block;"></i>
+                <i class="fa-solid fa-shield-halved wl-ic-accent"></i>
                 <h6>Agent Confidence</h6>
-                <p style="color: #888; font-size: 0.82rem; line-height: 1.6; margin: 0;">Your agents see your name, not a vendor. They adopt the tool faster because it feels like yours.</p>
+                <p class="wl-cap-p">Your agents see your name, not a vendor. They adopt the tool faster because it feels like yours.</p>
             </div>
             <div class="ios-cap-item">
-                <i class="fa-solid fa-handshake" style="color: #00ff88; font-size: 1.2rem; margin-bottom: 12px; display: block;"></i>
+                <i class="fa-solid fa-handshake wl-ic-accent"></i>
                 <h6>Professional Image</h6>
-                <p style="color: #888; font-size: 0.82rem; line-height: 1.6; margin: 0;">Looks like you built it. Clients and recruits see a polished, unified agency brand.</p>
+                <p class="wl-cap-p">Looks like you built it. Clients and recruits see a polished, unified agency brand.</p>
             </div>
             <div class="ios-cap-item">
-                <i class="fa-solid fa-users" style="color: #8b5cf6; font-size: 1.2rem; margin-bottom: 12px; display: block;"></i>
+                <i class="fa-solid fa-users wl-ic-purple"></i>
                 <h6>Team Unity</h6>
-                <p style="color: #888; font-size: 0.82rem; line-height: 1.6; margin: 0;">Every agent, same platform, same brand. No confusion about which tool to use.</p>
+                <p class="wl-cap-p">Every agent, same platform, same brand. No confusion about which tool to use.</p>
             </div>
             <div class="ios-cap-item">
-                <i class="fa-solid fa-arrow-trend-up" style="color: #ff6b6b; font-size: 1.2rem; margin-bottom: 12px; display: block;"></i>
+                <i class="fa-solid fa-arrow-trend-up wl-ic-purple" style="color: #ff6b6b"></i>
                 <h6>Higher Adoption</h6>
-                <p style="color: #888; font-size: 0.82rem; line-height: 1.6; margin: 0;">Branded tools get used more. Agents log in because it's "their" dashboard, not someone else's.</p>
+                <p class="wl-cap-p">Branded tools get used more. Agents log in because it's "their" dashboard, not someone else's.</p>
             </div>
         </div>
     </div>
 </section>
 
 <!-- ═══ SECTION 5: CTA ═══ -->
-<section class="ios-snap-section auto-height" id="iosSection5" style="padding-bottom: 60px;">
-    <div class="container" style="width: 100%;">
+<section class="ios-snap-section auto-height wl-sec-pb60" id="iosSection5">
+    <div class="container wl-full-w">
         <div class="text-center" data-aos="fade-up">
-            <div class="mkt-glass-card mkt-glass-card--purple" style="padding: 60px 40px; max-width: 720px; margin: 0 auto;">
-                <h2 style="font-weight: 900; font-size: 2rem; margin-bottom: 12px; color: #fff;">Make It Yours.</h2>
-                <p style="color: #888; font-size: 0.95rem; max-width: 480px; margin: 0 auto 24px;">White-label branding is included with every agency plan. Set it up in under a minute.</p>
+            <div class="mkt-glass-card mkt-glass-card--purple wl-cta-card">
+                <h2 class="wl-cta-h2">Make It Yours.</h2>
+                <p class="wl-cta-sub">White-label branding is included with every agency plan. Set it up in under a minute.</p>
                 <div class="d-flex justify-content-center gap-3 flex-wrap">
-                    <a href="/for-agencies" class="btn btn-lg btn-gradient-purple" style="font-weight: 700;"><i class="fa-solid fa-building me-2"></i>See Agency Plans</a>
+                    <a href="/for-agencies" class="btn btn-lg btn-gradient-purple wl-cta-btn-fw"><i class="fa-solid fa-building me-2"></i>See Agency Plans</a>
                     <a href="/for-individuals" class="btn btn-outline-accent btn-lg">Solo Agent? Start Here</a>
                 </div>
             </div>

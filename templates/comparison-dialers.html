@@ -8,29 +8,116 @@
 <style>
     .vs-hero { padding: 140px 0 60px; position: relative; overflow: hidden; }
     .vs-hero::before { content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: radial-gradient(ellipse at 30% 20%, rgba(0,255,136,0.08) 0%, transparent 55%), radial-gradient(ellipse at 70% 80%, rgba(0,255,136,0.05) 0%, transparent 50%); pointer-events: none; }
-    .vs-column { background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); border-radius: 16px; padding: 32px; height: 100%; }
-    .vs-column.igb { border-color: rgba(0,255,136,0.2); background: rgba(0,255,136,0.02); }
+    .vs-column { background: #0a0a0a; border: 1px solid #1a1a1a; border-radius: 16px; padding: 32px; height: 100%; }
+    .vs-column.igb { border-color: rgba(0,255,136,0.2); background: #081108; }
     .vs-column.dialer { border-color: rgba(255,255,255,0.08); }
     .vs-row { display: flex; align-items: center; gap: 12px; padding: 14px 0; border-bottom: 1px solid rgba(255,255,255,0.04); }
     .vs-row:last-child { border-bottom: none; }
     .vs-check { color: var(--accent); font-size: 0.9rem; flex-shrink: 0; width: 20px; text-align: center; }
     .vs-x { color: #555; font-size: 0.9rem; flex-shrink: 0; width: 20px; text-align: center; }
     .vs-label { color: #ccc; font-size: 0.88rem; }
-    .analogy-card { background: linear-gradient(135deg, rgba(0,255,136,0.04), rgba(0,255,136,0.03)); border: 1px solid rgba(0,255,136,0.15); border-radius: 16px; padding: 32px; text-align: center; }
-    .competitor-logo { display: inline-flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 24px; padding: 8px 18px; font-size: 0.82rem; color: #888; font-weight: 600; }
-    .bottom-line-card { background: rgba(0,255,136,0.04); border: 1px solid rgba(0,255,136,0.2); border-radius: 16px; padding: 28px; }
+    .analogy-card { background: #081108; border: 1px solid rgba(0,255,136,0.15); border-radius: 16px; padding: 32px; text-align: center; }
+    .competitor-logo { display: inline-flex; align-items: center; gap: 8px; background: #111; border: 1px solid #1e1e1e; border-radius: 24px; padding: 8px 18px; font-size: 0.82rem; color: #888; font-weight: 600; }
+    .bottom-line-card { background: #081108; border: 1px solid rgba(0,255,136,0.2); border-radius: 16px; padding: 28px; }
     .bottom-line-card h4 { color: var(--accent); font-weight: 700; margin-bottom: 8px; font-size: 0.95rem; }
     .bottom-line-card p { color: #aaa; font-size: 0.88rem; margin: 0; line-height: 1.65; }
+
+    /* Hero section */
+    .vs-hero-z { position: relative; z-index: 2; }
+    .vs-hero-eyebrow { color: #00ff88; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; font-size: 0.8rem; }
+    .vs-hero-h1 { font-size: 2.8rem; font-weight: 900; line-height: 1.15; margin: 16px 0 20px; }
+    .vs-hero-h1-accent { color: #00ff88; }
+    .vs-hero-sub { color: #aaa; font-size: 1.1rem; max-width: 640px; margin: 0 auto; }
+
+    /* Core difference section */
+    .vs-section-pt { padding-top: 20px; }
+
+    /* Column icons */
+    .vs-col-icon-muted { font-size: 2rem; color: #555; margin-bottom: 12px; }
+    .vs-col-icon-accent { font-size: 2rem; color: var(--accent); margin-bottom: 12px; }
+
+    /* Muted vs-label variant */
+    .vs-label-muted { color: #666; }
+
+    /* Bottom line note */
+    .vs-bottom-note { background: #0a0a0a; border: 1px solid #1a1a1a; border-radius: 10px; padding: 16px; margin-top: 20px; font-size: 0.85rem; color: #aaa; }
+
+    /* Pricing table wrapper */
+    .vs-table-wrap { overflow-x: auto; }
+    .vs-price-table { width: 100%; border-collapse: collapse; min-width: 600px; }
+    .vs-price-table thead tr { border-bottom: 2px solid rgba(0,255,136,0.2); }
+    .vs-price-table thead th {
+        padding: 14px;
+        text-align: left;
+        color: #888;
+        font-size: 0.82rem;
+        font-weight: 600;
+    }
+    .vs-price-table thead th.vs-th-igb { text-align: center; color: var(--accent); }
+    .vs-price-table thead th.vs-th-center { text-align: center; }
+    .vs-price-table tbody tr { border-bottom: 1px solid #111; }
+    .vs-price-table tbody td { padding: 14px; color: #ccc; font-size: 0.9rem; }
+    .vs-price-table tbody td.vs-td-center { text-align: center; color: #aaa; }
+    .vs-price-table tbody td.vs-td-check { text-align: center; }
+    .vs-price-table tbody td.vs-td-check i.fa-check { color: var(--accent); font-size: 1.1rem; }
+    .vs-price-table tbody td.vs-td-check i.fa-check-double { color: var(--accent); font-size: 1.3rem; }
+    .vs-price-table tbody .vs-tr-total { border-bottom: 2px solid rgba(0,255,136,0.2); }
+    .vs-price-table tbody .vs-tr-total td { font-size: 0.95rem; font-weight: 700; color: #fff; }
+    .vs-price-table tbody .vs-tr-total .vs-total-cost { text-align: center; color: #ef4444; font-size: 1.1rem; font-weight: 900; }
+    .vs-price-table tbody .vs-tr-igb td.vs-td-igb-name { color: var(--accent); font-size: 0.95rem; font-weight: 700; }
+    .vs-price-table tbody .vs-tr-igb td.vs-td-igb-price { text-align: center; color: var(--accent); font-size: 1.3rem; font-weight: 900; }
+    .vs-pro-badge { font-size: 0.72rem; color: #ff6b35; }
+
+    /* CTA card */
+    .vs-cta-card {
+        background: #0a0a0a;
+        border: 2px solid rgba(0,255,136,0.2);
+        border-radius: 12px;
+        padding: 48px;
+        max-width: 650px;
+        margin: 0 auto;
+    }
+    .vs-cta-link { color: #00ff88; font-size: 0.85rem; text-decoration: none; }
+    .vs-btn-lg { padding: 14px 40px; }
+    .vs-btn-primary-lg { padding: 14px 40px; font-weight: 700; }
+
+    /* Light theme */
+    body.light-theme .vs-hero-eyebrow { color: var(--lt-accent); }
+    body.light-theme .vs-hero-h1-accent { color: var(--lt-accent); }
+    body.light-theme .vs-hero-sub { color: #555; }
+    body.light-theme .vs-col-icon-accent { color: var(--lt-accent); }
+    body.light-theme .vs-bottom-note { background: #f5f5f5; border-color: #e0e0e0; color: #666; }
+    body.light-theme .vs-price-table thead th { color: #777; }
+    body.light-theme .vs-price-table thead th.vs-th-igb { color: var(--lt-accent); }
+    body.light-theme .vs-price-table tbody td { color: #444; }
+    body.light-theme .vs-price-table tbody td.vs-td-center { color: #666; }
+    body.light-theme .vs-price-table tbody td.vs-td-check i { color: var(--lt-accent); }
+    body.light-theme .vs-price-table tbody .vs-tr-igb td.vs-td-igb-name { color: var(--lt-accent); }
+    body.light-theme .vs-price-table tbody .vs-tr-igb td.vs-td-igb-price { color: var(--lt-accent); }
+    body.light-theme .vs-cta-card { background: #fff; border-color: rgba(5,150,105,0.2); }
+    body.light-theme .vs-cta-link { color: var(--lt-accent); }
+
+    /* Light theme */
+    body.light-theme .vs-column { background: #ffffff; border-color: #e0e0e0; }
+    body.light-theme .vs-column.igb { background: #f0faf5; border-color: rgba(5,150,105,0.25); }
+    body.light-theme .vs-column.dialer { border-color: #e0e0e0; }
+    body.light-theme .vs-label { color: #555; }
+    body.light-theme .vs-x { color: #bbb; }
+    body.light-theme .analogy-card { background: #f0faf5; border-color: rgba(5,150,105,0.2); }
+    body.light-theme .competitor-logo { background: #f5f5f5; border-color: #e0e0e0; color: #666; }
+    body.light-theme .bottom-line-card { background: #f0faf5; border-color: rgba(5,150,105,0.25); }
+    body.light-theme .bottom-line-card h4 { color: var(--lt-accent); }
+    body.light-theme .bottom-line-card p { color: #555; }
 </style>
 
 <section class="vs-hero">
-    <div class="container" style="position: relative; z-index: 2;">
+    <div class="container vs-hero-z">
         <div class="text-center" data-aos="fade-up">
-            <span style="color: #00ff88; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; font-size: 0.8rem;">The Honest Comparison</span>
-            <h1 style="font-size: 2.8rem; font-weight: 900; line-height: 1.15; margin: 16px 0 20px;">
-                "Why Not Just Use<br><span style="color: #00ff88;">Another Dialer?</span>"
+            <span class="vs-hero-eyebrow">The Honest Comparison</span>
+            <h1 class="vs-hero-h1">
+                "Why Not Just Use<br><span class="vs-hero-h1-accent">Another Dialer?</span>"
             </h1>
-            <p style="color: #aaa; font-size: 1.1rem; max-width: 640px; margin: 0 auto;">
+            <p class="vs-hero-sub">
                 We hear this question a lot. Here's the honest answer: you're not comparing the same thing.
                 A dialer helps you call faster. InsuranceGrokBot replaces the need to call at all.
             </p>
@@ -39,7 +126,7 @@
 </section>
 
 <!-- The Core Difference -->
-<section class="section" style="padding-top: 20px;">
+<section class="section vs-section-pt">
     <div class="container">
         <div class="row justify-content-center mb-5" data-aos="fade-up">
             <div class="col-lg-8">
@@ -64,8 +151,8 @@
         <div class="row g-4 mb-5" data-aos="fade-up">
             <div class="col-lg-6">
                 <div class="vs-column dialer">
-                    <div style="text-align: center; margin-bottom: 24px;">
-                        <i class="fa-solid fa-phone-volume" style="font-size: 2rem; color: #555; margin-bottom: 12px;"></i>
+                    <div class="text-center" style="margin-bottom: 24px;">
+                        <i class="fa-solid fa-phone-volume vs-col-icon-muted"></i>
                         <h3 style="font-weight: 800; color: #888; font-size: 1.3rem;">What a Dialer Does</h3>
                         <p style="color: #666; font-size: 0.85rem;">WAVV, Mojo, PhoneBurner, etc.</p>
                     </div>
@@ -75,16 +162,16 @@
                     <div class="vs-row"><span class="vs-check"><i class="fa-solid fa-check"></i></span> <span class="vs-label">Call disposition logging</span></div>
                     <div class="vs-row"><span class="vs-check"><i class="fa-solid fa-check"></i></span> <span class="vs-label">Local presence / number rotation</span></div>
                     <div class="vs-row"><span class="vs-check"><i class="fa-solid fa-check"></i></span> <span class="vs-label">Basic call analytics</span></div>
-                    <div class="vs-row"><span class="vs-x"><i class="fa-solid fa-xmark"></i></span> <span class="vs-label" style="color: #666;">No AI text replies</span></div>
-                    <div class="vs-row"><span class="vs-x"><i class="fa-solid fa-xmark"></i></span> <span class="vs-label" style="color: #666;">No conversation memory</span></div>
-                    <div class="vs-row"><span class="vs-x"><i class="fa-solid fa-xmark"></i></span> <span class="vs-label" style="color: #666;">No lead scoring or intelligence</span></div>
-                    <div class="vs-row"><span class="vs-x"><i class="fa-solid fa-xmark"></i></span> <span class="vs-label" style="color: #666;">No insurance knowledge</span></div>
-                    <div class="vs-row"><span class="vs-x"><i class="fa-solid fa-xmark"></i></span> <span class="vs-label" style="color: #666;">No AI voice conversations</span></div>
-                    <div class="vs-row"><span class="vs-x"><i class="fa-solid fa-xmark"></i></span> <span class="vs-label" style="color: #666;">No automatic calendar booking</span></div>
-                    <div class="vs-row"><span class="vs-x"><i class="fa-solid fa-xmark"></i></span> <span class="vs-label" style="color: #666;">No unified dashboard</span></div>
+                    <div class="vs-row"><span class="vs-x"><i class="fa-solid fa-xmark"></i></span> <span class="vs-label vs-label-muted">No AI text replies</span></div>
+                    <div class="vs-row"><span class="vs-x"><i class="fa-solid fa-xmark"></i></span> <span class="vs-label vs-label-muted">No conversation memory</span></div>
+                    <div class="vs-row"><span class="vs-x"><i class="fa-solid fa-xmark"></i></span> <span class="vs-label vs-label-muted">No lead scoring or intelligence</span></div>
+                    <div class="vs-row"><span class="vs-x"><i class="fa-solid fa-xmark"></i></span> <span class="vs-label vs-label-muted">No insurance knowledge</span></div>
+                    <div class="vs-row"><span class="vs-x"><i class="fa-solid fa-xmark"></i></span> <span class="vs-label vs-label-muted">No AI voice conversations</span></div>
+                    <div class="vs-row"><span class="vs-x"><i class="fa-solid fa-xmark"></i></span> <span class="vs-label vs-label-muted">No automatic calendar booking</span></div>
+                    <div class="vs-row"><span class="vs-x"><i class="fa-solid fa-xmark"></i></span> <span class="vs-label vs-label-muted">No unified dashboard</span></div>
 
-                    <div style="margin-top: 20px; padding: 16px; background: rgba(255,255,255,0.03); border-radius: 10px; text-align: center;">
-                        <p style="color: #666; font-size: 0.85rem; margin: 0;">
+                    <div class="vs-bottom-note text-center">
+                        <p style="margin: 0; font-size: 0.85rem; color: #aaa;">
                             <strong style="color: #888;">Bottom line:</strong> A dialer connects a human to a human faster.
                             When nobody picks up, the dialer can't do anything else.
                         </p>
@@ -94,8 +181,8 @@
 
             <div class="col-lg-6">
                 <div class="vs-column igb">
-                    <div style="text-align: center; margin-bottom: 24px;">
-                        <i class="fa-solid fa-brain" style="font-size: 2rem; color: var(--accent); margin-bottom: 12px;"></i>
+                    <div class="text-center" style="margin-bottom: 24px;">
+                        <i class="fa-solid fa-brain vs-col-icon-accent"></i>
                         <h3 style="font-weight: 800; color: #fff; font-size: 1.3rem;">What InsuranceGrokBot Does</h3>
                         <p style="color: var(--accent); font-size: 0.85rem; font-weight: 600;">All-in-one autonomous platform</p>
                     </div>
@@ -177,50 +264,50 @@
                         Most agents stack 3-5 tools to do what InsuranceGrokBot does in one subscription.
                     </p>
 
-                    <div style="overflow-x: auto;">
-                        <table style="width: 100%; border-collapse: collapse; min-width: 600px;">
+                    <div class="vs-table-wrap">
+                        <table class="vs-price-table">
                             <thead>
-                                <tr style="border-bottom: 2px solid rgba(0,255,136,0.2);">
-                                    <th style="padding: 14px; text-align: left; color: #888; font-size: 0.82rem; font-weight: 600;">Tool</th>
-                                    <th style="padding: 14px; text-align: center; color: #888; font-size: 0.82rem; font-weight: 600;">Typical Monthly Cost</th>
-                                    <th style="padding: 14px; text-align: center; color: var(--accent); font-size: 0.82rem; font-weight: 600;">Included in IGB?</th>
+                                <tr>
+                                    <th>Tool</th>
+                                    <th class="vs-th-center">Typical Monthly Cost</th>
+                                    <th class="vs-th-igb">Included in IGB?</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
-                                    <td style="padding: 14px; color: #ccc; font-size: 0.9rem;">Power Dialer + Multi-Line (WAVV, Mojo, PhoneBurner)</td>
-                                    <td style="padding: 14px; text-align: center; color: #aaa; font-size: 0.9rem;">$59 – $149/mo</td>
-                                    <td style="padding: 14px; text-align: center;"><i class="fa-solid fa-check" style="color: var(--accent); font-size: 1.1rem;"></i> <span style="font-size:0.72rem;color:#ff6b35;">Pro</span></td>
-                                </tr>
-                                <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
-                                    <td style="padding: 14px; color: #ccc; font-size: 0.9rem;">AI Text Bot (CloseBot, Setter AI)</td>
-                                    <td style="padding: 14px; text-align: center; color: #aaa; font-size: 0.9rem;">$49 – $199/mo</td>
-                                    <td style="padding: 14px; text-align: center;"><i class="fa-solid fa-check" style="color: var(--accent); font-size: 1.1rem;"></i></td>
-                                </tr>
-                                <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
-                                    <td style="padding: 14px; color: #ccc; font-size: 0.9rem;">AI Voice Agent (Sonant, Retell AI)</td>
-                                    <td style="padding: 14px; text-align: center; color: #aaa; font-size: 0.9rem;">$99 – $299/mo</td>
-                                    <td style="padding: 14px; text-align: center;"><i class="fa-solid fa-check" style="color: var(--accent); font-size: 1.1rem;"></i></td>
-                                </tr>
-                                <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
-                                    <td style="padding: 14px; color: #ccc; font-size: 0.9rem;">Lead Scoring / Intelligence Tool</td>
-                                    <td style="padding: 14px; text-align: center; color: #aaa; font-size: 0.9rem;">$49 – $99/mo</td>
-                                    <td style="padding: 14px; text-align: center;"><i class="fa-solid fa-check" style="color: var(--accent); font-size: 1.1rem;"></i></td>
-                                </tr>
-                                <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
-                                    <td style="padding: 14px; color: #ccc; font-size: 0.9rem;">Team Chat (Slack, Discord)</td>
-                                    <td style="padding: 14px; text-align: center; color: #aaa; font-size: 0.9rem;">$0 – $25/mo</td>
-                                    <td style="padding: 14px; text-align: center;"><i class="fa-solid fa-check" style="color: var(--accent); font-size: 1.1rem;"></i></td>
-                                </tr>
-                                <tr style="border-bottom: 2px solid rgba(0,255,136,0.2);">
-                                    <td style="padding: 16px; color: #fff; font-size: 0.95rem; font-weight: 700;">Total (stacking tools)</td>
-                                    <td style="padding: 16px; text-align: center; color: #ff3366; font-size: 1.1rem; font-weight: 900;">$256 – $771/mo</td>
-                                    <td style="padding: 16px; text-align: center;"></td>
+                                <tr>
+                                    <td>Power Dialer + Multi-Line (WAVV, Mojo, PhoneBurner)</td>
+                                    <td class="vs-td-center">$59 – $149/mo</td>
+                                    <td class="vs-td-check"><i class="fa-solid fa-check"></i> <span class="vs-pro-badge">Pro</span></td>
                                 </tr>
                                 <tr>
-                                    <td style="padding: 16px; color: var(--accent); font-size: 0.95rem; font-weight: 700;">InsuranceGrokBot (everything included)</td>
-                                    <td style="padding: 16px; text-align: center; color: var(--accent); font-size: 1.3rem; font-weight: 900;">From $149.98/mo</td>
-                                    <td style="padding: 16px; text-align: center;"><i class="fa-solid fa-check-double" style="color: var(--accent); font-size: 1.3rem;"></i></td>
+                                    <td>AI Text Bot (CloseBot, Setter AI)</td>
+                                    <td class="vs-td-center">$49 – $199/mo</td>
+                                    <td class="vs-td-check"><i class="fa-solid fa-check"></i></td>
+                                </tr>
+                                <tr>
+                                    <td>AI Voice Agent (Sonant, Retell AI)</td>
+                                    <td class="vs-td-center">$99 – $299/mo</td>
+                                    <td class="vs-td-check"><i class="fa-solid fa-check"></i></td>
+                                </tr>
+                                <tr>
+                                    <td>Lead Scoring / Intelligence Tool</td>
+                                    <td class="vs-td-center">$49 – $99/mo</td>
+                                    <td class="vs-td-check"><i class="fa-solid fa-check"></i></td>
+                                </tr>
+                                <tr>
+                                    <td>Team Chat (Slack, Discord)</td>
+                                    <td class="vs-td-center">$0 – $25/mo</td>
+                                    <td class="vs-td-check"><i class="fa-solid fa-check"></i></td>
+                                </tr>
+                                <tr class="vs-tr-total">
+                                    <td>Total (stacking tools)</td>
+                                    <td class="vs-total-cost">$256 – $771/mo</td>
+                                    <td></td>
+                                </tr>
+                                <tr class="vs-tr-igb">
+                                    <td class="vs-td-igb-name">InsuranceGrokBot (everything included)</td>
+                                    <td class="vs-td-igb-price">From $149.98/mo</td>
+                                    <td class="vs-td-check"><i class="fa-solid fa-check-double"></i></td>
                                 </tr>
                             </tbody>
                         </table>
@@ -231,18 +318,18 @@
 
         <!-- CTA -->
         <div class="text-center mt-5 pt-4" data-aos="fade-up">
-            <div class="glass-card p-5 mx-auto" style="max-width: 650px; border-color: rgba(0,255,136,0.2);">
+            <div class="vs-cta-card">
                 <h3 style="font-weight: 800; margin-bottom: 12px; color: #fff;">Stop Stacking Tools. Start Closing.</h3>
                 <p style="color: #888; margin-bottom: 24px; font-size: 0.95rem;">
                     One subscription. AI texting, smart dialer, AI calling, smart lead scoring, calendar booking,
                     270+ carrier knowledge, and agent training. All included.
                 </p>
                 <div class="d-flex justify-content-center gap-3 flex-wrap">
-                    <a href="/#pricing" class="btn btn-primary btn-lg" style="padding: 14px 40px; font-weight: 700;">Start your Free Trial</a>
-                    <a href="/demo-chat" class="btn btn-outline-accent btn-lg" style="padding: 14px 40px;">Try the Demo</a>
+                    <a href="/#pricing" class="btn btn-primary btn-lg vs-btn-primary-lg">Start your Free Trial</a>
+                    <a href="/demo-chat" class="btn btn-outline-accent btn-lg vs-btn-lg">Try the Demo</a>
                 </div>
                 <div class="mt-3">
-                    <a href="/comparison" style="color: #00ff88; font-size: 0.85rem; text-decoration: none;">
+                    <a href="/comparison" class="vs-cta-link">
                         See the full feature-by-feature breakdown <i class="fa-solid fa-arrow-right ms-1"></i>
                     </a>
                 </div>

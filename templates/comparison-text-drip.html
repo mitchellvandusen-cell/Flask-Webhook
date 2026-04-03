@@ -5,7 +5,351 @@
 {% block meta_description %}Why text drip campaigns fail for insurance agents. Compare static drip sequences to InsuranceGrokBot's context-aware AI that reads conversations, handles objections, and books appointments automatically.{% endblock %}
 
 {% block content %}
-<div class="container" style="padding-top: 120px; padding-bottom: 80px;">
+<style>
+/* ── comparison-text-drip.html remediation ──
+   Overrides legacy glass/translucent patterns to match the
+   sharp-solid design system. No backdrop-filter. No rgba glass.
+*/
+
+/* Page wrapper */
+.ctd-page { padding-top: 120px; padding-bottom: 80px; }
+
+/* Replace translucent glass-card inline background overrides */
+.ctd-pain-card {
+    background: #0a0a0a;
+    border: 1px solid #1a1a1a;
+    border-radius: 12px;
+    padding: 40px;
+    margin-bottom: 40px;
+}
+.ctd-pain-card-red {
+    background: #0a0a0a;
+    border: 1px solid rgba(239,68,68,0.25);
+    border-radius: 12px;
+    padding: 40px;
+    margin-bottom: 40px;
+}
+.ctd-callout-red {
+    background: #0a0a0a;
+    border: 2px solid rgba(239,68,68,0.3);
+    border-radius: 12px;
+    padding: 30px;
+    margin-bottom: 30px;
+}
+.ctd-callout-green {
+    background: #0a0a0a;
+    border-left: 4px solid #00ff88;
+    border-radius: 8px;
+    padding: 25px;
+    margin-bottom: 30px;
+    border-top: 1px solid #1a1a1a;
+    border-right: 1px solid #1a1a1a;
+    border-bottom: 1px solid #1a1a1a;
+}
+.ctd-stat-block {
+    padding: 20px;
+    background: #0d0d0d;
+    border-radius: 10px;
+    border: 1px solid rgba(239,68,68,0.2);
+}
+.ctd-stat-block-num { font-size: 2.2rem; font-weight: 700; color: #ef4444; }
+.ctd-stat-block-lbl { color: #999; font-size: 0.9rem; margin-top: 8px; }
+.ctd-stat-block-note { color: #666; font-size: 0.8rem; margin-top: 5px; }
+.ctd-summary-bar {
+    text-align: center;
+    padding: 30px;
+    background: #0d0d0d;
+    border: 1px solid rgba(239,68,68,0.2);
+    border-radius: 12px;
+}
+
+/* Icon boxes — solid replacements */
+.ctd-icon-box-red {
+    width: 80px; height: 80px;
+    background: #130505;
+    border: 1px solid rgba(239,68,68,0.2);
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    margin: 0 auto 20px;
+}
+.ctd-icon-red { font-size: 2rem; color: #ef4444; }
+
+/* Feature item borders */
+.ctd-feat-border-red { border-color: rgba(239,68,68,0.2) !important; }
+.ctd-feat-bg-red { background: #130505 !important; }
+.ctd-feat-title-red { color: #ef4444 !important; }
+
+/* Tab buttons — solid states (JS toggles active/inactive) */
+.ctd-tab-btn-active {
+    padding: 12px 30px;
+    background: #ef4444;
+    border: none;
+    border-radius: 8px;
+    color: #fff;
+    font-weight: 600;
+    font-size: 1rem;
+    cursor: pointer;
+}
+.ctd-tab-btn-inactive {
+    padding: 12px 30px;
+    background: #111;
+    border: 2px solid rgba(239,68,68,0.3);
+    border-radius: 8px;
+    color: #ccc;
+    font-weight: 600;
+    font-size: 1rem;
+    cursor: pointer;
+}
+.ctd-time-btn-active {
+    padding: 15px 25px;
+    background: #1a0505;
+    border: 2px solid #ef4444;
+    border-radius: 10px;
+    color: #fff;
+    font-weight: 600;
+    cursor: pointer;
+    min-width: 120px;
+}
+.ctd-time-btn-inactive {
+    padding: 15px 25px;
+    background: #0a0a0a;
+    border: 2px solid #222;
+    border-radius: 10px;
+    color: #888;
+    font-weight: 600;
+    cursor: pointer;
+    min-width: 120px;
+}
+
+/* Table */
+.ctd-table-wrap { overflow-x: auto; padding: 0; background: #0a0a0a; border: 1px solid #1a1a1a; border-radius: 12px; }
+.ctd-table { width: 100%; border-collapse: collapse; }
+.ctd-table thead tr { background: #0d1a0d; border-bottom: 2px solid rgba(0,255,136,0.25); }
+.ctd-table th { padding: 20px; font-weight: 600; font-size: 0.85rem; }
+.ctd-table th.ctd-th-feat { text-align: left; color: #888; }
+.ctd-table th.ctd-th-igb  { text-align: center; color: #00ff88; min-width: 150px; }
+.ctd-table th.ctd-th-drip { text-align: center; color: #ef4444; min-width: 150px; }
+.ctd-table tbody tr { border-bottom: 1px solid #111; }
+.ctd-table tbody tr:nth-child(even) { background: #050505; }
+.ctd-table td { padding: 16px 20px; color: #ccc; font-size: 0.88rem; }
+.ctd-table td.ctd-td-center { text-align: center; }
+.ctd-td-yes { color: #00ff88; font-weight: 600; }
+.ctd-td-no  { color: #ef4444; }
+
+/* Heading color helpers */
+.ctd-red-heading { color: #ef4444; }
+
+/* CTA block */
+.ctd-cta-card {
+    background: #0a0a0a;
+    border: 2px solid rgba(0,255,136,0.2);
+    border-radius: 16px;
+    padding: 50px 40px;
+    text-align: center;
+    margin-top: 60px;
+}
+.ctd-cta-card h2 { color: #fff; font-weight: 900; margin-bottom: 16px; }
+.ctd-cta-card p { color: #888; font-size: 1rem; max-width: 600px; margin: 0 auto 28px; line-height: 1.65; }
+
+/* Icon columns in painful reality section */
+.ctd-icon-col { text-align: center; }
+.ctd-icon-circle-red {
+    width: 80px; height: 80px;
+    background: #130505;
+    border: 1px solid rgba(239,68,68,0.2);
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    margin: 0 auto 20px;
+}
+.ctd-icon-red-lg { font-size: 2rem; color: #ef4444; }
+.ctd-col-title-red { color: #ef4444; margin-bottom: 15px; }
+.ctd-col-desc { color: #bbb; font-size: 0.95rem; }
+
+/* Assumptions box */
+.ctd-assumptions {
+    background: #050d09;
+    border-left: 4px solid #00ff88;
+    border-top: 1px solid #1a1a1a;
+    border-right: 1px solid #1a1a1a;
+    border-bottom: 1px solid #1a1a1a;
+    padding: 25px;
+    margin-bottom: 30px;
+    border-radius: 8px;
+}
+.ctd-assumptions-title { color: #fff; margin-bottom: 15px; font-size: 1.2rem; }
+.ctd-assumptions-label { font-size: 0.85rem; color: #999; margin-bottom: 3px; }
+.ctd-assumptions-val { font-size: 1.3rem; font-weight: 600; color: #00ff88; }
+
+/* Calculator tab buttons */
+.ctd-calc-tab-active {
+    padding: 12px 30px;
+    background: #6b0019;
+    border: none;
+    border-radius: 8px;
+    color: #fff;
+    font-weight: 600;
+    font-size: 1rem;
+    cursor: pointer;
+    border: 2px solid #ef4444;
+}
+.ctd-calc-tab-inactive {
+    padding: 12px 30px;
+    background: #111;
+    border: 2px solid rgba(239,68,68,0.3);
+    border-radius: 8px;
+    color: #ccc;
+    font-weight: 600;
+    font-size: 1rem;
+    cursor: pointer;
+}
+
+/* Time selector buttons */
+.ctd-time-sel-active {
+    padding: 15px 25px;
+    background: #1a0505;
+    border: 2px solid #ef4444;
+    border-radius: 10px;
+    color: #fff;
+    font-weight: 600;
+    cursor: pointer;
+    min-width: 120px;
+}
+.ctd-time-sel-inactive {
+    padding: 15px 25px;
+    background: #0a0a0a;
+    border: 2px solid #222;
+    border-radius: 10px;
+    color: #888;
+    font-weight: 600;
+    cursor: pointer;
+    min-width: 120px;
+}
+.ctd-time-num { font-size: 1.5rem; margin-bottom: 3px; }
+.ctd-time-unit { font-size: 0.8rem; }
+
+/* ROI gain cards */
+.ctd-roi-card-low {
+    padding: 25px;
+    background: #050d09;
+    border-radius: 12px;
+    border: 2px solid rgba(0,255,136,0.15);
+}
+.ctd-roi-card-high {
+    padding: 25px;
+    background: #060e0a;
+    border-radius: 12px;
+    border: 2px solid rgba(0,255,136,0.25);
+}
+.ctd-roi-label { font-size: 0.9rem; color: #999; margin-bottom: 10px; text-transform: uppercase; }
+.ctd-roi-num { font-size: 2.3rem; font-weight: 700; color: #00ff88; margin-bottom: 8px; }
+.ctd-roi-title { color: #ccc; font-size: 0.95rem; font-weight: 600; }
+.ctd-roi-note { color: #888; font-size: 0.8rem; margin-top: 8px; }
+
+/* ROI framework box */
+.ctd-roi-framework {
+    background: #050d09;
+    padding: 30px;
+    border-radius: 12px;
+    border: 2px solid rgba(0,255,136,0.15);
+}
+.ctd-roi-framework-title { color: #00ff88; margin-bottom: 20px; text-align: center; font-size: 1.3rem; }
+.ctd-roi-framework-body { color: #ccc; font-size: 1.05rem; text-align: center; margin: 0; line-height: 1.8; }
+
+/* CTA cost breakdown */
+.ctd-cta-cost-box {
+    background: #0a0a0a;
+    padding: 30px;
+    border-radius: 12px;
+    max-width: 700px;
+    margin: 0 auto 40px;
+    border: 1px solid #1a1a1a;
+}
+.ctd-cta-lose-label { color: #ef4444; font-size: 0.85rem; margin-bottom: 5px; }
+.ctd-cta-lose-num { font-size: 2rem; font-weight: 700; color: #ef4444; }
+.ctd-cta-gain-label { color: #00ff88; font-size: 0.85rem; margin-bottom: 5px; }
+.ctd-cta-gain-num { font-size: 2rem; font-weight: 700; color: #00ff88; }
+.ctd-cta-meta { color: #aaa; font-size: 0.85rem; margin-top: 3px; }
+.ctd-cta-swing {
+    padding: 20px;
+    background: #060e0a;
+    border-radius: 8px;
+    border: 1px solid rgba(0,255,136,0.15);
+}
+.ctd-cta-swing-num { font-size: 2.8rem; font-weight: 700; color: #00ff88; margin-bottom: 8px; }
+.ctd-cta-swing-title { font-size: 1.05rem; color: #fff; font-weight: 600; }
+.ctd-cta-swing-note { color: #999; font-size: 0.9rem; margin-top: 8px; }
+
+/* Disclaimer card */
+.ctd-disclaimer-card {
+    background: #0a0a0a;
+    border: 1px solid #1a1a1a;
+    border-radius: 12px;
+    padding: 30px;
+    margin-top: 40px;
+}
+.ctd-disclaimer-title { color: #00ff88; margin-bottom: 20px; font-size: 1.1rem; }
+.ctd-disclaimer-body { color: #999; font-size: 0.9rem; line-height: 1.8; margin: 0; }
+
+/* Light theme */
+body.light-theme .ctd-pain-card { background: #fff; border-color: #e8e8e8; }
+body.light-theme .ctd-pain-card-red { background: #fff; border-color: rgba(220,38,38,0.2); }
+body.light-theme .ctd-callout-red { background: #fff; border-color: rgba(220,38,38,0.25); }
+body.light-theme .ctd-callout-green { background: #fff; border-color: rgba(5,150,105,0.25); }
+body.light-theme .ctd-stat-block { background: #f5f5f5; border-color: rgba(220,38,38,0.15); }
+body.light-theme .ctd-stat-block-num { color: #dc2626; }
+body.light-theme .ctd-stat-block-lbl { color: #666; }
+body.light-theme .ctd-stat-block-note { color: #999; }
+body.light-theme .ctd-summary-bar { background: #f5f5f5; border-color: rgba(220,38,38,0.15); }
+body.light-theme .ctd-icon-box-red { background: #fff0f0; border-color: rgba(220,38,38,0.2); }
+body.light-theme .ctd-icon-red { color: #dc2626; }
+body.light-theme .ctd-feat-title-red { color: #dc2626 !important; }
+body.light-theme .ctd-table-wrap { background: #fff; border-color: #e8e8e8; }
+body.light-theme .ctd-table thead tr { background: #f0faf5; }
+body.light-theme .ctd-table th.ctd-th-igb { color: #059669; }
+body.light-theme .ctd-table th.ctd-th-drip { color: #dc2626; }
+body.light-theme .ctd-table tbody tr:nth-child(even) { background: #fafafa; }
+body.light-theme .ctd-table td { color: #444; }
+body.light-theme .ctd-td-yes { color: #059669; }
+body.light-theme .ctd-td-no  { color: #dc2626; }
+body.light-theme .ctd-cta-card { background: #fff; border-color: rgba(5,150,105,0.25); }
+body.light-theme .ctd-cta-card h2 { color: #111; }
+body.light-theme .ctd-cta-card p  { color: #555; }
+body.light-theme .ctd-icon-circle-red { background: #fff0f0; border-color: rgba(220,38,38,0.2); }
+body.light-theme .ctd-icon-red-lg { color: #dc2626; }
+body.light-theme .ctd-col-title-red { color: #dc2626; }
+body.light-theme .ctd-col-desc { color: #555; }
+body.light-theme .ctd-assumptions { background: #f0faf5; border-color: rgba(5,150,105,0.4); border-top-color: #e8e8e8; border-right-color: #e8e8e8; border-bottom-color: #e8e8e8; }
+body.light-theme .ctd-assumptions-title { color: #111; }
+body.light-theme .ctd-assumptions-label { color: #777; }
+body.light-theme .ctd-assumptions-val { color: var(--lt-accent); }
+body.light-theme .ctd-calc-tab-active { background: #fde8ea; border-color: #dc2626; color: #9b1c1c; }
+body.light-theme .ctd-calc-tab-inactive { background: #f5f5f5; border-color: rgba(220,38,38,0.25); color: #555; }
+body.light-theme .ctd-time-sel-active { background: #fde8ea; border-color: #dc2626; color: #9b1c1c; }
+body.light-theme .ctd-time-sel-inactive { background: #f5f5f5; border-color: #ddd; color: #777; }
+body.light-theme .ctd-roi-card-low { background: #f0faf5; border-color: rgba(5,150,105,0.2); }
+body.light-theme .ctd-roi-card-high { background: #e8f7f0; border-color: rgba(5,150,105,0.3); }
+body.light-theme .ctd-roi-label { color: #666; }
+body.light-theme .ctd-roi-num { color: var(--lt-accent); }
+body.light-theme .ctd-roi-title { color: #444; }
+body.light-theme .ctd-roi-note { color: #888; }
+body.light-theme .ctd-roi-framework { background: #f0faf5; border-color: rgba(5,150,105,0.2); }
+body.light-theme .ctd-roi-framework-title { color: var(--lt-accent); }
+body.light-theme .ctd-roi-framework-body { color: #444; }
+body.light-theme .ctd-cta-cost-box { background: #fff; border-color: #e8e8e8; }
+body.light-theme .ctd-cta-lose-label { color: #dc2626; }
+body.light-theme .ctd-cta-lose-num { color: #dc2626; }
+body.light-theme .ctd-cta-gain-label { color: var(--lt-accent); }
+body.light-theme .ctd-cta-gain-num { color: var(--lt-accent); }
+body.light-theme .ctd-cta-meta { color: #666; }
+body.light-theme .ctd-cta-swing { background: #f0faf5; border-color: rgba(5,150,105,0.2); }
+body.light-theme .ctd-cta-swing-num { color: var(--lt-accent); }
+body.light-theme .ctd-cta-swing-title { color: #111; }
+body.light-theme .ctd-cta-swing-note { color: #777; }
+body.light-theme .ctd-disclaimer-card { background: #fff; border-color: #e8e8e8; }
+body.light-theme .ctd-disclaimer-title { color: var(--lt-accent); }
+body.light-theme .ctd-disclaimer-body { color: #666; }
+</style>
+<div class="container ctd-page">
 
     <div class="main-header" data-aos="fade-down">
         <h1 class="main-title">Your Text Drip Campaign Is <span style="color: #ff3366;">Bleeding Money.</span></h1>
@@ -13,50 +357,50 @@
     </div>
 
     <!-- The Painful Reality -->
-    <div class="glass-card" data-aos="fade-up" style="margin-bottom: 40px; padding: 40px; background: linear-gradient(135deg, rgba(255,51,102,0.05), rgba(255,0,0,0.03));">
-        <div style="text-align: center; margin-bottom: 30px;">
-            <span style="background: linear-gradient(135deg, #ff3366, #ff0000); padding: 8px 20px; border-radius: 20px; font-size: 0.85rem; font-weight: 600; letter-spacing: 0.5px;">THE HIDDEN COST OF TEXT DRIPS</span>
+    <div class="ctd-pain-card-red" data-aos="fade-up">
+        <div class="text-center mb-4">
+            <span class="mkt-label ctd-red-heading">The Hidden Cost of Text Drips</span>
         </div>
-        <h2 style="text-align: center; margin-bottom: 20px; font-size: 2rem;">Time Is Money. You're Wasting Both.</h2>
-        <p style="text-align: center; color: #bbb; font-size: 1.1rem; max-width: 800px; margin: 0 auto 40px;">
+        <h2 class="text-center mb-3" style="font-size: 2rem;">Time Is Money. You're Wasting Both.</h2>
+        <p class="text-center" style="color: #bbb; font-size: 1.1rem; max-width: 800px; margin: 0 auto 40px;">
             Sure, your CRM can send automated intro texts. But then what? You're stuck responding to cold leads that go nowhere while your fresh leads get cold.
         </p>
 
         <div class="row">
             <div class="col-md-4 mb-4">
-                <div style="text-align: center;">
-                    <div style="width: 80px; height: 80px; background: rgba(255,51,102,0.1); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px;">
-                        <i class="fa-solid fa-clock" style="font-size: 2rem; color: #ff3366;"></i>
+                <div class="ctd-icon-col">
+                    <div class="ctd-icon-circle-red">
+                        <i class="fa-solid fa-clock ctd-icon-red-lg"></i>
                     </div>
-                    <h4 style="color: #ff3366; margin-bottom: 15px;">40 Minutes Daily</h4>
-                    <p style="color: #bbb; font-size: 0.95rem;">Wasted responding to cold leads who got the same generic text as everyone else. They never book.</p>
+                    <h4 class="ctd-col-title-red">40 Minutes Daily</h4>
+                    <p class="ctd-col-desc">Wasted responding to cold leads who got the same generic text as everyone else. They never book.</p>
                 </div>
             </div>
 
             <div class="col-md-4 mb-4">
-                <div style="text-align: center;">
-                    <div style="width: 80px; height: 80px; background: rgba(255,51,102,0.1); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px;">
-                        <i class="fa-solid fa-robot" style="font-size: 2rem; color: #ff3366;"></i>
+                <div class="ctd-icon-col">
+                    <div class="ctd-icon-circle-red">
+                        <i class="fa-solid fa-robot ctd-icon-red-lg"></i>
                     </div>
-                    <h4 style="color: #ff3366; margin-bottom: 15px;">Generic Scripts</h4>
-                    <p style="color: #bbb; font-size: 0.95rem;">Everyone gets the same intro. No personalization. No adaptation. No intelligence. Just robotic, predictable templates.</p>
+                    <h4 class="ctd-col-title-red">Generic Scripts</h4>
+                    <p class="ctd-col-desc">Everyone gets the same intro. No personalization. No adaptation. No intelligence. Just robotic, predictable templates.</p>
                 </div>
             </div>
 
             <div class="col-md-4 mb-4">
-                <div style="text-align: center;">
-                    <div style="width: 80px; height: 80px; background: rgba(255,51,102,0.1); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px;">
-                        <i class="fa-solid fa-chart-line-down" style="font-size: 2rem; color: #ff3366;"></i>
+                <div class="ctd-icon-col">
+                    <div class="ctd-icon-circle-red">
+                        <i class="fa-solid fa-chart-line-down ctd-icon-red-lg"></i>
                     </div>
-                    <h4 style="color: #ff3366; margin-bottom: 15px;">5% Cold Lead Conversion</h4>
-                    <p style="color: #bbb; font-size: 0.95rem;">95% of cold leads never convert. But you're spending 40 minutes a day on them anyway.</p>
+                    <h4 class="ctd-col-title-red">5% Cold Lead Conversion</h4>
+                    <p class="ctd-col-desc">95% of cold leads never convert. But you're spending 40 minutes a day on them anyway.</p>
                 </div>
             </div>
         </div>
     </div>
 
     <!-- Interactive Calculator: Money Lost -->
-    <div class="glass-card" data-aos="fade-up" style="margin-bottom: 40px; padding: 40px;">
+    <div class="ctd-pain-card" data-aos="fade-up">
         <h2 style="text-align: center; margin-bottom: 20px; font-size: 2rem; color: #00ff88;">
             <i class="fa-solid fa-calculator"></i> Calculate Your Real Opportunity Cost
         </h2>
@@ -65,36 +409,36 @@
         </p>
 
         <!-- Assumptions Box -->
-        <div style="background: rgba(0,255,136,0.05); border-left: 4px solid #00ff88; padding: 25px; margin-bottom: 30px; border-radius: 8px;">
-            <h3 style="color: #fff; margin-bottom: 15px; font-size: 1.2rem;">
+        <div class="ctd-assumptions">
+            <h3 class="ctd-assumptions-title">
                 <i class="fa-solid fa-info-circle"></i> Based On Your Numbers
             </h3>
             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
                 <div>
-                    <div style="font-size: 0.85rem; color: #999; margin-bottom: 3px;">Answer Rate</div>
-                    <div style="font-size: 1.3rem; font-weight: 600; color: #00ff88;">1 in 15 calls</div>
+                    <div class="ctd-assumptions-label">Answer Rate</div>
+                    <div class="ctd-assumptions-val">1 in 15 calls</div>
                 </div>
                 <div>
-                    <div style="font-size: 0.85rem; color: #999; margin-bottom: 3px;">Close Rate</div>
-                    <div style="font-size: 1.3rem; font-weight: 600; color: #00ff88;">1 in 6 answers</div>
+                    <div class="ctd-assumptions-label">Close Rate</div>
+                    <div class="ctd-assumptions-val">1 in 6 answers</div>
                 </div>
                 <div>
-                    <div style="font-size: 0.85rem; color: #999; margin-bottom: 3px;">Avg Deal Value</div>
-                    <div style="font-size: 1.3rem; font-weight: 600; color: #00ff88;">$800</div>
+                    <div class="ctd-assumptions-label">Avg Deal Value</div>
+                    <div class="ctd-assumptions-val">$800</div>
                 </div>
                 <div>
-                    <div style="font-size: 0.85rem; color: #999; margin-bottom: 3px;">Call Timeout</div>
-                    <div style="font-size: 1.3rem; font-weight: 600; color: #00ff88;">20 seconds</div>
+                    <div class="ctd-assumptions-label">Call Timeout</div>
+                    <div class="ctd-assumptions-val">20 seconds</div>
                 </div>
             </div>
         </div>
 
         <!-- Tab Navigation -->
         <div style="display: flex; justify-content: center; gap: 15px; margin-bottom: 30px; flex-wrap: wrap;">
-            <button class="calc-tab-btn active" data-frequency="daily" onclick="switchFrequency('daily')" style="padding: 12px 30px; background: linear-gradient(135deg, #ff3366, #ff0000); border: none; border-radius: 8px; color: #fff; font-weight: 600; font-size: 1rem; cursor: pointer; transition: all 0.3s; box-shadow: 0 4px 15px rgba(255,51,102,0.3);">
+            <button class="calc-tab-btn ctd-calc-tab-active" data-frequency="daily" onclick="switchFrequency('daily')">
                 <i class="fa-solid fa-calendar-day"></i> Time Wasted Per Day
             </button>
-            <button class="calc-tab-btn" data-frequency="weekly" onclick="switchFrequency('weekly')" style="padding: 12px 30px; background: rgba(255,255,255,0.05); border: 2px solid rgba(255,51,102,0.3); border-radius: 8px; color: #ccc; font-weight: 600; font-size: 1rem; cursor: pointer; transition: all 0.3s;">
+            <button class="calc-tab-btn ctd-calc-tab-inactive" data-frequency="weekly" onclick="switchFrequency('weekly')">
                 <i class="fa-solid fa-calendar-week"></i> Time Wasted Per Week
             </button>
         </div>
@@ -103,73 +447,73 @@
         <div style="margin-bottom: 35px;">
             <p style="text-align: center; color: #bbb; font-size: 0.95rem; margin-bottom: 15px;">How much time are you spending on cold leads that don't respond?</p>
             <div style="display: flex; justify-content: center; gap: 15px; flex-wrap: wrap;">
-                <button class="time-btn active" data-minutes="10" onclick="selectTime(10)" style="padding: 15px 25px; background: rgba(255,51,102,0.2); border: 2px solid #ff3366; border-radius: 10px; color: #fff; font-weight: 600; cursor: pointer; transition: all 0.3s; min-width: 120px;">
-                    <div style="font-size: 1.5rem; margin-bottom: 3px;">10</div>
-                    <div style="font-size: 0.8rem; color: #ccc;">minutes</div>
+                <button class="time-btn ctd-time-sel-active" data-minutes="10" onclick="selectTime(10)">
+                    <div class="ctd-time-num">10</div>
+                    <div class="ctd-time-unit">minutes</div>
                 </button>
-                <button class="time-btn" data-minutes="25" onclick="selectTime(25)" style="padding: 15px 25px; background: rgba(255,255,255,0.03); border: 2px solid rgba(255,255,255,0.1); border-radius: 10px; color: #ccc; font-weight: 600; cursor: pointer; transition: all 0.3s; min-width: 120px;">
-                    <div style="font-size: 1.5rem; margin-bottom: 3px;">25</div>
-                    <div style="font-size: 0.8rem;">minutes</div>
+                <button class="time-btn ctd-time-sel-inactive" data-minutes="25" onclick="selectTime(25)">
+                    <div class="ctd-time-num">25</div>
+                    <div class="ctd-time-unit">minutes</div>
                 </button>
-                <button class="time-btn" data-minutes="40" onclick="selectTime(40)" style="padding: 15px 25px; background: rgba(255,255,255,0.03); border: 2px solid rgba(255,255,255,0.1); border-radius: 10px; color: #ccc; font-weight: 600; cursor: pointer; transition: all 0.3s; min-width: 120px;">
-                    <div style="font-size: 1.5rem; margin-bottom: 3px;">40</div>
-                    <div style="font-size: 0.8rem;">minutes</div>
+                <button class="time-btn ctd-time-sel-inactive" data-minutes="40" onclick="selectTime(40)">
+                    <div class="ctd-time-num">40</div>
+                    <div class="ctd-time-unit">minutes</div>
                 </button>
             </div>
         </div>
 
         <!-- Calculation Breakdown -->
-        <div style="background: rgba(255,0,0,0.08); border: 2px solid rgba(255,51,102,0.3); padding: 30px; margin-bottom: 30px; border-radius: 12px;">
-            <h3 style="color: #ff3366; margin-bottom: 25px; font-size: 1.4rem; text-align: center;">
+        <div class="ctd-callout-red">
+            <h3 class="ctd-red-heading text-center mb-4" style="font-size: 1.4rem;">
                 <i class="fa-solid fa-fire"></i> <span id="calc-title">10 Minutes Per Day</span> = Missed Opportunities
             </h3>
 
-            <div style="background: rgba(0,255,136,0.05); padding: 25px; border-radius: 8px; border-left: 4px solid #00ff88; margin-bottom: 25px;">
+            <div class="ctd-callout-green mb-4">
                 <div style="font-size: 0.95rem; color: #ccc; margin-bottom: 15px;">Here's what you could be doing instead:</div>
                 <div style="font-size: 1.05rem; color: #fff; line-height: 2;">
-                    <div><span id="calls-count" style="color: #00ff88; font-weight: 700;">30</span> additional calls to fresh leads</div>
-                    <div>= <span id="answers-count" style="color: #00ff88; font-weight: 700;">2</span> people who answer</div>
-                    <div>= <span id="deals-count" style="color: #00ff88; font-weight: 700;">0.33</span> deals closed</div>
-                    <div style="margin-top: 10px; padding-top: 15px; border-top: 1px solid rgba(255,255,255,0.1);">
-                        = <span id="period-revenue" style="color: #00ff88; font-size: 1.4rem; font-weight: 700;">$267</span> in lost revenue <span id="period-label" style="color: #999;">per day</span>
+                    <div><span id="calls-count" class="text-accent fw-bold">30</span> additional calls to fresh leads</div>
+                    <div>= <span id="answers-count" class="text-accent fw-bold">2</span> people who answer</div>
+                    <div>= <span id="deals-count" class="text-accent fw-bold">0.33</span> deals closed</div>
+                    <div style="margin-top: 10px; padding-top: 15px; border-top: 1px solid #1a1a1a;">
+                        = <span id="period-revenue" class="text-accent fw-bold" style="font-size: 1.4rem;">$267</span> in lost revenue <span id="period-label" style="color: #666;">per day</span>
                     </div>
                 </div>
             </div>
 
             <!-- Time Period Breakdown -->
-            <div style="background: rgba(0,0,0,0.3); padding: 25px; border-radius: 12px;">
-                <h4 style="color: #ff3366; margin-bottom: 20px; text-align: center; font-size: 1.2rem;">
+            <div style="background: #0d0d0d; padding: 25px; border-radius: 12px; border: 1px solid #1a1a1a;">
+                <h4 class="ctd-red-heading text-center mb-4" style="font-size: 1.2rem;">
                     <i class="fa-solid fa-triangle-exclamation"></i> Your Lost Opportunity Cost
                 </h4>
                 <div class="row text-center">
                     <div class="col-md-4 mb-3">
-                        <div style="padding: 20px; background: rgba(255,51,102,0.05); border-radius: 10px; border: 1px solid rgba(255,51,102,0.2);">
-                            <div id="weekly-loss" style="font-size: 2.2rem; font-weight: 700; color: #ff3366;">$1,867</div>
-                            <div style="color: #999; font-size: 0.9rem; margin-top: 8px;">Lost per week</div>
-                            <div id="weekly-note" style="color: #777; font-size: 0.8rem; margin-top: 5px;">7 days of wasted time</div>
+                        <div class="ctd-stat-block">
+                            <div id="weekly-loss" class="ctd-stat-block-num">$1,867</div>
+                            <div class="ctd-stat-block-lbl">Lost per week</div>
+                            <div id="weekly-note" class="ctd-stat-block-note">7 days of wasted time</div>
                         </div>
                     </div>
                     <div class="col-md-4 mb-3">
-                        <div style="padding: 20px; background: rgba(255,51,102,0.05); border-radius: 10px; border: 1px solid rgba(255,51,102,0.2);">
-                            <div id="monthly-loss" style="font-size: 2.2rem; font-weight: 700; color: #ff3366;">$8,000</div>
-                            <div style="color: #999; font-size: 0.9rem; margin-top: 8px;">Lost per month</div>
-                            <div id="monthly-note" style="color: #777; font-size: 0.8rem; margin-top: 5px;">Enough for a new car payment</div>
+                        <div class="ctd-stat-block">
+                            <div id="monthly-loss" class="ctd-stat-block-num">$8,000</div>
+                            <div class="ctd-stat-block-lbl">Lost per month</div>
+                            <div id="monthly-note" class="ctd-stat-block-note">Enough for a new car payment</div>
                         </div>
                     </div>
                     <div class="col-md-4 mb-3">
-                        <div style="padding: 20px; background: rgba(255,51,102,0.05); border-radius: 10px; border: 1px solid rgba(255,51,102,0.2);">
-                            <div id="yearly-loss" style="font-size: 2.2rem; font-weight: 700; color: #ff3366;">$96,000</div>
-                            <div style="color: #999; font-size: 0.9rem; margin-top: 8px;">Lost per year</div>
-                            <div id="yearly-note" style="color: #777; font-size: 0.8rem; margin-top: 5px;">Life-changing income difference</div>
+                        <div class="ctd-stat-block">
+                            <div id="yearly-loss" class="ctd-stat-block-num">$96,000</div>
+                            <div class="ctd-stat-block-lbl">Lost per year</div>
+                            <div id="yearly-note" class="ctd-stat-block-note">Life-changing income difference</div>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
 
-        <div style="text-align: center; padding: 30px; background: rgba(255,51,102,0.05); border-radius: 12px;">
+        <div class="ctd-summary-bar">
             <p style="font-size: 1.2rem; color: #fff; margin: 0; line-height: 1.8;">
-                <strong style="color: #ff3366;">This is just the opportunity cost.</strong><br>
+                <strong class="ctd-red-heading">This is just the opportunity cost.</strong><br>
                 You're still paying for the text drip feature while manually responding to every cold lead.
             </p>
         </div>
@@ -300,66 +644,66 @@
     </script>
 
     <!-- The Text Drip Problem -->
-    <div class="glass-card" data-aos="fade-up" style="margin-bottom: 40px; padding: 40px;">
+    <div class="ctd-pain-card" data-aos="fade-up">
         <h2 style="text-align: center; margin-bottom: 40px; font-size: 2rem;">Why Text Drip Campaigns Fail</h2>
 
         <div class="hero-features-grid">
-            <div class="hero-feature-item" style="border-color: rgba(255,51,102,0.2);">
-                <div class="icon-box" style="background: rgba(255,51,102,0.15);">
-                    <i class="fa-solid fa-copy" style="color: #ff3366;"></i>
+            <div class="hero-feature-item ctd-feat-border-red">
+                <div class="icon-box ctd-feat-bg-red">
+                    <i class="fa-solid fa-copy ctd-feat-title-red"></i>
                 </div>
                 <div class="text-content">
-                    <span class="feature-title" style="color: #ff3366;">Everyone Gets The Same Script</span>
+                    <span class="feature-title ctd-feat-title-red">Everyone Gets The Same Script</span>
                     <span class="feature-desc">Your leads can smell it from a mile away. Generic, robotic, impersonal. They've seen it 100 times before from other agents.</span>
                 </div>
             </div>
 
-            <div class="hero-feature-item" style="border-color: rgba(255,51,102,0.2);">
-                <div class="icon-box" style="background: rgba(255,51,102,0.15);">
-                    <i class="fa-solid fa-ban" style="color: #ff3366;"></i>
+            <div class="hero-feature-item ctd-feat-border-red">
+                <div class="icon-box ctd-feat-bg-red">
+                    <i class="fa-solid fa-ban ctd-feat-title-red"></i>
                 </div>
                 <div class="text-content">
-                    <span class="feature-title" style="color: #ff3366;">No Adaptation or Intelligence</span>
+                    <span class="feature-title ctd-feat-title-red">No Adaptation or Intelligence</span>
                     <span class="feature-desc">Text drips don't learn. They can't adapt to objections. They can't read sentiment. They just follow the script until the lead ghosts.</span>
                 </div>
             </div>
 
-            <div class="hero-feature-item" style="border-color: rgba(255,51,102,0.2);">
-                <div class="icon-box" style="background: rgba(255,51,102,0.15);">
-                    <i class="fa-solid fa-user-clock" style="color: #ff3366;"></i>
+            <div class="hero-feature-item ctd-feat-border-red">
+                <div class="icon-box ctd-feat-bg-red">
+                    <i class="fa-solid fa-user-clock ctd-feat-title-red"></i>
                 </div>
                 <div class="text-content">
-                    <span class="feature-title" style="color: #ff3366;">You're Still Doing The Work</span>
+                    <span class="feature-title ctd-feat-title-red">You're Still Doing The Work</span>
                     <span class="feature-desc">The drip sends the intro, then you're manually responding to every reply. That's not automation—that's a notification system.</span>
                 </div>
             </div>
 
-            <div class="hero-feature-item" style="border-color: rgba(255,51,102,0.2);">
-                <div class="icon-box" style="background: rgba(255,51,102,0.15);">
-                    <i class="fa-solid fa-brain" style="color: #ff3366;"></i>
+            <div class="hero-feature-item ctd-feat-border-red">
+                <div class="icon-box ctd-feat-bg-red">
+                    <i class="fa-solid fa-brain ctd-feat-title-red"></i>
                 </div>
                 <div class="text-content">
-                    <span class="feature-title" style="color: #ff3366;">No Sales Intelligence</span>
+                    <span class="feature-title ctd-feat-title-red">No Sales Intelligence</span>
                     <span class="feature-desc">Text drips don't know NEPQ, Gap Selling, Voss negotiation, or any proven sales framework. They're just... sending texts.</span>
                 </div>
             </div>
 
-            <div class="hero-feature-item" style="border-color: rgba(255,51,102,0.2);">
-                <div class="icon-box" style="background: rgba(255,51,102,0.15);">
-                    <i class="fa-solid fa-message-xmark" style="color: #ff3366;"></i>
+            <div class="hero-feature-item ctd-feat-border-red">
+                <div class="icon-box ctd-feat-bg-red">
+                    <i class="fa-solid fa-message-xmark ctd-feat-title-red"></i>
                 </div>
                 <div class="text-content">
-                    <span class="feature-title" style="color: #ff3366;">Can't Handle Objections</span>
+                    <span class="feature-title ctd-feat-title-red">Can't Handle Objections</span>
                     <span class="feature-desc">When a lead says "I'm not interested" or "Maybe later," the drip has no idea what to do. It either stops or keeps spamming.</span>
                 </div>
             </div>
 
-            <div class="hero-feature-item" style="border-color: rgba(255,51,102,0.2);">
-                <div class="icon-box" style="background: rgba(255,51,102,0.15);">
-                    <i class="fa-solid fa-calendar-xmark" style="color: #ff3366;"></i>
+            <div class="hero-feature-item ctd-feat-border-red">
+                <div class="icon-box ctd-feat-bg-red">
+                    <i class="fa-solid fa-calendar-xmark ctd-feat-title-red"></i>
                 </div>
                 <div class="text-content">
-                    <span class="feature-title" style="color: #ff3366;">No Automatic Booking</span>
+                    <span class="feature-title ctd-feat-title-red">No Automatic Booking</span>
                     <span class="feature-desc">Even if the lead says "yes," you still have to manually send the calendar link, follow up, and confirm. Where's the automation?</span>
                 </div>
             </div>
@@ -444,82 +788,82 @@
     <!-- Direct Comparison Table -->
     <h3 class="competitor-section-title" data-aos="fade-up" style="margin-top: 60px;">Feature-by-Feature: Text Drip vs InsuranceGrokBot</h3>
 
-    <div class="glass-card" data-aos="fade-up" style="overflow-x: auto; padding: 0;">
-        <table style="width: 100%; border-collapse: collapse;">
+    <div class="ctd-table-wrap" data-aos="fade-up">
+        <table class="ctd-table">
             <thead>
-                <tr style="background: rgba(0,255,136,0.05); border-bottom: 2px solid rgba(0,255,136,0.3);">
-                    <th style="padding: 20px; text-align: left; font-weight: 600; color: #fff;">Feature</th>
-                    <th style="padding: 20px; text-align: center; font-weight: 600; color: #00ff88; min-width: 150px;">InsuranceGrokBot</th>
-                    <th style="padding: 20px; text-align: center; font-weight: 600; color: #ff3366; min-width: 150px;">Text Drip Campaigns</th>
+                <tr>
+                    <th class="ctd-th-feat">Feature</th>
+                    <th class="ctd-th-igb">InsuranceGrokBot</th>
+                    <th class="ctd-th-drip">Text Drip Campaigns</th>
                 </tr>
             </thead>
             <tbody>
-                <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
-                    <td style="padding: 20px; color: #ddd;">Message Personalization</td>
-                    <td style="padding: 20px; text-align: center;"><strong style="color: #00ff88;">Unique every time</strong></td>
-                    <td style="padding: 20px; text-align: center;"><span style="color: #ff3366;">Same script for everyone</span></td>
+                <tr>
+                    <td>Message Personalization</td>
+                    <td class="ctd-td-center"><strong class="ctd-td-yes">Unique every time</strong></td>
+                    <td class="ctd-td-center ctd-td-no">Same script for everyone</td>
                 </tr>
-                <tr style="border-bottom: 1px solid rgba(255,255,255,0.05); background: rgba(0,255,136,0.02);">
-                    <td style="padding: 20px; color: #ddd;">Sales Framework Intelligence</td>
-                    <td style="padding: 20px; text-align: center;"><strong style="color: #00ff88;">5 frameworks integrated</strong></td>
-                    <td style="padding: 20px; text-align: center;"><span style="color: #ff3366;">None</span></td>
+                <tr>
+                    <td>Sales Framework Intelligence</td>
+                    <td class="ctd-td-center"><strong class="ctd-td-yes">5 frameworks integrated</strong></td>
+                    <td class="ctd-td-center ctd-td-no">None</td>
                 </tr>
-                <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
-                    <td style="padding: 20px; color: #ddd;">Objection Handling</td>
-                    <td style="padding: 20px; text-align: center;"><strong style="color: #00ff88;">Advanced AI with empathy</strong></td>
-                    <td style="padding: 20px; text-align: center;"><span style="color: #ff3366;">Manual (you respond)</span></td>
+                <tr>
+                    <td>Objection Handling</td>
+                    <td class="ctd-td-center"><strong class="ctd-td-yes">Advanced AI with empathy</strong></td>
+                    <td class="ctd-td-center ctd-td-no">Manual (you respond)</td>
                 </tr>
-                <tr style="border-bottom: 1px solid rgba(255,255,255,0.05); background: rgba(0,255,136,0.02);">
-                    <td style="padding: 20px; color: #ddd;">Conversation Memory</td>
-                    <td style="padding: 20px; text-align: center;"><strong style="color: #00ff88;">Infinite, permanent</strong></td>
-                    <td style="padding: 20px; text-align: center;"><span style="color: #ff3366;">None (starts over)</span></td>
+                <tr>
+                    <td>Conversation Memory</td>
+                    <td class="ctd-td-center"><strong class="ctd-td-yes">Infinite, permanent</strong></td>
+                    <td class="ctd-td-center ctd-td-no">None (starts over)</td>
                 </tr>
-                <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
-                    <td style="padding: 20px; color: #ddd;">Automatic Booking</td>
-                    <td style="padding: 20px; text-align: center;"><strong style="color: #00ff88;">Yes, with 5 detection cases</strong></td>
-                    <td style="padding: 20px; text-align: center;"><span style="color: #ff3366;">No (manual)</span></td>
+                <tr>
+                    <td>Automatic Booking</td>
+                    <td class="ctd-td-center"><strong class="ctd-td-yes">Yes, with 5 detection cases</strong></td>
+                    <td class="ctd-td-center ctd-td-no">No (manual)</td>
                 </tr>
-                <tr style="border-bottom: 1px solid rgba(255,255,255,0.05); background: rgba(0,255,136,0.02);">
-                    <td style="padding: 20px; color: #ddd;">Emotional Intelligence</td>
-                    <td style="padding: 20px; text-align: center;"><strong style="color: #00ff88;">Yes, Voss tactics</strong></td>
-                    <td style="padding: 20px; text-align: center;"><span style="color: #ff3366;">None</span></td>
+                <tr>
+                    <td>Emotional Intelligence</td>
+                    <td class="ctd-td-center"><strong class="ctd-td-yes">Yes, Voss tactics</strong></td>
+                    <td class="ctd-td-center ctd-td-no">None</td>
                 </tr>
-                <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
-                    <td style="padding: 20px; color: #ddd;">Re-Engagement for Dead Leads</td>
-                    <td style="padding: 20px; text-align: center;"><strong style="color: #00ff88;">Automatic with humor mode</strong></td>
-                    <td style="padding: 20px; text-align: center;"><span style="color: #ff3366;">Repeats until unsubscribe</span></td>
+                <tr>
+                    <td>Re-Engagement for Dead Leads</td>
+                    <td class="ctd-td-center"><strong class="ctd-td-yes">Automatic with humor mode</strong></td>
+                    <td class="ctd-td-center ctd-td-no">Repeats until unsubscribe</td>
                 </tr>
-                <tr style="border-bottom: 1px solid rgba(255,255,255,0.05); background: rgba(0,255,136,0.02);">
-                    <td style="padding: 20px; color: #ddd;">Insurance Product Knowledge</td>
-                    <td style="padding: 20px; text-align: center;"><strong style="color: #00ff88;">Deep expertise built-in</strong></td>
-                    <td style="padding: 20px; text-align: center;"><span style="color: #ff3366;">None</span></td>
+                <tr>
+                    <td>Insurance Product Knowledge</td>
+                    <td class="ctd-td-center"><strong class="ctd-td-yes">Deep expertise built-in</strong></td>
+                    <td class="ctd-td-center ctd-td-no">None</td>
                 </tr>
-                <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
-                    <td style="padding: 20px; color: #ddd;">Your Time Required</td>
-                    <td style="padding: 20px; text-align: center;"><strong style="color: #00ff88;">Zero (fully automated)</strong></td>
-                    <td style="padding: 20px; text-align: center;"><span style="color: #ff3366;">40+ min/day responding</span></td>
+                <tr>
+                    <td>Your Time Required</td>
+                    <td class="ctd-td-center"><strong class="ctd-td-yes">Zero (fully automated)</strong></td>
+                    <td class="ctd-td-center ctd-td-no">40+ min/day responding</td>
                 </tr>
-                <tr style="border-bottom: 1px solid rgba(255,255,255,0.05); background: rgba(0,255,136,0.02);">
-                    <td style="padding: 20px; color: #ddd;">Success Rate</td>
-                    <td style="padding: 20px; text-align: center;"><strong style="color: #00ff88;">80% (says right thing)</strong></td>
-                    <td style="padding: 20px; text-align: center;"><span style="color: #ff3366;">60% (generic agent)</span></td>
+                <tr>
+                    <td>Success Rate</td>
+                    <td class="ctd-td-center"><strong class="ctd-td-yes">80% (says right thing)</strong></td>
+                    <td class="ctd-td-center ctd-td-no">60% (generic agent)</td>
                 </tr>
-                <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
-                    <td style="padding: 20px; color: #ddd;">Adapts to Lead Sentiment</td>
-                    <td style="padding: 20px; text-align: center;"><strong style="color: #00ff88;">Real-time adaptation</strong></td>
-                    <td style="padding: 20px; text-align: center;"><span style="color: #ff3366;">No adaptation</span></td>
+                <tr>
+                    <td>Adapts to Lead Sentiment</td>
+                    <td class="ctd-td-center"><strong class="ctd-td-yes">Real-time adaptation</strong></td>
+                    <td class="ctd-td-center ctd-td-no">No adaptation</td>
                 </tr>
-                <tr style="border-bottom: 1px solid rgba(255,255,255,0.05); background: rgba(0,255,136,0.02);">
-                    <td style="padding: 20px; color: #ddd;">Calendar Integration</td>
-                    <td style="padding: 20px; text-align: center;"><strong style="color: #00ff88;">Native Lead Connector integration</strong></td>
-                    <td style="padding: 20px; text-align: center;"><span style="color: #ff3366;">Manual link sending</span></td>
+                <tr>
+                    <td>Calendar Integration</td>
+                    <td class="ctd-td-center"><strong class="ctd-td-yes">Native Lead Connector integration</strong></td>
+                    <td class="ctd-td-center ctd-td-no">Manual link sending</td>
                 </tr>
             </tbody>
         </table>
     </div>
 
     <!-- The ROI Calculation with GrokBot -->
-    <div class="glass-card" data-aos="fade-up" style="margin-top: 60px; padding: 40px; background: linear-gradient(135deg, rgba(0,255,136,0.05), rgba(0,255,136,0.05));">
+    <div class="ctd-pain-card" data-aos="fade-up" style="margin-top: 60px;">
         <h2 style="text-align: center; margin-bottom: 30px; font-size: 2rem; color: #00ff88;">
             <i class="fa-solid fa-rocket"></i> Flip The Script: What You GAIN With InsuranceGrokBot
         </h2>
@@ -529,36 +873,36 @@
 
         <div class="row text-center" style="margin-bottom: 40px;">
             <div class="col-md-4 mb-3">
-                <div style="padding: 25px; background: rgba(0,255,136,0.08); border-radius: 12px; border: 2px solid rgba(0,255,136,0.2);">
-                    <div style="font-size: 0.9rem; color: #999; margin-bottom: 10px; text-transform: uppercase;">If you save 10 min/day</div>
-                    <div style="font-size: 2.3rem; font-weight: 700; color: #00ff88; margin-bottom: 8px;">+$96K</div>
-                    <div style="color: #ccc; font-size: 0.95rem; font-weight: 600;">Additional per year</div>
-                    <div style="color: #888; font-size: 0.8rem; margin-top: 8px;">30 more calls daily = 2 answers = 0.33 deals</div>
+                <div class="ctd-roi-card-low">
+                    <div class="ctd-roi-label">If you save 10 min/day</div>
+                    <div class="ctd-roi-num">+$96K</div>
+                    <div class="ctd-roi-title">Additional per year</div>
+                    <div class="ctd-roi-note">30 more calls daily = 2 answers = 0.33 deals</div>
                 </div>
             </div>
             <div class="col-md-4 mb-3">
-                <div style="padding: 25px; background: rgba(0,255,136,0.12); border-radius: 12px; border: 2px solid rgba(0,255,136,0.3);">
-                    <div style="font-size: 0.9rem; color: #999; margin-bottom: 10px; text-transform: uppercase;">If you save 25 min/day</div>
-                    <div style="font-size: 2.3rem; font-weight: 700; color: #00ff88; margin-bottom: 8px;">+$240K</div>
-                    <div style="color: #ccc; font-size: 0.95rem; font-weight: 600;">Additional per year</div>
-                    <div style="color: #888; font-size: 0.8rem; margin-top: 8px;">75 more calls daily = 5 answers = 0.83 deals</div>
+                <div class="ctd-roi-card-high">
+                    <div class="ctd-roi-label">If you save 25 min/day</div>
+                    <div class="ctd-roi-num">+$240K</div>
+                    <div class="ctd-roi-title">Additional per year</div>
+                    <div class="ctd-roi-note">75 more calls daily = 5 answers = 0.83 deals</div>
                 </div>
             </div>
             <div class="col-md-4 mb-3">
-                <div style="padding: 25px; background: rgba(0,255,136,0.08); border-radius: 12px; border: 2px solid rgba(0,255,136,0.2);">
-                    <div style="font-size: 0.9rem; color: #999; margin-bottom: 10px; text-transform: uppercase;">If you save 40 min/day</div>
-                    <div style="font-size: 2.3rem; font-weight: 700; color: #00ff88; margin-bottom: 8px;">+$384K</div>
-                    <div style="color: #ccc; font-size: 0.95rem; font-weight: 600;">Additional per year</div>
-                    <div style="color: #888; font-size: 0.8rem; margin-top: 8px;">120 more calls daily = 8 answers = 1.33 deals</div>
+                <div class="ctd-roi-card-low">
+                    <div class="ctd-roi-label">If you save 40 min/day</div>
+                    <div class="ctd-roi-num">+$384K</div>
+                    <div class="ctd-roi-title">Additional per year</div>
+                    <div class="ctd-roi-note">120 more calls daily = 8 answers = 1.33 deals</div>
                 </div>
             </div>
         </div>
 
-        <div style="background: rgba(0,255,136,0.08); padding: 30px; border-radius: 12px; border: 2px solid rgba(0,255,136,0.2);">
-            <h3 style="color: #00ff88; margin-bottom: 20px; text-align: center; font-size: 1.3rem;">
+        <div class="ctd-roi-framework">
+            <h3 class="ctd-roi-framework-title">
                 <i class="fa-solid fa-chart-line"></i> Plus: GrokBot's 80% Success Rate vs 60% Agent Average
             </h3>
-            <p style="color: #ccc; font-size: 1.05rem; text-align: center; margin: 0; line-height: 1.8;">
+            <p class="ctd-roi-framework-body">
                 GrokBot doesn't just save you time—it's also <strong style="color: #00ff88;">33% more effective</strong> at saying the right thing than the average agent.
                 That means higher conversion rates on <strong>both</strong> the leads GrokBot handles AND the fresh leads you're now calling.
             </p>
@@ -566,47 +910,45 @@
     </div>
 
     <!-- The Final Question -->
-    <div class="glass-card" data-aos="fade-up" style="margin-top: 60px; padding: 50px 40px; text-align: center; background: linear-gradient(135deg, rgba(255,51,102,0.08), rgba(255,0,0,0.05)); border: 2px solid rgba(255,51,102,0.3);">
-        <h2 style="font-size: 2.5rem; margin-bottom: 25px; color: #fff;">
-            Can You Really Afford to Keep Using Text Drips?
-        </h2>
-        <p style="font-size: 1.2rem; color: #ccc; margin-bottom: 40px; max-width: 800px; margin-left: auto; margin-right: auto; line-height: 1.8;">
-            Even if you're only wasting <strong style="color: #ff3366;">10-25 minutes per day</strong> on cold leads, that's <strong style="color: #ff3366;">$96K-$240K per year</strong> in lost opportunity.
+    <div class="ctd-cta-card" data-aos="fade-up">
+        <h2>Can You Really Afford to Keep Using Text Drips?</h2>
+        <p>
+            Even if you're only wasting <strong class="ctd-red-heading">10-25 minutes per day</strong> on cold leads, that's <strong class="ctd-red-heading">$96K-$240K per year</strong> in lost opportunity.
         </p>
 
-        <div style="background: rgba(0,0,0,0.4); padding: 30px; border-radius: 12px; max-width: 700px; margin: 0 auto 40px;">
+        <div class="ctd-cta-cost-box">
             <div style="margin-bottom: 25px;">
                 <div style="font-size: 1.1rem; color: #999; margin-bottom: 15px;">The real cost of text drip campaigns:</div>
                 <div class="row">
                     <div class="col-md-6 mb-3">
-                        <div style="color: #ff3366; font-size: 0.85rem; margin-bottom: 5px;">LOSING</div>
-                        <div style="font-size: 2rem; font-weight: 700; color: #ff3366;">$96K-$384K</div>
-                        <div style="color: #aaa; font-size: 0.85rem; margin-top: 3px;">in opportunity cost per year</div>
+                        <div class="ctd-cta-lose-label">LOSING</div>
+                        <div class="ctd-cta-lose-num">$96K-$384K</div>
+                        <div class="ctd-cta-meta">in opportunity cost per year</div>
                     </div>
                     <div class="col-md-6 mb-3">
-                        <div style="color: #00ff88; font-size: 0.85rem; margin-bottom: 5px;">GAINING</div>
-                        <div style="font-size: 2rem; font-weight: 700; color: #00ff88;">$96K-$384K</div>
-                        <div style="color: #aaa; font-size: 0.85rem; margin-top: 3px;">in additional revenue with GrokBot</div>
+                        <div class="ctd-cta-gain-label">GAINING</div>
+                        <div class="ctd-cta-gain-num">$96K-$384K</div>
+                        <div class="ctd-cta-meta">in additional revenue with GrokBot</div>
                     </div>
                 </div>
             </div>
-            <div style="padding: 20px; background: rgba(0,255,136,0.05); border-radius: 8px; border: 1px solid rgba(0,255,136,0.2);">
-                <div style="font-size: 2.8rem; font-weight: 700; color: #00ff88; margin-bottom: 8px;">$192K-$768K</div>
-                <div style="font-size: 1.05rem; color: #fff; font-weight: 600;">Total Annual Swing</div>
-                <div style="color: #999; font-size: 0.9rem; margin-top: 8px;">Between staying with text drips vs switching to InsuranceGrokBot</div>
+            <div class="ctd-cta-swing">
+                <div class="ctd-cta-swing-num">$192K-$768K</div>
+                <div class="ctd-cta-swing-title">Total Annual Swing</div>
+                <div class="ctd-cta-swing-note">Between staying with text drips vs switching to InsuranceGrokBot</div>
             </div>
         </div>
 
         <p style="font-size: 1.3rem; color: #fff; margin-bottom: 40px; font-weight: 600; max-width: 700px; margin-left: auto; margin-right: auto;">
             The question isn't whether you can afford InsuranceGrokBot.<br>
-            <span style="color: #ff3366;">It's whether you can afford NOT to switch.</span>
+            <span class="ctd-red-heading">It's whether you can afford NOT to switch.</span>
         </p>
 
         <div style="display: flex; gap: 20px; justify-content: center; flex-wrap: wrap;">
-            <a href="/" class="btn btn-primary btn-lg" style="min-width: 220px; font-size: 1.2rem; padding: 15px 30px;">
+            <a href="/" class="btn btn-primary btn-lg ctd-cta-btn-lg">
                 <i class="fa-solid fa-rocket"></i> Stop Losing Money Now
             </a>
-            <a href="/demo-chat" class="btn btn-secondary btn-lg" style="min-width: 220px; font-size: 1.2rem; padding: 15px 30px;">
+            <a href="/demo-chat" class="btn btn-secondary btn-lg ctd-cta-btn-lg">
                 <i class="fa-solid fa-flask"></i> See It In Action
             </a>
         </div>
@@ -617,11 +959,11 @@
     </div>
 
     <!-- Disclaimer -->
-    <div class="glass-card" data-aos="fade-up" style="margin-top: 40px; padding: 30px; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.1);">
-        <h4 style="color: #00ff88; margin-bottom: 20px; font-size: 1.1rem;">
+    <div class="ctd-disclaimer-card" data-aos="fade-up">
+        <h4 class="ctd-disclaimer-title">
             <i class="fa-solid fa-info-circle"></i> Important Disclosure
         </h4>
-        <p style="color: #999; font-size: 0.9rem; line-height: 1.8; margin: 0;">
+        <p class="ctd-disclaimer-body">
             <strong>Disclaimer:</strong> The revenue calculations presented on this page are based on industry-standard insurance sales metrics and reasonable assumptions about agent productivity. Actual results will vary based on numerous factors including lead quality, agent experience, market conditions, insurance products offered, compliance requirements, and individual sales performance.
             <br><br>
             The figures assume: (1) $800 average insurance sale value, (2) 20-second call timeout allowing 3 calls per minute, (3) 1 in 15 answer rate on outbound calls, (4) 1 in 6 conversion rate from answer to closed deal, and (5) various time scenarios (10, 25, or 40 minutes per day or per week) spent responding to cold leads that could instead be used for fresh lead outreach. These are estimates based on insurance industry data and agent testimonials.
@@ -654,14 +996,14 @@
     gap: 15px;
     align-items: flex-start;
     padding: 20px;
-    background: rgba(255,255,255,0.02);
+    background: #0a0a0a;
     border-radius: 12px;
     border: 1px solid rgba(0,255,136,0.1);
     transition: all 0.3s ease;
 }
 
 .hero-feature-item:hover {
-    background: rgba(0,255,136,0.05);
+    background: #0d0d0d;
     border-color: rgba(0,255,136,0.3);
     transform: translateY(-2px);
 }
@@ -670,7 +1012,7 @@
     width: 50px;
     height: 50px;
     min-width: 50px;
-    background: rgba(0,255,136,0.15);
+    background: #0d1f14;
     border-radius: 10px;
     display: flex;
     align-items: center;
@@ -698,14 +1040,16 @@
     line-height: 1.5;
 }
 
+.ctd-cta-btn-lg { min-width: 220px; font-size: 1.2rem; padding: 15px 30px; }
+
 .btn-secondary {
-    background: rgba(255,255,255,0.05);
+    background: #111;
     border: 2px solid rgba(0,255,136,0.3);
     color: #00ff88;
 }
 
 .btn-secondary:hover {
-    background: rgba(0,255,136,0.1);
+    background: #1a1a1a;
     border-color: #00ff88;
     color: #fff;
 }
@@ -736,5 +1080,14 @@
         font-size: 2rem !important;
     }
 }
+
+/* ── Light Theme ── */
+body.light-theme .hero-feature-item { background: #fff; border-color: rgba(5,150,105,0.15); }
+body.light-theme .hero-feature-item:hover { background: #f4f5f7; border-color: rgba(5,150,105,0.35); }
+body.light-theme .icon-box { background: rgba(5,150,105,0.12); color: var(--lt-accent); }
+body.light-theme .feature-title { color: #111; }
+body.light-theme .feature-desc { color: #666; }
+body.light-theme .btn-secondary { background: #f0f0f0; border-color: rgba(5,150,105,0.3); color: var(--lt-accent); }
+body.light-theme .btn-secondary:hover { background: #e8e8e8; border-color: var(--lt-accent); color: #111; }
 </style>
 {% endblock %}

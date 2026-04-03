@@ -3,24 +3,24 @@
 
                 <style>
                     .trn-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(320px, 1fr)); gap:16px; margin-bottom:24px; }
-                    .trn-card { background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.06); border-radius:14px; padding:20px; transition:border-color .2s, background .2s; cursor:pointer; }
+                    .trn-card { background:#0a0a0a; border:1px solid #1a1a1a; border-radius:14px; padding:20px; transition:border-color .2s, background .2s; cursor:pointer; }
                     .trn-card:hover { border-color:rgba(0,255,136,0.2); background:rgba(0,255,136,0.03); }
                     .trn-card-icon { width:42px; height:42px; border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:1.1rem; margin-bottom:12px; }
                     .trn-card h4 { font-size:.92rem; font-weight:700; margin:0 0 6px; }
                     .trn-card p { font-size:.78rem; color:#888; line-height:1.45; margin:0; }
                     .trn-card .trn-tag { display:inline-block; font-size:.7rem; font-weight:700; text-transform:uppercase; letter-spacing:.5px; padding:2px 8px; border-radius:4px; margin-top:10px; }
 
-                    .trn-section-hdr { font-size:.75rem; font-weight:700; text-transform:uppercase; letter-spacing:1px; color:#555; margin-bottom:12px; padding-bottom:6px; border-bottom:1px solid rgba(255,255,255,0.04); }
+                    .trn-section-hdr { font-size:.75rem; font-weight:700; text-transform:uppercase; letter-spacing:1px; color:#666; margin-bottom:12px; padding-bottom:6px; border-bottom:1px solid #1a1a1a; }
 
-                    .trn-video-card { position:relative; overflow:hidden; border-radius:10px; aspect-ratio:16/9; background:#0a0a0a; border:1px solid rgba(255,255,255,0.06); display:flex; align-items:center; justify-content:center; cursor:pointer; transition:border-color .2s; }
+                    .trn-video-card { position:relative; overflow:hidden; border-radius:10px; aspect-ratio:16/9; background:#0a0a0a; border:1px solid #1a1a1a; display:flex; align-items:center; justify-content:center; cursor:pointer; transition:border-color .2s; }
                     .trn-video-card:hover { border-color:rgba(0,255,136,0.25); }
                     .trn-video-card .trn-play { width:48px; height:48px; border-radius:50%; background:rgba(0,255,136,0.15); border:2px solid rgba(0,255,136,0.3); display:flex; align-items:center; justify-content:center; font-size:1.1rem; color:#00ff88; transition:transform .2s; }
                     .trn-video-card:hover .trn-play { transform:scale(1.1); }
                     .trn-video-label { position:absolute; bottom:0; left:0; right:0; padding:10px 14px; background:linear-gradient(transparent,rgba(0,0,0,0.8)); font-size:.78rem; font-weight:600; }
 
                     .trn-checklist { list-style:none; margin:0; padding:0; }
-                    .trn-checklist li { padding:10px 14px; border-bottom:1px solid rgba(255,255,255,0.04); font-size:.82rem; color:#bbb; display:flex; align-items:center; gap:10px; transition:background .15s; }
-                    .trn-checklist li:hover { background:rgba(255,255,255,0.02); }
+                    .trn-checklist li { padding:10px 14px; border-bottom:1px solid #1a1a1a; font-size:.82rem; color:#bbb; display:flex; align-items:center; gap:10px; transition:background .15s; }
+                    .trn-checklist li:hover { background:#0e0e0e; }
                     .trn-checklist li:last-child { border-bottom:none; }
                     .trn-checklist .trn-step-num { width:24px; height:24px; border-radius:50%; background:rgba(0,255,136,0.08); border:1px solid rgba(0,255,136,0.15); display:flex; align-items:center; justify-content:center; font-size:.72rem; font-weight:800; color:#00ff88; flex-shrink:0; font-family:'JetBrains Mono',monospace; }
 

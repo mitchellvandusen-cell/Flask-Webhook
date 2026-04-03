@@ -2401,7 +2401,7 @@
 [data-theme="light"] .conn-google-feature i { color: var(--lt-accent); }
 .conn-icon-accent { color: var(--accent); font-size: 1.2rem; }
 [data-theme="light"] .conn-icon-accent { color: var(--lt-accent); }
-.conn-google-privacy { margin-top: 14px; padding: 10px 12px; font-size: 0.75rem; color: #777; line-height: 1.5; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.04); border-radius: 8px; }
+.conn-google-privacy { margin-top: 14px; padding: 10px 12px; font-size: 0.75rem; color: #777; line-height: 1.5; background: #0a0a0a; border: 1px solid #1a1a1a; border-radius: 8px; }
 .conn-google-privacy i { color: #4285F4; margin-right: 6px; }
 [data-theme="light"] .conn-google-privacy { background: transparent; border-color: #e8e8e8; color: #888; }
 [data-theme="light"] .conn-outbound-code {

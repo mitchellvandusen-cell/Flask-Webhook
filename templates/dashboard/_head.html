@@ -166,27 +166,21 @@
             pointer-events: auto;
         }
         .congrats-card {
-            background: rgba(255, 255, 255, 0.065);
-            backdrop-filter: none;
-            -webkit-backdrop-filter: none;
+            background: #0a0a0a;
             border: 1px solid rgba(0, 255, 136, 0.35);
             border-radius: 28px;
             padding: 50px 40px;
             max-width: 480px;
             width: 90%;
             text-align: center;
-            box-shadow: 0 32px 80px rgba(0,0,0,0.5), inset 0 1.5px 0 rgba(255,255,255,0.55), inset 1px 0 0 rgba(255,255,255,0.15), 0 0 60px rgba(0,255,136,0.08);
+            box-shadow: 0 32px 80px rgba(0,0,0,0.5);
             position: relative;
             overflow: hidden;
         }
-        /* Liquid glass specular dome */
         .congrats-card::before {
             content: '';
-            position: absolute; top: 0; left: 5%; right: 5%;
-            height: 50%;
-            background: linear-gradient(180deg, rgba(255,255,255,0.18) 0%, rgba(0,255,136,0.04) 40%, transparent 100%);
-            border-radius: 0 0 60% 60%;
-            filter: blur(10px);
+            position: absolute; top: 0; left: 0; width: 100%; height: 1px;
+            background: linear-gradient(90deg, transparent, rgba(0,255,136,0.3), transparent);
             pointer-events: none;
             z-index: 0;
         }
@@ -249,10 +243,8 @@
         .workflow-tab-btn {
             flex: 1;
             padding: 12px 16px;
-            background: rgba(255, 255, 255, 0.06);
-            backdrop-filter: none;
-            -webkit-backdrop-filter: none;
-            border: 1px solid rgba(255, 255, 255, 0.18);
+            background: #111111;
+            border: 1px solid #242424;
             border-radius: 14px;
             color: #888;
             font-weight: 600;
@@ -260,14 +252,12 @@
             cursor: pointer;
             transition: all 0.3s;
             text-align: center;
-            box-shadow: inset 0 1px 0 rgba(255,255,255,0.35);
         }
-        .workflow-tab-btn:hover { border-color: rgba(255, 255, 255, 0.28); color: #ddd; background: rgba(255,255,255,0.09); box-shadow: inset 0 1px 0 rgba(255,255,255,0.45), 0 4px 16px rgba(0,0,0,0.2); }
+        .workflow-tab-btn:hover { border-color: #333; color: #ddd; background: #161616; }
         .workflow-tab-btn.active {
             background: rgba(0, 255, 136, 0.08);
             border-color: rgba(0, 255, 136, 0.32);
             color: var(--accent);
-            box-shadow: inset 0 1px 0 rgba(255,255,255,0.45), 0 0 20px rgba(0,255,136,0.06);
         }
         .workflow-content { display: none; }
         .workflow-content.active { display: block; }
@@ -276,13 +266,10 @@
             gap: 14px;
             padding: 14px 16px;
             margin-bottom: 8px;
-            background: rgba(255, 255, 255, 0.055);
-            border: 1px solid rgba(255, 255, 255, 0.18);
+            background: #0e0e0e;
+            border: 1px solid #1a1a1a;
             border-radius: 14px;
             align-items: flex-start;
-            backdrop-filter: none;
-            -webkit-backdrop-filter: none;
-            box-shadow: inset 0 1px 0 rgba(255,255,255,0.35), 0 4px 16px rgba(0,0,0,0.2);
         }
         .wf-step-num {
             width: 28px; height: 28px;
@@ -309,13 +296,10 @@
             gap: 14px;
         }
         .wf-tag-card {
-            background: rgba(255, 255, 255, 0.055);
-            border: 1px solid rgba(255, 255, 255, 0.18);
+            background: #0e0e0e;
+            border: 1px solid #1a1a1a;
             border-radius: 16px;
             padding: 18px;
-            backdrop-filter: none;
-            -webkit-backdrop-filter: none;
-            box-shadow: inset 0 1px 0 rgba(255,255,255,0.38), 0 6px 20px rgba(0,0,0,0.22);
         }
         .wf-tag-header {
             display: flex;
@@ -595,8 +579,8 @@
         }
         .save-overlay.active { display: flex; }
         .save-overlay-box {
-            background: var(--card-glass, rgba(15,15,15,0.6));
-            border: 1px solid var(--glass-border, rgba(255,255,255,0.08));
+            background: #0a0a0a;
+            border: 1px solid #1a1a1a;
             border-radius: 20px;
             padding: 40px 50px;
             text-align: center;
@@ -750,8 +734,8 @@
             align-items: center;
             gap: 8px;
             padding: 10px 14px;
-            background: rgba(255, 255, 255, 0.03);
-            border: 1px solid rgba(255, 255, 255, 0.08);
+            background: #0a0a0a;
+            border: 1px solid #1a1a1a;
             border-radius: 10px;
             cursor: pointer;
             transition: all 0.2s;
@@ -1902,7 +1886,16 @@
         body.light-theme .congrats-close:hover { color: #111827; }
 
         /* ── Save overlay ── */
+        body.light-theme .save-overlay-box {
+            background: #ffffff;
+            border-color: #e0e0e0;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.12);
+        }
         body.light-theme .save-text { color: var(--lt-text-primary); }
+        body.light-theme .save-spinner {
+            border-color: rgba(0,0,0,0.08);
+            border-top-color: var(--lt-accent);
+        }
 
         /* ── Workflow tabs ── */
         body.light-theme .workflow-tab-btn {

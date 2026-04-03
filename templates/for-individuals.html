@@ -278,6 +278,30 @@
     line-height: 1.6;
 }
 
+/* ── Section backgrounds ── */
+.ind-bg-black { background: #000; }
+.ind-bg-dark  { background: #060606; }
+.ind-container-fw { width: 100%; }
+.ind-mkt-body-600 { max-width: 600px; margin: 0 auto; }
+.ind-mkt-body-640 { max-width: 640px; margin: 0 auto; }
+.ind-mkt-body-mb  { margin-bottom: 28px; }
+.ind-trust-mt     { margin-top: 28px; }
+
+/* ── Price accent helpers ── */
+.ind-price-sub-accent { color: var(--accent); }
+.ind-price-cents-accent { color: var(--accent); }
+.ind-terms-link { color: var(--accent); }
+body.light-theme .ind-price-sub-accent  { color: var(--lt-accent); }
+body.light-theme .ind-price-cents-accent { color: var(--lt-accent); }
+body.light-theme .ind-terms-link { color: var(--lt-accent); }
+
+/* ── CTA button sizing ── */
+.ind-cta-btn-lg { padding: 15px 40px; font-size: 1rem; font-weight: 700; }
+.ind-cta-btn-md { padding: 14px 30px; font-size: 1rem; }
+
+body.light-theme .ind-bg-black { background: var(--lt-bg); }
+body.light-theme .ind-bg-dark  { background: var(--lt-surface); }
+
 /* ── Light theme ── */
 body.light-theme .ind-hero-section { background: var(--lt-bg); }
 body.light-theme .ind-hero-section::after { background: radial-gradient(ellipse at 50% 100%, rgba(0,170,94,0.06) 0%, transparent 70%); }
@@ -363,14 +387,14 @@ body.light-theme .ind-comp-kicker { color: var(--lt-text-muted); }
 
 
 <!-- ═══ SECTION 1: THE REALITY ═══ -->
-<section class="ios-snap-section auto-height" id="iosSection1" style="background:#000;">
-    <div class="container" style="width:100%;">
+<section class="ios-snap-section auto-height ind-bg-black" id="iosSection1">
+    <div class="container ind-container-fw">
         <hr class="ind-sep">
         <div class="ind-section">
             <div class="text-center" data-aos="fade-up">
                 <span class="mkt-label">The Reality</span>
                 <h2 class="mkt-h2">Leads Are Not Cheap.<br><em>Neither Is Your Time.</em></h2>
-                <p class="mkt-body" style="max-width:600px;margin:0 auto;">
+                <p class="mkt-body ind-mkt-body-600">
                     You're paying real money for every contact on your list. And every hour you spend on admin instead of
                     the phone is money already gone. The math is brutal when you're doing everything yourself.
                 </p>
@@ -403,13 +427,13 @@ body.light-theme .ind-comp-kicker { color: var(--lt-text-muted); }
 
 
 <!-- ═══ SECTION 2: THE DIALER ═══ -->
-<section class="ios-snap-section auto-height" id="iosSection2" style="background:#060606;">
-    <div class="container" style="width:100%;">
+<section class="ios-snap-section auto-height ind-bg-dark" id="iosSection2">
+    <div class="container ind-container-fw">
         <div class="ind-section">
             <div class="text-center" data-aos="fade-up">
                 <span class="mkt-label">Power Dialer</span>
                 <h2 class="mkt-h2">Four Lines. One Agent.<br><em>Twice the Production.</em></h2>
-                <p class="mkt-body" style="max-width:600px;margin:0 auto;">
+                <p class="mkt-body ind-mkt-body-600">
                     Most insurance agents dial one lead at a time and sit in silence waiting for an answer.
                     IGB dials up to 4 simultaneously — you talk to the first person who picks up,
                     and your numbers are never showing as "Spam Likely."
@@ -515,8 +539,8 @@ body.light-theme .ind-comp-kicker { color: var(--lt-text-muted); }
 
 
 <!-- ═══ SECTION 3: BETWEEN YOUR CALLS ═══ -->
-<section class="ios-snap-section" id="iosSection3" style="background:#000;">
-    <div class="container" style="width:100%;">
+<section class="ios-snap-section ind-bg-black" id="iosSection3">
+    <div class="container ind-container-fw">
         <hr class="ind-sep">
         <div class="ind-section">
             <div class="ind-split" data-aos="fade-up">
@@ -537,7 +561,7 @@ body.light-theme .ind-comp-kicker { color: var(--lt-text-muted); }
                 <div>
                     <span class="mkt-label">Between Your Calls</span>
                     <h2 class="mkt-h2">Nobody Goes Cold<br><em>While You're Dialing.</em></h2>
-                    <p class="mkt-body" style="margin-bottom:28px;">
+                    <p class="mkt-body ind-mkt-body-mb">
                         You're on a call with a prospect. Meanwhile, the platform is texting the leads you missed,
                         re-engaging people who went quiet, and booking appointments on your calendar.
                         When you hang up, the work is already done.
@@ -579,7 +603,7 @@ body.light-theme .ind-comp-kicker { color: var(--lt-text-muted); }
                             </div>
                         </li>
                     </ul>
-                    <div class="ai-trust-box" style="margin-top:28px;">
+                    <div class="ai-trust-box ind-trust-mt">
                         <strong><i class="fa-solid fa-circle-check me-2"></i>The automation never calls your leads. Only you do that.</strong>
                         <span>Every phone call is a human conversation — yours. The platform handles follow-up in between so no lead goes cold while you're dialing.</span>
                     </div>
@@ -592,13 +616,13 @@ body.light-theme .ind-comp-kicker { color: var(--lt-text-muted); }
 
 
 <!-- ═══ SECTION 4: PREDICTIVE DIALER ═══ -->
-<section class="ios-snap-section auto-height" id="iosSection4" style="background:#060606;">
-    <div class="container" style="width:100%;">
+<section class="ios-snap-section auto-height ind-bg-dark" id="iosSection4">
+    <div class="container ind-container-fw">
         <div class="ind-section">
             <div class="text-center" data-aos="fade-up">
                 <span class="mkt-label">Predictive Dialer</span>
                 <h2 class="mkt-h2">The Math Behind<br><em>More Connects Per Hour.</em></h2>
-                <p class="mkt-body" style="max-width:640px;margin:0 auto;">
+                <p class="mkt-body ind-mkt-body-640">
                     Based on your historical connect rate, the system calculates exactly how many lines to run simultaneously —
                     so you're never waiting between connects, never overwhelmed by two people answering at once,
                     and always legal under TCPA. No manual dial ratios. The math runs itself.
@@ -633,8 +657,8 @@ body.light-theme .ind-comp-kicker { color: var(--lt-text-muted); }
 
 
 <!-- ═══ SECTION 5: PRICING ═══ -->
-<section class="ios-snap-section auto-height" id="iosSection5" style="background:#000;">
-    <div class="container" style="width:100%;">
+<section class="ios-snap-section auto-height ind-bg-black" id="iosSection5">
+    <div class="container ind-container-fw">
         <hr class="ind-sep">
         <div class="ind-section">
             <div class="text-center" data-aos="fade-up">
@@ -666,9 +690,9 @@ body.light-theme .ind-comp-kicker { color: var(--lt-text-muted); }
                     <div class="hp-price-badge">MOST POPULAR</div>
                     <h4>Power Dialer</h4>
                     <div>
-                        <span class="hp-price-amount green">$149</span><span class="hp-price-cents" style="color:var(--accent);">.99</span><span class="hp-price-period">/mo</span>
+                        <span class="hp-price-amount green">$149</span><span class="hp-price-cents ind-price-cents-accent">.99</span><span class="hp-price-period">/mo</span>
                     </div>
-                    <p class="hp-price-sub" style="color:var(--accent);">Human dialer + full platform</p>
+                    <p class="hp-price-sub ind-price-sub-accent">Human dialer + full platform</p>
                     <p class="hp-price-trial">7-day free trial.</p>
                     <ul class="hp-price-feat">
                         <li><i class="fa-solid fa-check"></i> <strong>Single-line power dialer</strong></li>
@@ -678,7 +702,7 @@ body.light-theme .ind-comp-kicker { color: var(--lt-text-muted); }
                         <li><i class="fa-solid fa-check"></i> Workflow automation</li>
                         <li><i class="fa-solid fa-check"></i> Unlimited human dialing minutes</li>
                     </ul>
-                    <a href="/checkout" class="btn btn-primary w-100 py-2" style="font-weight:700;">Start Free Trial</a>
+                    <a href="/checkout" class="btn btn-primary w-100 py-2 fw-bold">Start Free Trial</a>
                 </div>
 
                 <div class="hp-price-card">
@@ -718,7 +742,7 @@ body.light-theme .ind-comp-kicker { color: var(--lt-text-muted); }
 
             <p class="ind-footnote">
                 All plans: 7-day free trial. No contracts. Cancel anytime. First 5 phone numbers free.<br>
-                AI voice overflow uses AI Minutes (not included in unlimited). <a href="/terms" style="color:var(--accent);">Terms apply.</a>
+                AI voice overflow uses AI Minutes (not included in unlimited). <a href="/terms" class="ind-terms-link">Terms apply.</a>
             </p>
         </div>
         <hr class="ind-sep">
@@ -733,8 +757,8 @@ body.light-theme .ind-comp-kicker { color: var(--lt-text-muted); }
             <h2>You dial.<br>We handle everything else.</h2>
             <p>No contracts. No setup fees. Your first 5 phone numbers are on us.</p>
             <div class="d-flex justify-content-center gap-3 flex-wrap">
-                <a href="/checkout" class="btn btn-primary" style="padding:15px 40px;font-size:1rem;font-weight:700;">Start 7-Day Free Trial</a>
-                <a href="/support" class="btn btn-outline-accent" style="padding:14px 30px;font-size:1rem;">Talk to a Human</a>
+                <a href="/checkout" class="btn btn-primary ind-cta-btn-lg">Start 7-Day Free Trial</a>
+                <a href="/support" class="btn btn-outline-accent ind-cta-btn-md">Talk to a Human</a>
             </div>
         </div>
     </div>

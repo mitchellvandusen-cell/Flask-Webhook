@@ -5,10 +5,22 @@
 {% block meta_description %}InsuranceGrokBot was built by active life insurance agents who needed a better way to follow up with leads. Learn about the team behind the AI-powered sales assistant for insurance professionals.{% endblock %}
 
 {% block content %}
+<style>
+/* ── about.html ─────────────────────────────────── */
+.about-hero-wrap    { position: relative; z-index: 2; }
+.about-origin-sec   { padding-top: 20px; }
+.about-story-card   { overflow: visible; height: auto; }
+.about-story-h2     { font-size: 1.6rem; }
+.about-mission-sec  { padding: 60px 0 100px; }
+.about-mission-icon { font-size: 2.5rem; color: var(--accent); margin-bottom: 20px; }
+.about-mission-body { max-width: 580px; margin: 0 auto 28px; }
+
+body.light-theme .about-mission-icon { color: var(--lt-accent, #059669); }
+</style>
 
 <!-- Hero -->
 <section class="about-hero">
-    <div class="container" style="position: relative; z-index: 2;">
+    <div class="container about-hero-wrap">
         <div class="row align-items-center" data-aos="fade-up">
             <div class="col-lg-8 mx-auto text-center">
                 <span class="about-hero-label">Our Story</span>
@@ -25,12 +37,12 @@
 </section>
 
 <!-- The Origin Story -->
-<section class="section" style="padding-top: 20px;">
+<section class="section about-origin-sec">
     <div class="container">
         <div class="row justify-content-center">
             <div class="col-lg-8">
 
-                <div class="glass-card p-5 mb-5" data-aos="fade-up" style="overflow: visible; height: auto;">
+                <div class="glass-card about-story-card p-5 mb-5" data-aos="fade-up">
                     <h2 class="about-section-title">The Problem <span>We Couldn't Ignore</span></h2>
 
                     <div class="origin-timeline">
@@ -117,8 +129,8 @@
                 </div>
 
                 <!-- What We Built -->
-                <div class="glass-card p-5 mt-5" data-aos="fade-up" style="overflow: visible; height: auto;">
-                    <h2 class="about-section-title" style="font-size: 1.6rem;">What InsuranceGrokBot <span>Is Today</span></h2>
+                <div class="glass-card about-story-card p-5 mt-5" data-aos="fade-up">
+                    <h2 class="about-section-title about-story-h2">What InsuranceGrokBot <span>Is Today</span></h2>
                     <p class="mkt-body mb-4">
                         Three interconnected products built specifically for life insurance agents — not adapted from some
                         generic sales tool, not bolted together from third-party APIs. Purpose-built, top to bottom.
@@ -141,14 +153,14 @@
 </section>
 
 <!-- Mission -->
-<section style="padding: 60px 0 100px;">
+<section class="about-mission-sec">
     <div class="container">
         <div class="row justify-content-center">
             <div class="col-lg-8" data-aos="fade-up">
                 <div class="mission-card">
-                    <i class="fa-solid fa-shield-halved" style="font-size: 2.5rem; color: var(--accent); margin-bottom: 20px;"></i>
+                    <i class="fa-solid fa-shield-halved about-mission-icon"></i>
                     <h2 class="mkt-feat-title">Our Mission</h2>
-                    <p class="mkt-body" style="max-width: 580px; margin: 0 auto 28px;">
+                    <p class="mkt-body about-mission-body">
                         To give every insurance agent — solo or agency — the same leverage that used to take a full team,
                         multiple software subscriptions, and years of experience to build. One platform. Everything you need.
                         No excuses.

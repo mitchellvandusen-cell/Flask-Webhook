@@ -5,6 +5,31 @@
 {% block meta_description %}Earn recurring commissions promoting InsuranceGrokBot to insurance agents. Join our affiliate program and get paid for every referral that subscribes to our AI-powered dialer and SMS platform.{% endblock %}
 
 {% block content %}
+<style>
+/* ── affiliate.html ─────────────────────────────── */
+.aff-ic-accent       { font-size: 1.4rem; color: var(--accent); }
+.aff-ic-cyan         { font-size: 1.4rem; }
+.aff-ic-pink         { font-size: 1.4rem; }
+.aff-check-icon      { color: var(--accent); }
+.aff-calc-card       { border-color: #1a3d22; }           /* was rgba(0,255,136,0.15) */
+.aff-calc-title      { font-size: 1.3rem; }
+.aff-calc-ic         { color: var(--accent); }
+.aff-calc-note       { margin: 0; }
+.aff-cta-glass       { border: 2px solid #1a3d22; max-width: 540px; width: 100%; } /* was rgba(0,255,136,0.3) */
+.aff-rocket-ic       { font-size: 1.6rem; }
+.aff-cta-h           { font-size: 1.4rem; margin-bottom: 8px; }
+.aff-gift-ic         { color: var(--accent); }
+.aff-referral-strong { color: var(--text-primary); }
+.aff-cta-btn         { font-weight: 700; font-size: 1.05rem; }
+
+body.light-theme .aff-ic-accent      { color: var(--lt-accent, #059669); }
+body.light-theme .aff-check-icon     { color: var(--lt-accent, #059669); }
+body.light-theme .aff-calc-card      { border-color: rgba(5,150,105,0.25); }
+body.light-theme .aff-calc-ic        { color: var(--lt-accent, #059669); }
+body.light-theme .aff-cta-glass      { border-color: rgba(5,150,105,0.35); }
+body.light-theme .aff-gift-ic        { color: var(--lt-accent, #059669); }
+body.light-theme .aff-referral-strong { color: #111; }
+</style>
 <div class="container page-top-pad">
 
     <!-- Header -->
@@ -42,7 +67,7 @@
                     </div>
                 </div>
                 <div class="aff-footer-sep">
-                    <span><i class="fa-solid fa-circle-check me-1" style="color: var(--accent);"></i>Double-sided deal — wins for you AND the agents you refer</span>
+                    <span><i class="fa-solid fa-circle-check me-1 aff-check-icon"></i>Double-sided deal — wins for you AND the agents you refer</span>
                 </div>
             </div>
         </div>
@@ -55,7 +80,7 @@
                 <div class="col-md-4">
                     <div class="glass-card p-4 h-100 text-center">
                         <div class="aff-icon-box aff-icon-box--accent">
-                            <i class="fa-solid fa-user-plus" style="font-size: 1.4rem; color: var(--accent);"></i>
+                            <i class="fa-solid fa-user-plus aff-ic-accent"></i>
                         </div>
                         <h4 class="aff-step-title">1. Sign Up</h4>
                         <p class="aff-step-body">Create your free affiliate account in under a minute. No approval wait — start sharing immediately.</p>
@@ -64,7 +89,7 @@
                 <div class="col-md-4">
                     <div class="glass-card p-4 h-100 text-center">
                         <div class="aff-icon-box aff-icon-box--cyan">
-                            <i class="fa-solid fa-share-nodes ic-cyan" style="font-size: 1.4rem;"></i>
+                            <i class="fa-solid fa-share-nodes ic-cyan aff-ic-cyan"></i>
                         </div>
                         <h4 class="aff-step-title">2. Share Your Link</h4>
                         <p class="aff-step-body">Share your unique referral link. Your referred agents get 15% off their first month automatically — making it an easy yes.</p>
@@ -73,7 +98,7 @@
                 <div class="col-md-4">
                     <div class="glass-card p-4 h-100 text-center">
                         <div class="aff-icon-box aff-icon-box--pink">
-                            <i class="fa-solid fa-sack-dollar ic-pink" style="font-size: 1.4rem;"></i>
+                            <i class="fa-solid fa-sack-dollar ic-pink aff-ic-pink"></i>
                         </div>
                         <h4 class="aff-step-title">3. Get Paid Forever</h4>
                         <p class="aff-step-body">Earn 20% on every payment your referrals make — month after month, year after year, for as long as they stay.</p>
@@ -86,11 +111,11 @@
     <!-- Commission Calculator -->
     <div class="row justify-content-center mb-5" data-aos="fade-up">
         <div class="col-lg-10">
-            <div class="glass-card p-4" style="border-color: rgba(0,255,136,0.15);">
-                <h3 class="mkt-feat-title text-center mb-2" style="font-size: 1.3rem;">
-                    <i class="fa-solid fa-calculator me-2" style="color: var(--accent);"></i>What Your Earnings Look Like
+            <div class="glass-card aff-calc-card p-4">
+                <h3 class="mkt-feat-title aff-calc-title text-center mb-2">
+                    <i class="fa-solid fa-calculator me-2 aff-calc-ic"></i>What Your Earnings Look Like
                 </h3>
-                <p class="aff-calc-footer mb-4" style="margin: 0;">Based on the $149.99/mo Power Dialer plan at 20% commission</p>
+                <p class="aff-calc-footer aff-calc-note mb-4">Based on the $149.99/mo Power Dialer plan at 20% commission</p>
                 <div class="row g-4 text-center">
                     <div class="col-md-3 col-6">
                         <div class="aff-calc-val--green">$30</div>
@@ -118,19 +143,19 @@
 
     <!-- CTA: Rewardful signup -->
     <div class="text-center" data-aos="fade-up">
-        <div class="glass-card p-5 d-inline-block" style="border: 2px solid rgba(0,255,136,0.3); max-width: 540px; width: 100%;">
+        <div class="glass-card aff-cta-glass p-5 d-inline-block">
             <div class="aff-cta-rocket">
-                <i class="fa-solid fa-rocket" style="font-size: 1.6rem;"></i>
+                <i class="fa-solid fa-rocket aff-rocket-ic"></i>
             </div>
-            <h3 class="aff-step-title" style="font-size: 1.4rem; margin-bottom: 8px;">Ready to Start Earning?</h3>
+            <h3 class="aff-step-title aff-cta-h">Ready to Start Earning?</h3>
             <p class="aff-step-body mb-2">
                 Sign up free. No minimum referrals, no hoops.
             </p>
             <p class="aff-step-body mb-4">
-                <i class="fa-solid fa-gift me-1" style="color: var(--accent);"></i>
-                Your referrals automatically get <strong style="color: var(--text-primary);">15% off their first month</strong> — making it easy for them to say yes.
+                <i class="fa-solid fa-gift me-1 aff-gift-ic"></i>
+                Your referrals automatically get <strong class="aff-referral-strong">15% off their first month</strong> — making it easy for them to say yes.
             </p>
-            <a href="https://insurancegrokbot.getrewardful.com/signup" target="_blank" rel="noopener noreferrer" class="btn btn-primary py-3 px-5" style="font-weight: 700; font-size: 1.05rem;">
+            <a href="https://insurancegrokbot.getrewardful.com/signup" target="_blank" rel="noopener noreferrer" class="btn btn-primary aff-cta-btn py-3 px-5">
                 Become an Affiliate <i class="fa-solid fa-arrow-right ms-2"></i>
             </a>
             <p class="aff-disclaimer">
