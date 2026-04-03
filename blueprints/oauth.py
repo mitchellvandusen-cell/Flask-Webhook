@@ -97,33 +97,25 @@ def _get_existing_location_ids(conn, location_ids):
         return set()
 
 
-def _determine_primary_location(url_location_id, token_location_id,
-                                user_location_ids, sub_accounts,
-                                company_id, db_conn):
+def _determine_primary_location(token_location_id, user_location_ids,
+                                sub_accounts, company_id, db_conn):
     """
     Determine which GHL location the installing user belongs to.
+    Uses only documented GHL API sources — no undocumented URL params.
 
     Returns (location_id, resolution_method) tuple.
 
     Priority:
       1. token_location_id (authoritative — from token exchange response)
-      2. url_location_id matching a known sub_account (confirmed by GHL in callback)
-      3. sub_accounts — find the NEW location not yet in DB
-      4. user_location_ids from /users/{userId} roles — find NEW location
-      5. url_location_id direct (last resort — undocumented GHL param)
-      6. None (failed — caller uses companyId fallback)
+      2. sub_accounts — find the NEW location not yet in DB
+      3. user_location_ids from /users/{userId} roles — find NEW location
+      4. None (failed — caller uses companyId fallback)
     """
     # Priority 1: token_location_id (authoritative — from token exchange)
     if token_location_id:
         return token_location_id, 'token_direct'
 
-    # Priority 2: URL param matches a known sub_account
-    if url_location_id and sub_accounts:
-        sub_ids = [s['id'] for s in sub_accounts]
-        if url_location_id in sub_ids:
-            return url_location_id, 'url_param'
-
-    # Priority 3: sub_accounts — find the NEW location (not in DB)
+    # Priority 2: sub_accounts — find the NEW location (not in DB)
     if sub_accounts and db_conn:
         sub_ids = [s['id'] for s in sub_accounts]
         existing = _get_existing_location_ids(db_conn, sub_ids)
@@ -137,7 +129,7 @@ def _determine_primary_location(url_location_id, token_location_id,
             # All locations already registered — reconnect scenario
             return sub_ids[0], 'reconnect_first'
 
-    # Priority 4: user_location_ids — find the NEW location
+    # Priority 3: user_location_ids — find the NEW location
     if user_location_ids and db_conn:
         if len(user_location_ids) == 1:
             return user_location_ids[0], 'single_role_location'
@@ -149,10 +141,6 @@ def _determine_primary_location(url_location_id, token_location_id,
             return new_locs[-1], 'multiple_new_roles'
         elif user_location_ids:
             return user_location_ids[0], 'reconnect_roles'
-
-    # Priority 5: url_location_id direct (last resort — undocumented GHL param)
-    if url_location_id:
-        return url_location_id, 'url_param_direct'
 
     return None, 'failed'
 
@@ -911,12 +899,10 @@ def oauth_callback():
     """
     code = request.args.get("code")
     raw_state = request.args.get("state")
-    url_location_id = request.args.get("locationId")
 
     logger.info(
         f"=== OAUTH CALLBACK START === state={'present' if raw_state else 'MISSING'}, "
-        f"code={'present' if code else 'MISSING'}, "
-        f"locationId_from_url={'present: ' + url_location_id if url_location_id else 'MISSING'}"
+        f"code={'present' if code else 'MISSING'}"
     )
 
     try:
@@ -1104,7 +1090,7 @@ def oauth_callback():
                 logger.error(f"Critical scopes MISSING from grant: {missing_critical}")
                 try:
                     log_webhook_event(
-                        token_location_id or url_location_id or "unknown",
+                        token_location_id or "unknown",
                         "oauth_scope_mismatch", "error",
                         f"Critical scopes missing: {missing_critical}",
                         details={"granted": list(granted_scopes), "missing": list(missing_critical)})
@@ -1246,7 +1232,7 @@ def oauth_callback():
             # Source: token_location_id from token exchange — this is authoritative.
             # Use locations.readonly to enrich with name/timezone.
             # If the enrichment call fails, fall back to token data silently — no banner.
-            loc_id = token_location_id  # authoritative — do NOT use url_location_id as primary
+            loc_id = token_location_id  # authoritative — from token exchange response
             if loc_id:
                 loc_name = user_name or 'Primary Location'
                 loc_timezone = None
@@ -1271,37 +1257,12 @@ def oauth_callback():
         # ══════════════════════════════════════════════════════════════════════
         # Step 7: Determine primary_location_id
         # ══════════════════════════════════════════════════════════════════════
-        # For logged-in users (reauthorize flow), their session location_id is
-        # ground truth — but ONLY for Company token flows where we have no
-        # token_location_id. For Location tokens, token_location_id is
-        # authoritative (Priority 1) and session injection would be redundant
-        # at best, wrong at worst.
-        # Also skip temp_ placeholders from Stripe-first provisioning.
-        if current_user.is_authenticated and not url_location_id and token_user_type_used == 'Company':
-            _session_loc = getattr(current_user, 'location_id', None)
-            _is_temp = _session_loc and (
-                str(_session_loc).startswith('temp_') or
-                str(_session_loc).startswith('install_')
-            )
-            if _session_loc and not _is_temp:
-                url_location_id = _session_loc
-                logger.info(
-                    f"Step 7: Using current_user.location_id={_session_loc} "
-                    f"as url_location_id (reauthorize flow, Company token)"
-                )
-            elif _is_temp:
-                logger.info(
-                    f"Step 7: Ignoring temp location_id={_session_loc} — "
-                    f"will use GHL-provided location (first-time provisioning)"
-                )
-
         # Use a temporary DB connection for the location check
         _loc_conn = get_db_connection()
         try:
             primary_location_id, resolution_method = _determine_primary_location(
-                url_location_id, token_location_id,
-                user_location_ids, sub_accounts,
-                company_id, _loc_conn
+                token_location_id, user_location_ids,
+                sub_accounts, company_id, _loc_conn
             )
         finally:
             if _loc_conn:
@@ -1436,7 +1397,6 @@ def oauth_callback():
                         if email_source == 'users_api':
                             _known_loc_ids = (
                                 [s['id'] for s in sub_accounts if s.get('id')]
-                                + ([url_location_id] if url_location_id else [])
                                 + (user_location_ids or [])
                             )
                             _known_loc_ids = list(set(_known_loc_ids))
