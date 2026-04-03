@@ -934,6 +934,90 @@ def refresh_tokens_proactively(buffer_minutes: int = 60):
         # Brief pause between refreshes to avoid rate limiting
         _time.sleep(0.5)
 
+    # ── Second pass: refresh company-level tokens (agency owners) ──────────
+    # company_refresh_token is the GHL company-scope refresh token.
+    # update_subscriber_token() only touches access_token/refresh_token, so we
+    # use inline SQL here to update the three company_* columns independently.
+    conn2 = get_db_connection()
+    if conn2:
+        try:
+            cur2 = conn2.cursor()
+            cur2.execute("""
+                SELECT location_id, email, oauth_app_type,
+                       company_access_token, company_refresh_token, company_token_expires_at
+                FROM subscribers
+                WHERE company_refresh_token IS NOT NULL
+                  AND company_token_expires_at IS NOT NULL
+                  AND company_token_expires_at < NOW() + make_interval(mins => %s)
+                  AND company_token_expires_at > NOW() - interval '7 days'
+            """, (buffer_minutes,))
+            company_expiring = cur2.fetchall()
+            cur2.close()
+        except Exception as e:
+            logger.error(f"Proactive refresh company token query failed: {e}")
+            company_expiring = []
+        finally:
+            return_db_connection(conn2)
+
+        if company_expiring:
+            logger.info(f"Proactive refresh: found {len(company_expiring)} company tokens to refresh")
+
+        for row in company_expiring:
+            loc_id = row['location_id']
+            oauth_type = row.get('oauth_app_type', 'marketplace')
+            company_refresh_tok = decrypt_token(row['company_refresh_token']) if row['company_refresh_token'] else None
+
+            if not company_refresh_tok:
+                stats["skipped"] += 1
+                continue
+
+            cred_sets = _build_cred_sets(oauth_type, marketplace_id, marketplace_secret,
+                                         private_id, private_secret)
+            if not cred_sets:
+                stats["skipped"] += 1
+                continue
+
+            refreshed_company = False
+            for cred in cred_sets:
+                new_access, new_refresh, expires_in, _ = _attempt_token_refresh(
+                    loc_id, company_refresh_tok, cred, oauth_type)
+                if new_access:
+                    # Write company token columns inline (update_subscriber_token doesn't cover these)
+                    conn3 = get_db_connection()
+                    if conn3:
+                        try:
+                            cur3 = conn3.cursor()
+                            cur3.execute("""
+                                UPDATE subscribers
+                                SET company_access_token = %s,
+                                    company_refresh_token = COALESCE(%s, company_refresh_token),
+                                    company_token_expires_at = NOW() + make_interval(secs => %s),
+                                    updated_at = NOW()
+                                WHERE location_id = %s
+                            """, (
+                                encrypt_token(new_access),
+                                encrypt_token(new_refresh) if new_refresh else None,
+                                float(expires_in) if expires_in else 86400.0,
+                                loc_id,
+                            ))
+                            conn3.commit()
+                            cur3.close()
+                            stats["refreshed"] += 1
+                            refreshed_company = True
+                            logger.info(f"✅ Proactive company token refresh success: {loc_id}")
+                        except Exception as e:
+                            logger.error(f"🚨 Company token DB write failed for {loc_id}: {e}")
+                            stats["errors"] += 1
+                        finally:
+                            return_db_connection(conn3)
+                    break
+
+            if not refreshed_company:
+                stats["failed"] += 1
+                logger.warning(f"⚠️ Proactive company token refresh failed: {loc_id}")
+
+            _time.sleep(0.5)
+
     logger.info(f"Proactive refresh complete: {stats}")
     return stats
 
