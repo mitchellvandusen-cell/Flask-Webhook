@@ -6725,16 +6725,20 @@
             if (_inboxFilter === 'all') {
                 _inboxData = [..._inboxAllData];
             } else if (_inboxFilter === 'unread') {
-                // "Unread" = truly new messages that arrived since page load (tracked in _inboxUnreadIds)
+                // "New" = truly new messages that arrived since page load (tracked in _inboxUnreadIds)
                 _inboxData = _inboxAllData.filter(c => _inboxUnreadIds.has(c.contact_id));
-            } else if (_inboxFilter === 'inbound') {
-                // "Received" = last message in thread was inbound (they messaged us)
+            } else if (_inboxFilter === 'needs_reply') {
+                // "Needs Reply" = last message in thread was inbound (they messaged us, we haven't replied)
                 _inboxData = _inboxAllData.filter(c => c.last_direction === 'inbound');
-            } else if (_inboxFilter === 'outbound') {
-                // "Sent" = last message in thread was outbound (we messaged them)
-                _inboxData = _inboxAllData.filter(c => c.last_direction === 'outbound');
             } else {
-                _inboxData = _inboxAllData.filter(c => c.last_direction === _inboxFilter);
+                _inboxData = [..._inboxAllData];
+            }
+            // Update "New" pill count badge
+            const unreadBadge = document.getElementById('inboxUnreadCount');
+            if (unreadBadge) {
+                const n = _inboxUnreadIds.size;
+                if (n > 0) { unreadBadge.textContent = n > 99 ? '99+' : n; unreadBadge.style.display = ''; }
+                else { unreadBadge.style.display = 'none'; }
             }
             _renderInboxList();
         }
@@ -6756,7 +6760,9 @@
                 if (search.trim()) {
                     list.innerHTML = '<div style="padding:40px 20px;text-align:center;"><div style="color:#8E8E93;font-size:0.82rem;">No results for &ldquo;' + search.trim().replace(/</g,'&lt;') + '&rdquo;</div></div>';
                 } else if (_inboxFilter === 'unread') {
-                    list.innerHTML = '<div style="padding:40px 20px;text-align:center;"><div style="width:50px;height:50px;border-radius:50%;background:rgba(0,122,255,0.08);display:flex;align-items:center;justify-content:center;margin:0 auto 12px;"><i class="fa-solid fa-check-double" style="color:#007AFF;font-size:1.1rem;"></i></div><div style="color:#fff;font-size:0.88rem;font-weight:600;">All caught up</div><div style="color:#8E8E93;font-size:0.75rem;margin-top:4px;">No new messages since you opened the app</div><div style="color:#8E8E93;font-size:0.72rem;margin-top:6px;">Switch to <span style="color:#007AFF;font-weight:600;">Received</span> to see who needs a reply</div></div>';
+                    list.innerHTML = '<div style="padding:40px 20px;text-align:center;"><div style="width:50px;height:50px;border-radius:50%;background:rgba(0,122,255,0.08);display:flex;align-items:center;justify-content:center;margin:0 auto 12px;"><i class="fa-solid fa-check-double" style="color:#007AFF;font-size:1.1rem;"></i></div><div style="color:#fff;font-size:0.88rem;font-weight:600;">All caught up</div><div style="color:#8E8E93;font-size:0.75rem;margin-top:4px;">No new messages since you opened the app</div><div style="color:#8E8E93;font-size:0.72rem;margin-top:6px;">Switch to <span style="color:#007AFF;font-weight:600;">Needs Reply</span> to see who\'s waiting</div></div>';
+                } else if (_inboxFilter === 'needs_reply') {
+                    list.innerHTML = '<div style="padding:40px 20px;text-align:center;"><div style="width:50px;height:50px;border-radius:50%;background:rgba(52,199,89,0.08);display:flex;align-items:center;justify-content:center;margin:0 auto 12px;"><i class="fa-solid fa-circle-check" style="color:#34C759;font-size:1.1rem;"></i></div><div style="color:#fff;font-size:0.88rem;font-weight:600;">All Replied</div><div style="color:#8E8E93;font-size:0.75rem;margin-top:4px;">No conversations waiting for your reply</div></div>';
                 } else {
                     list.innerHTML = '<div style="padding:40px 20px;text-align:center;"><div style="width:50px;height:50px;border-radius:50%;background:rgba(0,122,255,0.08);display:flex;align-items:center;justify-content:center;margin:0 auto 12px;"><i class="fa-solid fa-message" style="color:#007AFF;font-size:1.1rem;"></i></div><div style="color:#fff;font-size:0.88rem;font-weight:600;">No Messages</div><div style="color:#8E8E93;font-size:0.75rem;margin-top:4px;">Conversations will appear here</div></div>';
                 }

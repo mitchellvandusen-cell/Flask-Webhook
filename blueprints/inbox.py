@@ -80,46 +80,84 @@ def api_inbox_conversations():
 
     try:
         cur = conn.cursor()
+        like = f"%{search}%" if search else None
 
-        # GHL synced conversations — latest message per contact (excludes calls/voicemails)
-        search_filter_ghl = (
-            "AND (lower(contact_name) LIKE %s OR contact_phone LIKE %s)" if search else ""
-        )
-        ghl_params = [location_id] + ([f"%{search}%", f"%{search}%"] if search else [])
-        cur.execute(f"""
-            SELECT DISTINCT ON (contact_id)
-                contact_id, contact_name, contact_phone,
-                body as last_message, direction as last_direction,
-                message_type, date_added, source
-            FROM crm_conversations
-            WHERE location_id = %s
-              AND message_type NOT IN ('call', 'voicemail')
-              {search_filter_ghl}
-            ORDER BY contact_id, date_added DESC
-        """, ghl_params)
+        # GHL synced conversations — latest message per contact (excludes calls/voicemails).
+        # When searching, find contacts with ANY matching message body/name/phone, then
+        # return their LATEST message (not just messages that themselves match).
+        if search:
+            cur.execute("""
+                SELECT DISTINCT ON (contact_id)
+                    contact_id, contact_name, contact_phone,
+                    body as last_message, direction as last_direction,
+                    message_type, date_added, source
+                FROM crm_conversations
+                WHERE location_id = %s
+                  AND message_type NOT IN ('call', 'voicemail')
+                  AND contact_id IN (
+                      SELECT DISTINCT contact_id
+                      FROM crm_conversations
+                      WHERE location_id = %s
+                        AND message_type NOT IN ('call', 'voicemail')
+                        AND (lower(contact_name) LIKE %s
+                             OR contact_phone LIKE %s
+                             OR lower(body) LIKE %s)
+                  )
+                ORDER BY contact_id, date_added DESC
+            """, [location_id, location_id, like, like, like])
+        else:
+            cur.execute("""
+                SELECT DISTINCT ON (contact_id)
+                    contact_id, contact_name, contact_phone,
+                    body as last_message, direction as last_direction,
+                    message_type, date_added, source
+                FROM crm_conversations
+                WHERE location_id = %s
+                  AND message_type NOT IN ('call', 'voicemail')
+                ORDER BY contact_id, date_added DESC
+            """, [location_id])
         ghl_convos = {row['contact_id']: row for row in cur.fetchall()}
 
         # Local contact_messages — contacts that may not be in the GHL sync yet.
-        # Always query so we catch any contact the deep sync hasn't reached.
-        search_filter_local = (
-            "AND (lower(cc.name) LIKE %s OR cc.phone LIKE %s)" if search else ""
-        )
-        local_params = [location_id] + ([f"%{search}%", f"%{search}%"] if search else [])
-        cur.execute(f"""
-            SELECT DISTINCT ON (cm.contact_id)
-                cm.contact_id,
-                COALESCE(cc.name, cc.first_name, 'Unknown') as contact_name,
-                COALESCE(cc.phone, '') as contact_phone,
-                cm.message_text as last_message,
-                CASE WHEN cm.message_type = 'lead' THEN 'inbound' ELSE 'outbound' END as last_direction,
-                'sms' as message_type,
-                cm.created_at::text as date_added,
-                'local' as source
-            FROM contact_messages cm
-            JOIN contact_cache cc ON cm.contact_id = cc.contact_id AND cc.location_id = %s
-            {search_filter_local}
-            ORDER BY cm.contact_id, cm.created_at DESC
-        """, local_params)
+        # Search covers contact name, phone, AND message text.
+        if search:
+            cur.execute("""
+                SELECT DISTINCT ON (cm.contact_id)
+                    cm.contact_id,
+                    COALESCE(cc.name, cc.first_name, 'Unknown') as contact_name,
+                    COALESCE(cc.phone, '') as contact_phone,
+                    cm.message_text as last_message,
+                    CASE WHEN cm.message_type = 'lead' THEN 'inbound' ELSE 'outbound' END as last_direction,
+                    'sms' as message_type,
+                    cm.created_at::text as date_added,
+                    'local' as source
+                FROM contact_messages cm
+                JOIN contact_cache cc ON cm.contact_id = cc.contact_id AND cc.location_id = %s
+                WHERE cm.contact_id IN (
+                    SELECT DISTINCT cm2.contact_id
+                    FROM contact_messages cm2
+                    JOIN contact_cache cc2 ON cm2.contact_id = cc2.contact_id AND cc2.location_id = %s
+                    WHERE lower(cc2.name) LIKE %s
+                       OR cc2.phone LIKE %s
+                       OR lower(cm2.message_text) LIKE %s
+                )
+                ORDER BY cm.contact_id, cm.created_at DESC
+            """, [location_id, location_id, like, like, like])
+        else:
+            cur.execute("""
+                SELECT DISTINCT ON (cm.contact_id)
+                    cm.contact_id,
+                    COALESCE(cc.name, cc.first_name, 'Unknown') as contact_name,
+                    COALESCE(cc.phone, '') as contact_phone,
+                    cm.message_text as last_message,
+                    CASE WHEN cm.message_type = 'lead' THEN 'inbound' ELSE 'outbound' END as last_direction,
+                    'sms' as message_type,
+                    cm.created_at::text as date_added,
+                    'local' as source
+                FROM contact_messages cm
+                JOIN contact_cache cc ON cm.contact_id = cc.contact_id AND cc.location_id = %s
+                ORDER BY cm.contact_id, cm.created_at DESC
+            """, [location_id])
         # Merge: prefer GHL data per contact; add local contacts not in GHL
         merged = dict(ghl_convos)
         for row in cur.fetchall():
