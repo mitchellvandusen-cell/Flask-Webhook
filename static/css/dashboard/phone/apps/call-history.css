@@ -318,14 +318,19 @@ body.light-theme .iphone-frame .chr-ap-stop:hover {
 }
 [data-theme="light"] .chr-ap-dl,
 body.light-theme .iphone-frame .chr-ap-dl {
-    background: rgba(5,150,105,0.08);
-    color: #059669;
-    border-color: rgba(5,150,105,0.20);
+    background: #d1fae5;
+    color: #047857 !important;
+    border-color: rgba(5,150,105,0.35);
+}
+[data-theme="light"] .chr-ap-dl i,
+body.light-theme .iphone-frame .chr-ap-dl i {
+    color: #047857 !important;
 }
 [data-theme="light"] .chr-ap-dl:hover,
 body.light-theme .iphone-frame .chr-ap-dl:hover {
-    background: rgba(5,150,105,0.14);
-    color: #059669;
+    background: #a7f3d0;
+    color: #047857 !important;
+    text-decoration: none;
 }
 [data-theme="light"] .chr-ap-time,
 body.light-theme .iphone-frame .chr-ap-time {
