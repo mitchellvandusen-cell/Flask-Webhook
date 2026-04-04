@@ -32,18 +32,17 @@ HUBSPOT_AUTH_URL = "https://app.hubspot.com/oauth/authorize"
 HUBSPOT_TOKEN_URL = "https://api.hubapi.com/oauth/v1/token"
 HUBSPOT_BASE = "https://api.hubapi.com"
 
-# Required scopes for full IGB integration
+# Scopes must match app-hsmeta.json manifest exactly
+# Required: contacts R/W, deals R/W, timeline
+# Optional: conversations R/W (HubSpot Conversations API)
 HUBSPOT_SCOPES = [
     "crm.objects.contacts.read",
     "crm.objects.contacts.write",
     "crm.objects.deals.read",
     "crm.objects.deals.write",
-    "crm.objects.communications.read",
-    "crm.objects.communications.write",
-    "crm.objects.calls.write",
-    "crm.objects.notes.write",
-    "crm.objects.meetings.write",
     "timeline",
+    "conversations.read",
+    "conversations.write",
 ]
 
 
