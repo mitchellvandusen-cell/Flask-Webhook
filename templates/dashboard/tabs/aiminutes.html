@@ -1,54 +1,72 @@
             <div class="tab-pane fade" id="aiminutes" role="tabpanel">
                 <div class="vc-container">
                     <div class="vc-status-bar">
-                        <i class="fa-solid fa-microphone-lines"></i>
+                        <i class="fa-solid fa-bolt"></i>
                         <span>AI Minutes</span>
+                        <span class="vc-status-val" id="aimStatusPill"></span>
                     </div>
 
-                    <!-- Balance Banner -->
-                    <div id="aimBalanceBanner" class="aim-balance-banner">
-                        <div class="aim-balance-main">
-                            <div class="aim-stat-label">Available Balance</div>
-                            <div class="aim-balance-val" id="aimBalanceValue">
-                                <i class="fa-solid fa-spinner fa-spin aim-loading-spinner"></i>
+                    <!-- Balance Hero -->
+                    <div class="aim-hero" id="aimBalanceBanner">
+                        <div class="aim-hero-left">
+                            <div class="aim-hero-label">Available Balance</div>
+                            <div class="aim-hero-balance" id="aimBalanceValue">
+                                <i class="fa-solid fa-spinner fa-spin"></i>
+                            </div>
+                            <div class="aim-hero-runway" id="aimRunway">&nbsp;</div>
+                        </div>
+
+                        <div class="aim-hero-stats">
+                            <div class="aim-hero-stat">
+                                <div class="aim-hero-stat-num aim-stat-purchased" id="aimTotalPurchased">&mdash;</div>
+                                <div class="aim-hero-stat-label">Purchased</div>
+                            </div>
+                            <div class="aim-hero-stat-divider"></div>
+                            <div class="aim-hero-stat">
+                                <div class="aim-hero-stat-num aim-stat-used" id="aimTotalUsed">&mdash;</div>
+                                <div class="aim-hero-stat-label">Used</div>
                             </div>
                         </div>
-                        <div class="aim-balance-stats">
-                            <div class="aim-stat-block">
-                                <div class="aim-sub-label">Purchased</div>
-                                <div class="aim-stat-num aim-stat-accent" id="aimTotalPurchased">&mdash;</div>
-                            </div>
-                            <div class="aim-stat-block">
-                                <div class="aim-sub-label">Used</div>
-                                <div class="aim-stat-num aim-used-val" id="aimTotalUsed">&mdash;</div>
-                            </div>
+
+                        <div class="aim-arc-wrap">
+                            <svg class="aim-arc-svg" viewBox="0 0 120 120" aria-hidden="true">
+                                <circle class="aim-arc-track" cx="60" cy="60" r="50"/>
+                                <circle class="aim-arc-fill" cx="60" cy="60" r="50" id="aimArcFill"/>
+                            </svg>
+                            <div class="aim-arc-pct" id="aimArcPct">&mdash;</div>
+                            <div class="aim-arc-sub">remaining</div>
                         </div>
                     </div>
 
-                    <!-- Package Cards -->
+                    <!-- Package Marketplace -->
                     <div class="aim-section">
-                        <h5 class="aim-section-title"><i class="fa-solid fa-cart-shopping me-2"></i>Purchase AI Minutes</h5>
-                        <div class="row g-3 mb-4" id="aimPackages">
-                            <div class="col-12 aim-loading-wrap">
-                                <i class="fa-solid fa-spinner fa-spin aim-loading-spinner"></i>
-                                <span class="aim-loading-text">Loading packages...</span>
+                        <div class="aim-section-head">
+                            <div>
+                                <h5 class="aim-section-title">Upgrade Your AI</h5>
+                                <p class="aim-section-sub">Real-time voice AI billed by the minute &mdash; minutes never expire.</p>
+                            </div>
+                        </div>
+                        <div class="aim-pkg-grid" id="aimPackages">
+                            <div class="aim-loading-state">
+                                <i class="fa-solid fa-spinner fa-spin"></i>
+                                <span>Loading packages&hellip;</span>
                             </div>
                         </div>
                     </div>
 
                     <!-- Usage History -->
                     <div class="aim-section">
-                        <h5 class="aim-section-title"><i class="fa-solid fa-chart-line me-2"></i>Usage History</h5>
-
-                        <!-- Sub-tabs for Purchases vs Call Usage -->
-                        <div class="aim-tab-row">
-                            <button class="vc-btn-secondary aim-tab-btn active" id="aimHistPurchases" onclick="switchAimHistory('purchases')">Purchases</button>
-                            <button class="vc-btn-secondary aim-tab-btn" id="aimHistUsage" onclick="switchAimHistory('usage')">Call Usage</button>
+                        <div class="aim-section-head">
+                            <h5 class="aim-section-title">History</h5>
+                            <div class="aim-tab-row">
+                                <button class="aim-tab-btn aim-tab-active" id="aimHistPurchases" onclick="switchAimHistory('purchases')">Purchases</button>
+                                <button class="aim-tab-btn" id="aimHistUsage" onclick="switchAimHistory('usage')">Call Usage</button>
+                            </div>
                         </div>
-
                         <div id="aimHistoryContent" class="aim-history-body">
-                            <div class="aim-loading-wrap">
-                                <i class="fa-solid fa-spinner fa-spin"></i> Loading...
+                            <div class="aim-loading-state">
+                                <i class="fa-solid fa-spinner fa-spin"></i>
+                                <span>Loading&hellip;</span>
                             </div>
                         </div>
                     </div>

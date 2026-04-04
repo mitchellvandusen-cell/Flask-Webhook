@@ -7,8 +7,6 @@
 
 import os
 import json
-import hmac
-import hashlib
 import logging
 
 import redis
@@ -26,6 +24,7 @@ from db import (get_db_connection, return_db_connection, log_webhook_event,
                 save_uninstall_record, get_subscriber_info_sql, find_marketplace_email,
                 delete_subscriber_data)
 from tasks import process_webhook_task
+from utils import verify_ghl_webhook_signature
 
 logger = logging.getLogger(__name__)
 
@@ -124,21 +123,15 @@ def webhook():
     """Main GHL webhook receiver — normalises payload and queues to RQ."""
 
     # ── Webhook signature verification ────────────────────────────────────
-    # GHL signs webhooks with HMAC-SHA256 using the marketplace webhook secret.
-    # We verify when both the secret is configured AND a signature header is present.
-    # If the secret is set but no signature header arrives, we log a warning but
-    # allow the request — GHL may not sign all webhook types (e.g. Conversation Provider).
-    webhook_secret = os.getenv("MARKETPLACE_WEBHOOK_SECRET")
-    if webhook_secret:
-        signature = request.headers.get("X-Ghl-Signature") or request.headers.get("X-Hook-Secret") or ""
-        if signature:
-            body = request.get_data(as_text=True)
-            expected = hmac.new(webhook_secret.encode(), body.encode(), hashlib.sha256).hexdigest()
-            if not hmac.compare_digest(signature, expected):
-                logger.warning("Webhook signature mismatch — rejecting request")
-                return safe_jsonify({"status": "error", "reason": "invalid_signature"}), 401
-        else:
-            logger.debug("Webhook received without signature header — skipping verification")
+    # Supports ED25519 (X-GHL-Signature, new) and HMAC-SHA256 (X-WH-Signature, legacy).
+    # GHL deprecated X-WH-Signature on July 1 2026 — only X-GHL-Signature after that.
+    # Set GHL_WEBHOOK_PUBLIC_KEY (base64 ED25519 key from GHL Developer Portal) to enable
+    # the new verification. MARKETPLACE_WEBHOOK_SECRET covers the legacy fallback.
+    _sig_result = verify_ghl_webhook_signature(request)
+    if _sig_result is False:
+        return safe_jsonify({"status": "error", "reason": "invalid_signature"}), 401
+    if _sig_result is None:
+        logger.debug("Webhook received without verifiable signature header — skipping verification")
 
     # ── Conversation Provider outbound webhook ────────────────────────────
     # When an agent sends a message from GHL UI via the Omnisconn SMS
@@ -258,18 +251,13 @@ def app_installed_webhook():
     Also handles uninstall events — sends farewell feedback email.
     Configure in GHL Developer Portal > Webhooks > app.installed.
     """
-    # ── Webhook signature verification (same as main /webhook) ──────────
-    webhook_secret = os.getenv("MARKETPLACE_WEBHOOK_SECRET")
-    if webhook_secret:
-        signature = request.headers.get("X-Ghl-Signature") or request.headers.get("X-Hook-Secret") or ""
-        if signature:
-            body = request.get_data(as_text=True)
-            expected = hmac.new(webhook_secret.encode(), body.encode(), hashlib.sha256).hexdigest()
-            if not hmac.compare_digest(signature, expected):
-                logger.warning("app-installed webhook signature mismatch — rejecting")
-                return safe_jsonify({"status": "error", "reason": "invalid_signature"}), 401
-        else:
-            logger.debug("app-installed webhook without signature header — skipping verification")
+    # ── Webhook signature verification ────────────────────────────────────
+    _sig_result = verify_ghl_webhook_signature(request)
+    if _sig_result is False:
+        logger.warning("app-installed webhook signature mismatch — rejecting")
+        return safe_jsonify({"status": "error", "reason": "invalid_signature"}), 401
+    if _sig_result is None:
+        logger.debug("app-installed webhook without verifiable signature header — skipping verification")
 
     try:
         payload = request.get_json(force=True, silent=True) or {}

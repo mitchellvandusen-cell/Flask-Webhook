@@ -53,6 +53,9 @@
 /* ── Business Profile Tab ── */
 @import url('dashboard/business-profile.css');
 
+/* ── AI Minutes Marketplace ── */
+@import url('dashboard/aiminutes.css');
+
 /* ── Agency Dashboard ── */
 @import url('agency-dashboard/agency.css');
 

@@ -9,13 +9,12 @@ import threading
 import time
 import os
 import json
-import hmac
-import hashlib
 
 from flask import Blueprint, request, jsonify
 from flask_login import current_user
 
 import twilio_provisioning
+from utils import verify_ghl_webhook_signature
 from db import get_db_connection, return_db_connection, log_webhook_event, deduct_ai_minutes, log_conversion_event
 from number_health import select_outbound_number, update_number_health
 from voice.call_state import (
@@ -200,23 +199,12 @@ def ghl_action_ai_call():
     contactId, phone, firstName, locationId.
     """
     # ── Verify GHL webhook signature ──
-    webhook_secret = os.getenv("MARKETPLACE_WEBHOOK_SECRET")
-    if webhook_secret:
-        signature = (request.headers.get("X-Ghl-Signature")
-                     or request.headers.get("X-Hook-Secret")
-                     or "")
-        if signature:
-            body = request.get_data(as_text=True)
-            expected = hmac.new(
-                webhook_secret.encode(), body.encode(), hashlib.sha256
-            ).hexdigest()
-            if not hmac.compare_digest(signature, expected):
-                logger.warning("GHL AI Call action: signature mismatch — rejecting")
-                return jsonify({"status": "error", "reason": "invalid_signature"}), 401
-        else:
-            logger.debug("GHL AI Call action: no signature header — skipping verification")
-    else:
-        logger.warning("GHL AI Call action: MARKETPLACE_WEBHOOK_SECRET not set — cannot verify")
+    _sig = verify_ghl_webhook_signature(request)
+    if _sig is False:
+        logger.warning("GHL AI Call action: signature mismatch — rejecting")
+        return jsonify({"status": "error", "reason": "invalid_signature"}), 401
+    if _sig is None:
+        logger.debug("GHL AI Call action: no verifiable signature header — skipping verification")
 
     data = request.get_json(silent=True) or {}
 
@@ -432,23 +420,12 @@ def ghl_action_loop():
       - firstName:         contact first name (mapped from GHL contact fields)
     """
     # ── Verify GHL webhook signature ──
-    webhook_secret = os.getenv("MARKETPLACE_WEBHOOK_SECRET")
-    if webhook_secret:
-        signature = (request.headers.get("X-Ghl-Signature")
-                     or request.headers.get("X-Hook-Secret")
-                     or "")
-        if signature:
-            body = request.get_data(as_text=True)
-            expected = hmac.new(
-                webhook_secret.encode(), body.encode(), hashlib.sha256
-            ).hexdigest()
-            if not hmac.compare_digest(signature, expected):
-                logger.warning("GHL Loop action: signature mismatch — rejecting")
-                return jsonify({"status": "error", "reason": "invalid_signature"}), 401
-        else:
-            logger.debug("GHL Loop action: no signature header — skipping verification")
-    else:
-        logger.warning("GHL Loop action: MARKETPLACE_WEBHOOK_SECRET not set — cannot verify")
+    _sig = verify_ghl_webhook_signature(request)
+    if _sig is False:
+        logger.warning("GHL Loop action: signature mismatch — rejecting")
+        return jsonify({"status": "error", "reason": "invalid_signature"}), 401
+    if _sig is None:
+        logger.debug("GHL Loop action: no verifiable signature header — skipping verification")
 
     raw_payload = request.get_json(silent=True) or {}
 
