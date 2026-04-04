@@ -418,6 +418,8 @@ from blueprints.workflows import workflows_bp
 from crm_providers.hubspot.oauth import hubspot_oauth_bp
 from crm_providers.hubspot.inbound import hubspot_webhook_bp
 from crm_providers.hubspot.crm_card import hubspot_card_bp
+from crm_providers.hubspot.workflow_actions import hubspot_workflow_actions_bp
+from crm_providers.hubspot.calling import hubspot_calling_bp
 
 # Embeddable panel routes (CRM iframes, Chrome extension)
 from blueprints.embed import embed_bp
@@ -449,6 +451,8 @@ app.register_blueprint(workflows_bp)
 app.register_blueprint(hubspot_oauth_bp)
 app.register_blueprint(hubspot_webhook_bp)
 app.register_blueprint(hubspot_card_bp)
+app.register_blueprint(hubspot_workflow_actions_bp)
+app.register_blueprint(hubspot_calling_bp)
 app.register_blueprint(embed_bp)
 app.register_blueprint(ghl_embed_bp)
 app.register_blueprint(analytics_bp)

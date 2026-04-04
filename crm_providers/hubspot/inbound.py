@@ -31,8 +31,10 @@ HUBSPOT_BASE = "https://api.hubapi.com"
 HUBSPOT_EVENT_MAP = {
     "contact.creation": "ContactCreate",
     "contact.propertyChange": "ContactUpdate",
+    "contact.deletion": "ContactDelete",
     "deal.creation": "DealCreate",
     "deal.propertyChange": "DealUpdate",
+    "conversation.creation": "ConversationCreate",
 }
 
 # Properties that indicate SMS activity (triggers AI pipeline)
@@ -40,6 +42,10 @@ SMS_PROPERTIES = {
     "hs_latest_sms_message",
     "hs_sms_last_message_received_date",
     "notes_last_updated",
+    "phone",                          # phone number changes
+    "hs_lead_status",                 # lead status changes
+    "lifecyclestage",                 # lifecycle stage changes
+    "hs_latest_meeting_activity",     # meeting activity
 }
 
 
@@ -119,7 +125,8 @@ def _fetch_hubspot_contact(contact_id: str, access_token: str) -> dict:
     url = f"{HUBSPOT_BASE}/crm/v3/objects/contacts/{contact_id}"
     params = {
         "properties": "firstname,lastname,email,phone,hs_lead_status,"
-                      "lifecyclestage,company,address,city,state,zip",
+                      "lifecyclestage,company,address,city,state,zip,"
+                      "hs_latest_sms_message,hs_sms_last_message_received_date",
     }
     headers = {
         "Authorization": f"Bearer {access_token}",

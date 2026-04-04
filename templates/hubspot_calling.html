@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Omnisconn Dialer</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;700;900&display=swap');
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            background: #050505;
+            color: #e8e8e8;
+            font-family: 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .oc-header {
+            background: #0a0a0a;
+            border-bottom: 1px solid #1a1a1a;
+            padding: 14px 16px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-shrink: 0;
+        }
+
+        .oc-logo {
+            width: 28px;
+            height: 28px;
+            background: #00ff88;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #000;
+            font-weight: 900;
+            font-size: 13px;
+            flex-shrink: 0;
+        }
+
+        .oc-header-title {
+            font-size: 13px;
+            font-weight: 700;
+            color: #fff;
+        }
+
+        .oc-header-sub {
+            font-size: 11px;
+            color: #666;
+        }
+
+        .oc-header-spacer {
+            margin-left: auto;
+        }
+
+        .oc-contact {
+            padding: 16px;
+            border-bottom: 1px solid #111;
+            flex-shrink: 0;
+        }
+
+        .oc-contact-name {
+            font-size: 15px;
+            font-weight: 700;
+            color: #fff;
+            margin-bottom: 2px;
+        }
+
+        .oc-contact-phone {
+            font-size: 13px;
+            color: #00ff88;
+            font-family: 'Courier New', monospace;
+        }
+
+        .oc-contact-email {
+            font-size: 11px;
+            color: #555;
+            margin-top: 2px;
+        }
+
+        .oc-dial-area {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+            gap: 16px;
+        }
+
+        .oc-phone-input {
+            width: 100%;
+            background: #0a0a0a;
+            border: 1px solid #222;
+            border-radius: 8px;
+            padding: 10px 14px;
+            color: #fff;
+            font-size: 15px;
+            font-family: 'Courier New', monospace;
+            text-align: center;
+            outline: none;
+            transition: border-color 0.15s;
+        }
+
+        .oc-phone-input:focus {
+            border-color: #00ff88;
+        }
+
+        .oc-status {
+            font-size: 12px;
+            color: #666;
+            text-align: center;
+            min-height: 20px;
+        }
+
+        .oc-status.active {
+            color: #00ff88;
+        }
+
+        .oc-status.error {
+            color: #ff4444;
+        }
+
+        .oc-timer {
+            font-size: 32px;
+            font-weight: 300;
+            font-family: 'Courier New', monospace;
+            color: #fff;
+            letter-spacing: 2px;
+            min-height: 44px;
+        }
+
+        .oc-call-btn {
+            width: 72px;
+            height: 72px;
+            border-radius: 50%;
+            border: none;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: transform 0.15s ease, box-shadow 0.15s ease;
+            font-size: 28px;
+        }
+
+        .oc-call-btn.dial {
+            background: #00ff88;
+            color: #000;
+            box-shadow: 0 0 0 0 rgba(0,255,136,0.4);
+        }
+
+        .oc-call-btn.dial:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 0 8px rgba(0,255,136,0.15);
+        }
+
+        .oc-call-btn.hang-up {
+            background: #ff4444;
+            color: #fff;
+        }
+
+        .oc-call-btn.hang-up:hover {
+            transform: scale(1.05);
+        }
+
+        .oc-call-btn:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .oc-call-actions {
+            display: flex;
+            gap: 8px;
+            justify-content: center;
+        }
+
+        .oc-call-actions-hidden {
+            display: none;
+        }
+
+        .oc-action-btn {
+            padding: 8px 16px;
+            border-radius: 6px;
+            border: 1px solid #222;
+            background: #111;
+            color: #aaa;
+            font-size: 11px;
+            cursor: pointer;
+            transition: border-color 0.15s, color 0.15s;
+        }
+
+        .oc-action-btn:hover {
+            border-color: #00ff88;
+            color: #00ff88;
+        }
+
+        .oc-footer {
+            padding: 10px 16px;
+            border-top: 1px solid #111;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-shrink: 0;
+        }
+
+        .oc-powered {
+            font-size: 10px;
+            color: #333;
+        }
+
+        .oc-powered span {
+            color: #00ff88;
+        }
+
+        .oc-connection-status {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #333;
+        }
+
+        .oc-connection-status.connected {
+            background: #00ff88;
+        }
+    </style>
+</head>
+<body>
+    <div class="oc-header">
+        <div class="oc-logo">O</div>
+        <div>
+            <div class="oc-header-title">Omnisconn Dialer</div>
+            <div class="oc-header-sub">AI-Powered Voice</div>
+        </div>
+        <div class="oc-header-spacer">
+            <div class="oc-connection-status" id="ocConnStatus"></div>
+        </div>
+    </div>
+
+    <div class="oc-contact" id="ocContactArea">
+        <div class="oc-contact-name" id="ocContactName">{{ first_name }} {{ last_name }}</div>
+        <div class="oc-contact-phone" id="ocContactPhone">{{ phone }}</div>
+        {% if email %}<div class="oc-contact-email" id="ocContactEmail">{{ email }}</div>{% endif %}
+    </div>
+
+    <div class="oc-dial-area">
+        <input class="oc-phone-input" id="ocPhoneInput" type="tel"
+               value="{{ phone }}" placeholder="+1 (555) 000-0000">
+
+        <div class="oc-status" id="ocStatus">Ready to call</div>
+        <div class="oc-timer" id="ocTimer"></div>
+
+        <button class="oc-call-btn dial" id="ocDialBtn" onclick="ocStartCall()">&#9990;</button>
+
+        <div class="oc-call-actions oc-call-actions-hidden" id="ocCallActions">
+            <button class="oc-action-btn" onclick="ocTransferToAgent()">Transfer</button>
+            <button class="oc-action-btn" onclick="ocSendToVoicemail()">Voicemail</button>
+        </div>
+    </div>
+
+    <div class="oc-footer">
+        <div class="oc-powered">Powered by <span>Omnisconn</span></div>
+    </div>
+
+    <!-- HubSpot Calling Extensions SDK -->
+    <script src="https://cdn.jsdelivr.net/npm/@hubspot/calling-extensions-sdk@0.3.0/dist/main.js"></script>
+
+    <script>
+        // ── Configuration from Flask template ──
+        const OC_CONFIG = {
+            contactId: "{{ contact_id | e }}",
+            portalId:  "{{ portal_id | e }}",
+            phone:     "{{ phone | e }}",
+            domain:    "{{ domain | e }}",
+        };
+
+        let _callingExtensions = null;
+        let _callActive = false;
+        let _callSid = null;
+        let _callTimer = null;
+        let _callSeconds = 0;
+
+        // ── Initialize HubSpot Calling Extensions SDK ──
+        function initCallingExtensions() {
+            if (typeof CallingExtensions === 'undefined') {
+                console.warn('HubSpot Calling Extensions SDK not loaded — standalone mode');
+                document.getElementById('ocConnStatus').classList.add('connected');
+                return;
+            }
+
+            const callbacks = {
+                onReady: () => {
+                    console.log('HubSpot calling SDK ready');
+                    document.getElementById('ocConnStatus').classList.add('connected');
+                    _callingExtensions.initialized({ isLoggedIn: true, engagementId: null });
+                },
+                onDialNumber: ({ phoneNumber, contactId, contact }) => {
+                    // HubSpot instructed us to dial — populate fields and auto-start
+                    if (phoneNumber) {
+                        document.getElementById('ocPhoneInput').value = phoneNumber;
+                    }
+                    if (contact && (contact.firstName || contact.lastName)) {
+                        document.getElementById('ocContactName').textContent =
+                            [contact.firstName, contact.lastName].filter(Boolean).join(' ');
+                    }
+                    if (contactId) OC_CONFIG.contactId = String(contactId);
+                    ocStartCall();
+                },
+                onEndCall: () => {
+                    ocEndCall();
+                },
+                onVisibilityChanged: ({ isVisible }) => {
+                    // Reserved for pause/resume logic if needed
+                },
+            };
+
+            _callingExtensions = new CallingExtensions({ enableLogging: false, eventHandlers: callbacks });
+        }
+
+        // ── Start Call ──
+        async function ocStartCall() {
+            if (_callActive) return;
+
+            const phone = document.getElementById('ocPhoneInput').value.trim();
+            if (!phone) {
+                ocSetStatus('Please enter a phone number', 'error');
+                return;
+            }
+
+            _callActive = true;
+            _callSid = null;
+            _callSeconds = 0;
+
+            const dialBtn = document.getElementById('ocDialBtn');
+            dialBtn.disabled = true;
+            dialBtn.className = 'oc-call-btn hang-up';
+            dialBtn.innerHTML = '&#128997;';
+            dialBtn.onclick = ocEndCall;
+
+            const actionsEl = document.getElementById('ocCallActions');
+            actionsEl.classList.remove('oc-call-actions-hidden');
+            actionsEl.classList.add('oc-call-actions');
+
+            ocSetStatus('Connecting...', 'active');
+
+            // Notify HubSpot that call started
+            if (_callingExtensions) {
+                _callingExtensions.callAnswered();
+            }
+
+            // Initiate the call via Omnisconn AI call endpoint
+            try {
+                const resp = await fetch(OC_CONFIG.domain + '/hubspot/workflow-action/ai-call', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        origin: { portalId: parseInt(OC_CONFIG.portalId) || 0 },
+                        object: { objectId: OC_CONFIG.contactId, objectType: 'CONTACT' },
+                        inputFields: {
+                            phone: phone,
+                            firstName: document.getElementById('ocContactName').textContent.split(' ')[0] || '',
+                        },
+                    }),
+                });
+                const data = await resp.json();
+                const fields = data.outputFields || {};
+
+                if (fields.callStatus === 'initiated') {
+                    _callSid = fields.callSid || null;
+                    ocSetStatus('Connected \u2014 AI is live', 'active');
+                    dialBtn.disabled = false;
+                    _callTimer = setInterval(() => {
+                        _callSeconds++;
+                        const m = Math.floor(_callSeconds / 60).toString().padStart(2, '0');
+                        const s = (_callSeconds % 60).toString().padStart(2, '0');
+                        document.getElementById('ocTimer').textContent = m + ':' + s;
+                    }, 1000);
+                } else {
+                    ocSetStatus(fields.errorReason || 'Call failed', 'error');
+                    ocResetDialUI();
+                }
+            } catch (e) {
+                ocSetStatus('Network error', 'error');
+                ocResetDialUI();
+            }
+        }
+
+        // ── End Call ──
+        function ocEndCall() {
+            if (!_callActive) return;
+
+            if (_callTimer) { clearInterval(_callTimer); _callTimer = null; }
+
+            const duration = _callSeconds;
+            ocSetStatus('Call ended \u2014 ' + duration + 's', '');
+
+            // Notify HubSpot that the call ended
+            if (_callingExtensions) {
+                _callingExtensions.callEnded({
+                    engagementId: null,
+                    callEnded: true,
+                    callDuration: duration,
+                    callDisposition: 'CONNECTED',
+                });
+            }
+
+            // Log engagement back to HubSpot CRM
+            if (OC_CONFIG.portalId && OC_CONFIG.contactId) {
+                fetch(OC_CONFIG.domain + '/hubspot/calling/engagement', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        portalId:    OC_CONFIG.portalId,
+                        contactId:   OC_CONFIG.contactId,
+                        callSid:     _callSid || '',
+                        duration:    duration,
+                        direction:   'outbound',
+                        disposition: 'CONNECTED',
+                        phoneNumber: document.getElementById('ocPhoneInput').value,
+                    }),
+                }).catch(() => {});
+            }
+
+            ocResetDialUI();
+        }
+
+        function ocTransferToAgent() {
+            ocSetStatus('Transferring to agent...', 'active');
+        }
+
+        function ocSendToVoicemail() {
+            ocSetStatus('Sending to voicemail...', 'active');
+        }
+
+        function ocSetStatus(msg, type) {
+            const el = document.getElementById('ocStatus');
+            el.textContent = msg;
+            el.className = 'oc-status' + (type ? ' ' + type : '');
+        }
+
+        function ocResetDialUI() {
+            _callActive = false;
+            _callSeconds = 0;
+            document.getElementById('ocTimer').textContent = '';
+
+            const dialBtn = document.getElementById('ocDialBtn');
+            dialBtn.disabled = false;
+            dialBtn.className = 'oc-call-btn dial';
+            dialBtn.innerHTML = '&#9990;';
+            dialBtn.onclick = ocStartCall;
+
+            const actionsEl = document.getElementById('ocCallActions');
+            actionsEl.classList.remove('oc-call-actions');
+            actionsEl.classList.add('oc-call-actions-hidden');
+        }
+
+        // ── Boot ──
+        document.addEventListener('DOMContentLoaded', initCallingExtensions);
+    </script>
+</body>
+</html>

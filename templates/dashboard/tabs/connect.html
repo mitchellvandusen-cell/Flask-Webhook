@@ -126,12 +126,36 @@
                                 </div>
 
                                 <div id="crmGuide-hubspot" class="crm-guide" style="display:none;">
-                                    <h5 class="conn-guide-title"><i class="fa-solid fa-h me-2"></i>HubSpot Setup</h5>
-                                    <div class="setup-steps">
-                                        <div class="wf-step"><div class="wf-step-num">1</div><div class="wf-step-text">In HubSpot, go to <strong>Settings &gt; Integrations &gt; Private Apps</strong>.</div></div>
-                                        <div class="wf-step"><div class="wf-step-num">2</div><div class="wf-step-text">Create a Private App with scopes: <code>crm.objects.contacts.read/write</code>, <code>crm.objects.deals.read/write</code>.</div></div>
-                                        <div class="wf-step"><div class="wf-step-num">3</div><div class="wf-step-text">Copy the <strong>Access Token</strong> from the Private App page.</div></div>
-                                        <div class="wf-step"><div class="wf-step-num">4</div><div class="wf-step-text">Create a <strong>HubSpot Workflow</strong>: When contact property changes &rarr; Send Webhook to your URL above.</div></div>
+                                    <div class="hs-connect-card">
+                                        <div class="hs-connect-header">
+                                            <div class="hs-connect-logo">H</div>
+                                            <div>
+                                                <div class="hs-connect-title">HubSpot CRM</div>
+                                                <div class="hs-connect-sub">Sync contacts, log calls &amp; SMS, AI intelligence sidebar</div>
+                                            </div>
+                                            {% if sub and sub.crm_type == 'hubspot' and sub.crm_config and sub.crm_config.get('access_token') %}
+                                            <div class="hs-connect-status-connected" style="margin-left:auto;">
+                                                <div class="hs-connect-status-dot"></div>
+                                                Connected
+                                            </div>
+                                            {% endif %}
+                                        </div>
+                                        <ul class="hs-feature-list">
+                                            <li class="hs-feature-item"><div class="hs-feature-dot"></div>Real-time contact sync — phone, email, lifecycle stage</li>
+                                            <li class="hs-feature-item"><div class="hs-feature-dot"></div>AI calls &amp; SMS logged directly to HubSpot timeline</li>
+                                            <li class="hs-feature-item"><div class="hs-feature-dot"></div>AI intelligence sidebar in every contact record</li>
+                                            <li class="hs-feature-item"><div class="hs-feature-dot"></div>Custom Workflow Actions — trigger AI calls from HubSpot Workflows</li>
+                                            <li class="hs-feature-item"><div class="hs-feature-dot"></div>Embedded Omnisconn Dialer inside HubSpot</li>
+                                        </ul>
+                                        {% if sub and sub.crm_type == 'hubspot' and sub.crm_config and sub.crm_config.get('access_token') %}
+                                        <a href="/hubspot/oauth/initiate" class="hs-connect-btn">
+                                            <i class="fa-solid fa-rotate"></i> Reconnect
+                                        </a>
+                                        {% else %}
+                                        <a href="/hubspot/oauth/initiate" class="hs-connect-btn">
+                                            <i class="fa-solid fa-plug"></i> Connect HubSpot
+                                        </a>
+                                        {% endif %}
                                     </div>
                                 </div>
 

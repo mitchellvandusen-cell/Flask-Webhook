@@ -125,7 +125,7 @@ def _build_card_response(intelligence, contact_id, domain):
         return {
             "results": [{
                 "objectId": int(contact_id) if contact_id.isdigit() else 0,
-                "title": "IGB Intelligence",
+                "title": "Omnisconn Intelligence",
                 "properties": [{
                     "label": "Status",
                     "dataType": "STRING",
@@ -192,7 +192,7 @@ def _build_card_response(intelligence, contact_id, domain):
 
     result = {
         "objectId": int(contact_id) if contact_id.isdigit() else 0,
-        "title": f"IGB: {temp_display} (Score: {score})",
+        "title": f"Omnisconn: {temp_display} (Score: {score})",
         "properties": properties,
     }
     if card_actions:
@@ -247,4 +247,4 @@ def hubspot_crm_card():
 @hubspot_card_bp.route("/hubspot/crm-card/health", methods=["GET"])
 def hubspot_crm_card_health():
     """Health check for HubSpot CRM Card — used by HubSpot app validation."""
-    return jsonify({"status": "ok", "service": "igb-crm-card"}), 200
+    return jsonify({"status": "ok", "service": "omnisconn-crm-card"}), 200

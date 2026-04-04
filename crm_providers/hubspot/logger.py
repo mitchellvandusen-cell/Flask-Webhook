@@ -150,7 +150,7 @@ def log_call(contact_id, direction, duration, access_token, **kwargs):
 
     properties = {
         "hs_timestamp": now_ms,
-        "hs_call_title": f"{'Outbound' if direction == 'outbound' else 'Inbound'} Call via IGB",
+        "hs_call_title": f"{'Outbound' if direction == 'outbound' else 'Inbound'} Call via Omnisconn",
         "hs_call_direction": hs_direction,
         "hs_call_duration": duration_ms,
         "hs_call_status": "COMPLETED",

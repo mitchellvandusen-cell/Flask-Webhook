@@ -40,6 +40,8 @@ HUBSPOT_SCOPES = [
     "crm.objects.deals.write",
     "crm.objects.communications.read",
     "crm.objects.communications.write",
+    "crm.objects.calls.write",
+    "crm.objects.notes.write",
     "crm.objects.meetings.write",
     "timeline",
 ]
