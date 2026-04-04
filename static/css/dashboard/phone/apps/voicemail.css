@@ -273,6 +273,106 @@
 [data-theme="light"] .ios-vm-empty-title  { color: #444444; }
 [data-theme="light"] .ios-vm-empty-sub    { color: #888888; }
 
+/* ════════════════════════════════════════════════════════════════
+   GREETING MANAGEMENT BAR
+   Sits at the top of the Voicemail tab. Record or upload a
+   custom outbound voicemail greeting.
+   ════════════════════════════════════════════════════════════════ */
+
+.ios-vm-greeting-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 14px;
+    background: #111111;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+    gap: 8px;
+    flex-shrink: 0;
+}
+.ios-vm-greeting-left {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+    flex: 1;
+    overflow: hidden;
+}
+.ios-vm-greeting-left span {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.ios-vm-greeting-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    background: rgba(255,255,255,0.07);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 8px;
+    color: #cccccc;
+    font-size: 0.71rem;
+    font-weight: 600;
+    padding: 5px 10px;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s, color 0.15s;
+    white-space: nowrap;
+    flex-shrink: 0;
+    line-height: 1;
+}
+.ios-vm-greeting-btn:hover {
+    background: rgba(255,255,255,0.12);
+    border-color: rgba(255,255,255,0.20);
+    color: #ffffff;
+}
+
+/* ── Live recording indicator bar ── */
+.ios-vm-recording-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 14px;
+    background: rgba(255,59,48,0.08);
+    border-bottom: 1px solid rgba(255,59,48,0.18);
+    flex-shrink: 0;
+}
+
+/* Pulsing red dot */
+.ios-vm-rec-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #ff3b30;
+    animation: vmRecPulse 1s ease-in-out infinite;
+    flex-shrink: 0;
+}
+@keyframes vmRecPulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50%       { opacity: 0.35; transform: scale(0.75); }
+}
+
+/* Light theme — greeting bar */
+[data-theme="light"] .ios-vm-greeting-bar,
+body.light-theme .iphone-frame .ios-vm-greeting-bar {
+    background: #f4f6f9;
+    border-bottom-color: rgba(0,0,0,0.07);
+}
+[data-theme="light"] .ios-vm-greeting-btn,
+body.light-theme .iphone-frame .ios-vm-greeting-btn {
+    background: rgba(0,0,0,0.04);
+    border-color: rgba(0,0,0,0.10);
+    color: #555555;
+}
+[data-theme="light"] .ios-vm-greeting-btn:hover,
+body.light-theme .iphone-frame .ios-vm-greeting-btn:hover {
+    background: rgba(0,0,0,0.09);
+    color: #111111;
+}
+[data-theme="light"] .ios-vm-recording-bar,
+body.light-theme .iphone-frame .ios-vm-recording-bar {
+    background: rgba(220,38,38,0.06);
+    border-bottom-color: rgba(220,38,38,0.15);
+}
+
 /* ── Delete Button (swipe-style) ── */
 .ios-vm-delete-btn {
     background: rgba(255,59,48,0.12);

@@ -83,9 +83,12 @@
         let _iosCurrentApp = null;
 
         function iosOpenApp(app) {
+            // Redirect legacy standalone apps into Calls tabs
+            if (app === 'voicemail') { iosOpenApp('calls'); iosCallsSetTab('voicemail'); return; }
+            if (app === 'recordings') { iosOpenApp('calls'); return; }
             _iosCurrentApp = app;
             const home = document.getElementById('iosHome');
-            const apps = { messages: 'iosAppMessages', calls: 'iosAppCalls', recordings: 'iosAppRecordings', voicemail: 'iosAppVoicemail', inbox: 'iosAppInbox', calendar: 'iosAppCalendar', discord: 'iosAppDiscord', slack: 'iosAppSlack', insights: 'iosAppInsights', stats: 'iosAppStats' };
+            const apps = { messages: 'iosAppMessages', calls: 'iosAppCalls', inbox: 'iosAppInbox', calendar: 'iosAppCalendar', discord: 'iosAppDiscord', slack: 'iosAppSlack', insights: 'iosAppInsights', stats: 'iosAppStats' };
             if (home) home.style.display = 'none';
             Object.keys(apps).forEach(k => {
                 const el = document.getElementById(apps[k]);
@@ -94,8 +97,6 @@
             // Trigger data load
             if (app === 'messages') dlrRefreshMessages();
             if (app === 'calls') dialerLoadAllCallHistory();
-            if (app === 'recordings') dialerLoadRecordings();
-            if (app === 'voicemail') vmLoad();
             if (app === 'inbox') inboxRefresh();
             if (app === 'calendar') calendarInit();
             if (app === 'discord') iosDiscordInit();
@@ -106,7 +107,7 @@
 
         function iosGoHome() {
             const home = document.getElementById('iosHome');
-            const apps = ['iosAppMessages', 'iosAppCalls', 'iosAppRecordings', 'iosAppVoicemail', 'iosAppInbox', 'iosAppCalendar', 'iosAppDiscord', 'iosAppSlack', 'iosAppInsights', 'iosAppStats'];
+            const apps = ['iosAppMessages', 'iosAppCalls', 'iosAppInbox', 'iosAppCalendar', 'iosAppDiscord', 'iosAppSlack', 'iosAppInsights', 'iosAppStats'];
             apps.forEach(id => { const el = document.getElementById(id); if (el) el.style.display = 'none'; });
             if (home) home.style.display = 'flex';
             _iosCurrentApp = null;
@@ -1079,6 +1080,87 @@
             dialerStartCall(vm.phone, vm.contact_name || vm.phone, vm.contact_id || '', vm.contact_name || vm.phone);
         }
 
+        // ── Voicemail Greeting Recording / Upload ─────────────────────────────
+        let _vmMediaRecorder = null;
+        let _vmAudioChunks   = [];
+        let _vmRecTimerInterval = null;
+        let _vmRecSeconds = 0;
+
+        window.iosVmToggleRecord = async function() {
+            if (_vmMediaRecorder && _vmMediaRecorder.state === 'recording') {
+                iosVmStopRecord(true);
+                return;
+            }
+            const btn = document.getElementById('iosVmRecordBtn');
+            const bar = document.getElementById('iosVmRecordingBar');
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                _vmAudioChunks = [];
+                _vmMediaRecorder = new MediaRecorder(stream);
+                _vmMediaRecorder.ondataavailable = e => { if (e.data.size > 0) _vmAudioChunks.push(e.data); };
+                _vmMediaRecorder.onstop = () => { stream.getTracks().forEach(t => t.stop()); };
+                _vmMediaRecorder.start(100);
+                _vmRecSeconds = 0;
+                if (bar) bar.style.display = 'flex';
+                if (btn) { btn.querySelector('i').style.color = '#30d158'; btn.querySelector('span').textContent = 'Stop'; }
+                _vmRecTimerInterval = setInterval(() => {
+                    _vmRecSeconds++;
+                    const el = document.getElementById('iosVmRecTime');
+                    if (el) el.textContent = Math.floor(_vmRecSeconds/60) + ':' + String(_vmRecSeconds%60).padStart(2,'0');
+                }, 1000);
+            } catch(e) {
+                _showDashToast(false, 'Microphone access denied');
+            }
+        };
+
+        window.iosVmStopRecord = async function(save) {
+            if (!_vmMediaRecorder) return;
+            clearInterval(_vmRecTimerInterval);
+            const bar = document.getElementById('iosVmRecordingBar');
+            const btn = document.getElementById('iosVmRecordBtn');
+            if (bar) bar.style.display = 'none';
+            if (btn) { btn.querySelector('i').style.color = '#ff453a'; btn.querySelector('span').textContent = 'Record'; }
+            return new Promise(resolve => {
+                _vmMediaRecorder.onstop = async () => {
+                    if (save && _vmAudioChunks.length > 0) {
+                        const blob = new Blob(_vmAudioChunks, { type: 'audio/webm' });
+                        await _iosVmUploadBlob(blob, 'greeting.webm');
+                    }
+                    _vmMediaRecorder = null;
+                    _vmAudioChunks = [];
+                    resolve();
+                };
+                _vmMediaRecorder.stop();
+            });
+        };
+
+        window.iosVmHandleGreetingFile = async function(input) {
+            const file = input.files[0];
+            if (!file) return;
+            await _iosVmUploadBlob(file, file.name);
+            input.value = '';
+        };
+
+        async function _iosVmUploadBlob(blob, filename) {
+            const labelEl = document.getElementById('ios-vm-greeting-label');
+            if (labelEl) labelEl.textContent = 'Uploading…';
+            try {
+                const form = new FormData();
+                form.append('greeting', blob, filename);
+                const r = await fetch('/voice/voicemail-greeting', { method: 'POST', body: form });
+                const d = await r.json();
+                if (r.ok) {
+                    if (labelEl) labelEl.textContent = 'Greeting saved ✓';
+                    _showDashToast(true, 'Voicemail greeting saved');
+                } else {
+                    if (labelEl) labelEl.textContent = 'Upload failed';
+                    _showDashToast(false, d.error || 'Upload failed');
+                }
+            } catch(e) {
+                if (labelEl) labelEl.textContent = 'Upload error';
+                _showDashToast(false, 'Network error uploading greeting');
+            }
+        }
 
         // ── Production-grade fetch wrapper with retry + timeout ──
         async function _fetchRetry(url, opts = {}, { retries = 2, timeout = 15000, label = '' } = {}) {
@@ -1308,25 +1390,82 @@
         }
 
         // ── Call History app tab switch ──
+        let _iosCallsCurrentTab = 'single';
+
         function iosCallsSetTab(tab) {
-            const single = document.getElementById('dlrHistoryCalls');
-            const campaigns = document.getElementById('dlrHistoryCampaigns');
-            const tabSingle = document.getElementById('iosCallsTabSingle');
-            const tabCampaigns = document.getElementById('iosCallsTabCampaigns');
-            if (!single || !campaigns) return;
+            _iosCallsCurrentTab = tab;
+            const panes = {
+                single:    document.getElementById('dlrHistoryCalls'),
+                campaigns: document.getElementById('dlrHistoryCampaigns'),
+                voicemail: document.getElementById('dlrTabVoicemail')
+            };
+            const tabs = {
+                single:    document.getElementById('iosCallsTabSingle'),
+                campaigns: document.getElementById('iosCallsTabCampaigns'),
+                voicemail: document.getElementById('iosCallsTabVoicemail')
+            };
+            // Show active pane, hide others
+            Object.keys(panes).forEach(k => {
+                if (panes[k]) panes[k].style.display = k === tab ? (k === 'voicemail' ? 'flex' : '') : 'none';
+            });
+            Object.keys(tabs).forEach(k => {
+                if (tabs[k]) tabs[k].classList.toggle('active', k === tab);
+            });
+            // Update nav title and filter visibility
+            const titleEl = document.getElementById('iosCallsNavTitle');
+            const filterBtn = document.getElementById('dialerCallsFilterBtn');
+            const scopeBtn = document.getElementById('dialerCallsViewAllBtn');
             if (tab === 'single') {
-                single.style.display = '';
-                campaigns.style.display = 'none';
-                if (tabSingle) tabSingle.classList.add('active');
-                if (tabCampaigns) tabCampaigns.classList.remove('active');
-            } else {
-                single.style.display = 'none';
-                campaigns.style.display = '';
-                if (tabSingle) tabSingle.classList.remove('active');
-                if (tabCampaigns) tabCampaigns.classList.add('active');
+                if (titleEl) titleEl.textContent = 'Recents';
+                if (filterBtn) filterBtn.style.display = 'inline-flex';
+                if (scopeBtn) scopeBtn.style.display = dialerActiveContact ? 'inline-flex' : 'none';
+                dialerLoadAllCallHistory();
+            } else if (tab === 'campaigns') {
+                if (titleEl) titleEl.textContent = 'Campaigns';
+                if (filterBtn) filterBtn.style.display = 'none';
+                if (scopeBtn) scopeBtn.style.display = 'none';
+                // Close filter panel if open
+                const fp = document.getElementById('dialerCallsFilterPanel');
+                if (fp) fp.classList.remove('open');
                 _campaignRenderHistory();
+            } else if (tab === 'voicemail') {
+                if (titleEl) titleEl.textContent = 'Voicemail';
+                if (filterBtn) filterBtn.style.display = 'none';
+                if (scopeBtn) scopeBtn.style.display = 'none';
+                // Close filter panel if open
+                const fp = document.getElementById('dialerCallsFilterPanel');
+                if (fp) fp.classList.remove('open');
+                vmLoad();
             }
         }
+
+        window.iosCallsRefresh = function() {
+            if (_iosCallsCurrentTab === 'single') dialerLoadAllCallHistory();
+            else if (_iosCallsCurrentTab === 'campaigns') _campaignRenderHistory();
+            else if (_iosCallsCurrentTab === 'voicemail') vmLoad();
+        };
+
+        // Smart filter toggle for Recents tab
+        window.toggleDialerCallsFilter = function() {
+            const panel = document.getElementById('dialerCallsFilterPanel');
+            const btn = document.getElementById('dialerCallsFilterBtn');
+            if (!panel) return;
+            const open = panel.classList.toggle('open');
+            if (btn) btn.classList.toggle('active', open);
+        };
+
+        // When filter type changes, show/hide date vs duration rows
+        window.dialerCallsOnFilterTypeChange = function() {
+            const type = document.getElementById('dialerCallsFilterType')?.value || 'none';
+            const dateRow = document.getElementById('dialerCallsDateRow');
+            const durRow = document.getElementById('dialerCallsDurationRow');
+            if (dateRow) dateRow.style.display = type === 'date' ? '' : 'none';
+            if (durRow)  durRow.style.display  = type === 'duration' ? '' : 'none';
+            dialerLoadAllCallHistory();
+        };
+
+        // Keep old toggleDialerRecsFilter for backward compat
+        window.toggleDialerRecsFilter = window.toggleDialerCallsFilter;
 
         async function dialerFetchContacts(forceRefresh) {
             // Reset intel column to hidden state when reloading contacts
@@ -4242,21 +4381,47 @@
             const panel = document.getElementById('dialerHistoryList');
             const label = document.getElementById('dialerCallsLabel');
             const viewBtn = document.getElementById('dialerCallsViewAllBtn');
+            if (!panel) return;
             panel.innerHTML = '<div style="text-align:center;padding:20px;"><i class="fa-solid fa-spinner fa-spin" style="color:#00ff88;"></i></div>';
 
             const filterContact = (!_dialerCallHistoryShowAll && dialerActiveContact) ? dialerActiveContact : null;
             if (label) label.textContent = filterContact ? (dialerActiveContact.firstName || dialerActiveContact.name) + "'s Calls" : 'All Calls';
             if (viewBtn) {
                 viewBtn.textContent = filterContact ? 'View All' : (dialerActiveContact ? (dialerActiveContact.firstName || dialerActiveContact.name) + ' Only' : 'View All');
-                viewBtn.style.display = dialerActiveContact ? 'inline-block' : 'none';
+                viewBtn.style.display = dialerActiveContact ? 'inline-flex' : 'none';
             }
 
+            // Read smart filter values
+            const filterType = document.getElementById('dialerCallsFilterType')?.value || 'none';
+            const dateFilter = document.getElementById('dialerCallsDateFilter')?.value || '';
+            const durFilter  = document.getElementById('dialerCallsDurationFilter')?.value || '';
+
             try {
-                const r = await _fetchRetry('/voice/call-history?limit=100', {}, { retries: 1, timeout: 15000, label: 'call-history' });
+                const url = '/voice/call-history?limit=200';
+                const r = await _fetchRetry(url, {}, { retries: 1, timeout: 15000, label: 'call-history' });
                 if (!r.ok) { panel.innerHTML = '<div style="color:#888;padding:16px;text-align:center;font-size:.88rem;">Failed to load</div>'; return; }
                 const d = await r.json();
                 let calls = d.calls || [];
-                // Filter by contact if scoped
+
+                // Client-side date filter (yyyy-mm-dd)
+                if (filterType === 'date' && dateFilter) {
+                    calls = calls.filter(c => {
+                        if (!c.created_at) return false;
+                        return new Date(c.created_at).toISOString().slice(0,10) === dateFilter;
+                    });
+                }
+                // Client-side duration filter
+                if (filterType === 'duration' && durFilter) {
+                    calls = calls.filter(c => {
+                        const secs = c.duration || 0;
+                        if (durFilter === '0-1') return secs < 60;
+                        if (durFilter === '1-2') return secs >= 60 && secs < 120;
+                        if (durFilter === '2-5') return secs >= 120 && secs < 300;
+                        if (durFilter === '5+')  return secs >= 300;
+                        return true;
+                    });
+                }
+                // Filter by contact scope
                 if (filterContact) {
                     calls = calls.filter(c => c.contact_id === filterContact.id || c.phone === filterContact.phone);
                 }
@@ -4273,30 +4438,120 @@
                     const hasRec = !!c.recording_url;
                     const hasTx = c.transcript && c.transcript.length > 0;
                     const stirBadge = c.stir_status ? '<span class="stir-badge stir-badge-' + dialerEsc(c.stir_status).toLowerCase() + '">' + dialerEsc(c.stir_status) + '</span>' : '';
-                    const dirIcon = (c.direction||'outbound') === 'inbound' ? '<i class="fa-solid fa-phone-arrow-down-left" style="font-size:.65rem;"></i>' : '<i class="fa-solid fa-phone-arrow-up-right" style="font-size:.65rem;"></i>';
-                    // Line 1: name · direction · date
-                    let row = '<div class="call-history-row" onclick="dialerHistoryClickContact(\'' + (c.contact_id||'') + '\')">';
-                    row += '<div style="display:flex;align-items:center;gap:6px;min-width:0;">';
-                    row += '<div class="call-history-dot" style="background:' + sc + ';flex-shrink:0;"></div>';
+                    const dirIcon = (c.direction||'outbound') === 'inbound'
+                        ? '<i class="fa-solid fa-phone-arrow-down-left" style="font-size:.65rem;"></i>'
+                        : '<i class="fa-solid fa-phone-arrow-up-right" style="font-size:.65rem;"></i>';
+                    const rowId = 'chr_' + (c.call_sid || c.id || Math.random().toString(36).slice(2));
+
+                    let row = '<div class="call-history-row" id="' + rowId + '" onclick="dialerHistoryClickContact(\'' + (c.contact_id||'') + '\')">';
+                    // Line 1: dot · name · direction · date
+                    row += '<div class="chr-line1">';
+                    row += '<div class="call-history-dot" style="background:' + sc + ';"></div>';
                     row += '<span class="chr-name">' + dialerEsc(c.contact_name || c.phone || 'Unknown') + '</span>';
                     row += '<span class="chr-dir">' + dirIcon + ' ' + (c.direction||'outbound') + '</span>';
                     row += '<span class="chr-date">' + dt + '</span>';
                     row += '</div>';
-                    // Line 2: stir · status · duration · actions
-                    row += '<div style="display:flex;align-items:center;gap:6px;margin-top:3px;padding-left:16px;">';
+                    // Line 2: stir badge · status · duration · transcript btn
+                    row += '<div class="chr-line2">';
                     row += stirBadge;
                     row += '<span class="chr-status" style="color:' + sc + ';">' + (c.status||'').replace(/-/g,' ') + '</span>';
                     row += '<span class="chr-dur">' + dur + '</span>';
-                    if (hasRec) row += '<button onclick="event.stopPropagation();playRecording(\'' + dialerEsc(c.recording_url) + '\')" class="chr-action-btn chr-btn-play" title="Play"><i class="fa-solid fa-play"></i></button>';
-                    if (hasRec) row += '<a href="' + dialerEsc(c.recording_url) + '?dl=1" download class="chr-action-btn chr-btn-download" title="Download" onclick="event.stopPropagation();"><i class="fa-solid fa-download"></i></a>';
                     if (hasTx) row += '<button onclick=\'event.stopPropagation();showTranscript(' + JSON.stringify(c.transcript).replace(/'/g, "\\'") + ')\' class="chr-action-btn chr-btn-transcript" title="Transcript"><i class="fa-solid fa-file-lines"></i></button>';
                     if (!hasTx && hasRec && c.call_sid) row += '<button onclick="event.stopPropagation();transcribeNow(\'' + dialerEsc(c.call_sid) + '\',\'' + dialerEsc(c.recording_url) + '\',this)" class="chr-action-btn chr-btn-transcribe" title="Transcribe"><i class="fa-solid fa-wand-magic-sparkles"></i></button>';
                     row += '</div>';
+                    // Audio scrubber (only for calls with recordings)
+                    if (hasRec) {
+                        const recUrl = dialerEsc(c.recording_url);
+                        const sid = dialerEsc(c.call_sid || '');
+                        row += '<div class="chr-audio-player" id="ap_' + rowId + '" onclick="event.stopPropagation();">';
+                        row += '<audio id="aud_' + rowId + '" src="' + recUrl + '" preload="none"></audio>';
+                        row += '<div class="chr-ap-controls">';
+                        row += '<button class="chr-ap-btn chr-ap-play" onclick="chrAudioPlay(\'' + rowId + '\')" title="Play/Pause"><i class="fa-solid fa-play" id="apIcon_' + rowId + '"></i></button>';
+                        row += '<button class="chr-ap-btn chr-ap-stop" onclick="chrAudioStop(\'' + rowId + '\')" title="Stop"><i class="fa-solid fa-stop"></i></button>';
+                        row += '<div class="chr-ap-scrub-wrap">';
+                        row += '<div class="chr-ap-time" id="apTime_' + rowId + '">0:00</div>';
+                        row += '<input type="range" class="chr-ap-scrubber" id="apScrub_' + rowId + '" min="0" max="100" value="0" oninput="chrAudioSeek(\'' + rowId + '\',this.value)">';
+                        row += '<div class="chr-ap-time" id="apDur_' + rowId + '">--:--</div>';
+                        row += '</div>';
+                        row += '<a href="' + recUrl + '" download class="chr-ap-btn chr-ap-dl" title="Download" onclick="event.stopPropagation();"><i class="fa-solid fa-arrow-down-to-bracket"></i></a>';
+                        row += '</div>';
+                        row += '</div>';
+                    }
                     row += '</div>';
                     return row;
                 }).join('');
+
+                // Wire up audio events after render
+                _chrBindAudioEvents();
             } catch(e) { panel.innerHTML = '<div style="color:#ef4444;padding:12px;text-align:center;font-size:.88rem;">Error loading history</div>'; }
         }
+
+        // ── Audio scrubber helpers ──────────────────────────────────────────────
+        let _chrActiveAudio = null; // {rowId, audio}
+
+        function _chrFmt(s) {
+            s = Math.floor(s || 0);
+            return Math.floor(s/60) + ':' + String(s%60).padStart(2,'0');
+        }
+
+        function _chrBindAudioEvents() {
+            document.querySelectorAll('#dialerHistoryList .chr-audio-player audio').forEach(audio => {
+                const rowId = audio.id.replace('aud_', '');
+                const scrub = document.getElementById('apScrub_' + rowId);
+                const timeEl = document.getElementById('apTime_' + rowId);
+                const durEl  = document.getElementById('apDur_'  + rowId);
+                const icon   = document.getElementById('apIcon_' + rowId);
+                if (!scrub || !audio) return;
+                audio.addEventListener('loadedmetadata', () => { if (durEl) durEl.textContent = _chrFmt(audio.duration); scrub.max = audio.duration; });
+                audio.addEventListener('timeupdate', () => {
+                    if (timeEl) timeEl.textContent = _chrFmt(audio.currentTime);
+                    if (scrub && !audio._seeking) {
+                        scrub.value = audio.currentTime;
+                        if (audio.duration > 0) scrub.style.setProperty('--pct', (audio.currentTime / audio.duration * 100).toFixed(1) + '%');
+                    }
+                });
+                audio.addEventListener('ended', () => { if (icon) { icon.className = 'fa-solid fa-play'; } });
+                audio.addEventListener('pause', () => { if (icon) icon.className = 'fa-solid fa-play'; });
+                audio.addEventListener('play',  () => { if (icon) icon.className = 'fa-solid fa-pause'; });
+            });
+        }
+
+        window.chrAudioPlay = function(rowId) {
+            const audio = document.getElementById('aud_' + rowId);
+            if (!audio) return;
+            // Pause any other playing audio
+            if (_chrActiveAudio && _chrActiveAudio.rowId !== rowId) {
+                _chrActiveAudio.audio.pause();
+                _chrActiveAudio.audio.currentTime = 0;
+            }
+            if (audio.paused) {
+                audio.play().catch(() => {});
+                _chrActiveAudio = { rowId, audio };
+            } else {
+                audio.pause();
+            }
+        };
+
+        window.chrAudioStop = function(rowId) {
+            const audio = document.getElementById('aud_' + rowId);
+            if (!audio) return;
+            audio.pause();
+            audio.currentTime = 0;
+            const scrub = document.getElementById('apScrub_' + rowId);
+            const timeEl = document.getElementById('apTime_' + rowId);
+            if (scrub) { scrub.value = 0; scrub.style.setProperty('--pct', '0%'); }
+            if (timeEl) timeEl.textContent = '0:00';
+        };
+
+        window.chrAudioSeek = function(rowId, val) {
+            const audio = document.getElementById('aud_' + rowId);
+            if (!audio) return;
+            audio._seeking = true;
+            audio.currentTime = parseFloat(val);
+            const scrub = document.getElementById('apScrub_' + rowId);
+            if (scrub && audio.duration > 0) scrub.style.setProperty('--pct', (parseFloat(val) / audio.duration * 100).toFixed(1) + '%');
+            setTimeout(() => { audio._seeking = false; }, 50);
+        };
 
         function dialerHistoryClickContact(contactId) {
             if (!contactId) return;
@@ -6066,12 +6321,28 @@
         // ── Stats Phone App ─────────────────────────────────────────────────────
         let _iosStatsPeriod = 'today';
 
+        const _iosStatsPeriodLabels = {
+            today: 'Today', yesterday: 'Yesterday', two_days_ago: 'Two Days Ago',
+            this_week: 'This Week', last_week: 'Last Week',
+            month: 'Last 30 Days', all: 'All Time', custom: 'Custom'
+        };
+
         async function iosStatsLoad() {
             const container = document.getElementById('iosStatsContent');
             if (!container) return;
             container.innerHTML = '<div style="text-align:center;padding:40px;"><i class="fa-solid fa-spinner fa-spin" style="color:#00ff88;font-size:1.4rem;"></i></div>';
+            // Update period badge
+            const badge = document.getElementById('iosStatsPeriodBadge');
+            if (badge) badge.textContent = _iosStatsPeriodLabels[_iosStatsPeriod] || _iosStatsPeriod;
             try {
-                const r = await _fetchRetry('/voice/stats?period=' + _iosStatsPeriod, {}, { retries: 1, timeout: 15000, label: 'ios-stats' });
+                let url = '/voice/stats?period=' + _iosStatsPeriod;
+                if (_iosStatsPeriod === 'custom') {
+                    const s = document.getElementById('iosStatsDateStart')?.value;
+                    const e = document.getElementById('iosStatsDateEnd')?.value;
+                    if (!s || !e) { container.innerHTML = '<div style="color:#888;text-align:center;padding:20px;">Select a date range.</div>'; return; }
+                    url += '&start=' + s + '&end=' + e;
+                }
+                const r = await _fetchRetry(url, {}, { retries: 1, timeout: 15000, label: 'ios-stats' });
                 if (!r.ok) { container.innerHTML = '<div style="color:#888;text-align:center;padding:20px;">Could not load statistics.</div>'; return; }
                 const s = await r.json();
                 container.innerHTML = dialerRenderStats(s);
@@ -6086,11 +6357,31 @@
             iosStatsLoad();
         };
 
+        window.iosStatsToggleFilter = function() {
+            const panel = document.getElementById('iosStatsFilterPanel');
+            const btn   = document.getElementById('iosStatsFilterBtn');
+            if (!panel) return;
+            const open = panel.classList.toggle('open');
+            if (btn) btn.classList.toggle('active', open);
+        };
+
+        window.iosStatsOnPeriodChange = function() {
+            const sel = document.getElementById('iosStatsPeriodSelect');
+            if (!sel) return;
+            _iosStatsPeriod = sel.value;
+            const isCustom = _iosStatsPeriod === 'custom';
+            const sRow = document.getElementById('iosStatsCustomStart');
+            const eRow = document.getElementById('iosStatsCustomEnd');
+            if (sRow) sRow.style.display = isCustom ? 'flex' : 'none';
+            if (eRow) eRow.style.display = isCustom ? 'flex' : 'none';
+            if (!isCustom) iosStatsLoad();
+        };
+
+        // Legacy iosStatsSetPeriod kept for any external callers
         window.iosStatsSetPeriod = function(period) {
             _iosStatsPeriod = period;
-            document.querySelectorAll('.ios-stats-period').forEach(b => {
-                b.classList.toggle('active', b.dataset.period === period);
-            });
+            const sel = document.getElementById('iosStatsPeriodSelect');
+            if (sel) sel.value = period;
             iosStatsLoad();
         };
 

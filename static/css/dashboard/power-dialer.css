@@ -232,6 +232,8 @@
 .dlr-heading-10     { color: #ffffff; }
 .dlr-label-9        { color: #72767d; }
 .dlr-panel-14       { background: #5865f2; color: #ffffff; }
+.dlr-panel-14 i     { color: #ffffff !important; }
+
 .dlr-misc-28        { border-bottom: 1px solid rgba(255,255,255,0.06); }
 .dlr-label-10       { color: #72767d; }
 .dlr-btn-6          { background: rgba(88,101,242,0.15); border: 1px solid rgba(88,101,242,0.30); color: #5865f2; }
@@ -253,6 +255,8 @@
 .dlr-label-12         { color: #36c5f0; }
 .dlr-label-ios-3      { color: #ababad; }
 .dlr-panel-15         { background: #4A154B; color: #ffffff; }
+.dlr-panel-15 i       { color: #ffffff !important; }
+
 .dlr-icon-box-slack-2 { background: rgba(54,197,240,0.15); color: #36c5f0; }
 .dlr-heading-11       { color: #ffffff; }
 .dlr-label-ios-4      { color: #ababad; }

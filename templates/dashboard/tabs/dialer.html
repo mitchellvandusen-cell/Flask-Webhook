@@ -65,11 +65,9 @@
                     .dlr-daily-bar:hover{background:rgba(0,255,136,0.6);}
                     .dlr-stat-period{transition:all .15s;}
                     .dlr-stat-period.active{background:rgba(0,255,136,0.15)!important;color:#00ff88!important;}
-                    /* iOS Stats App period pills */
-                    .ios-stats-period{padding:4px 10px;border-radius:20px;border:1px solid rgba(255,255,255,0.12);background:rgba(255,255,255,0.05);color:#888;font-size:0.72rem;font-weight:600;cursor:pointer;transition:all .15s;white-space:nowrap;}
-                    .ios-stats-period.active{background:rgba(0,255,136,0.15);border-color:rgba(0,255,136,0.3);color:#00ff88;}
-                    body.light-theme .ios-stats-period{background:rgba(0,0,0,0.05);border-color:rgba(0,0,0,0.1);color:#6b7280;}
-                    body.light-theme .ios-stats-period.active{background:rgba(0,120,184,0.12);border-color:rgba(0,120,184,0.25);color:#0078b8;}
+                    /* iOS Stats App — active period badge (replaces period pills) */
+                    .ios-stats-period-badge{padding:3px 10px 3px 12px;margin:4px 12px 0;flex-shrink:0;display:inline-block;font-size:0.68rem;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;color:#00ff88;background:rgba(0,255,136,0.08);border-left:2px solid rgba(0,255,136,0.40);border-radius:0 4px 4px 0;}
+                    body.light-theme .ios-stats-period-badge{color:#059669;background:rgba(5,150,105,0.08);border-left-color:rgba(5,150,105,0.35);}
                     .dlr-call-badge{display:inline-flex;align-items:center;justify-content:center;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);color:#888;border-radius:4px;padding:1px 6px;font-size:0.7rem;font-weight:600;flex-shrink:0;line-height:1.3;white-space:nowrap;}
 
                     /* ── Recordings filter button ── */
@@ -347,11 +345,11 @@
                     .ios-brand-label{color:#007AFF;font-size:0.82rem;font-weight:700;white-space:nowrap;letter-spacing:0.02em;}
                     .ios-quick-options-btn{display:flex;align-items:center;gap:5px;flex-shrink:0;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.10);color:#8E8E93;border-radius:14px;padding:8px 14px;font-size:0.82rem;font-weight:600;cursor:pointer;white-space:nowrap;transition:all .15s;}
                     .ios-quick-options-btn:hover{background:rgba(0,122,255,0.12);color:#007AFF;border-color:rgba(0,122,255,0.25);}
-                    .ios-quick-options-menu{display:none;position:fixed;min-width:200px;background:#1e1e1e;backdrop-filter:none;-webkit-backdrop-filter:none;border:1px solid rgba(255,255,255,0.12);border-radius:14px;padding:6px;z-index:10000;box-shadow:0 4px 20px rgba(0,0,0,0.4);}
-                    .ios-quick-options-menu.open{display:flex;flex-direction:column;gap:2px;}
-                    .ios-quick-options-menu button{display:flex;align-items:center;gap:8px;width:100%;background:transparent;border:none;color:#e0e0e0;padding:10px 12px;font-size:0.82rem;border-radius:10px;cursor:pointer;text-align:left;transition:background .12s;}
-                    .ios-quick-options-menu button:hover{background:rgba(0,122,255,0.15);color:#fff;}
-                    .ios-quick-options-menu button i{color:#007AFF;width:16px;text-align:center;font-size:0.8rem;}
+                    .ios-quick-options-menu{display:none;position:fixed;min-width:210px;background:#161618;border:1px solid rgba(255,255,255,0.10);border-radius:14px;padding:5px;z-index:10000;box-shadow:0 8px 28px rgba(0,0,0,0.55),0 0 0 0.5px rgba(255,255,255,0.04);}
+                    .ios-quick-options-menu.open{display:flex;flex-direction:column;gap:1px;}
+                    .ios-quick-options-menu button{display:flex;align-items:center;gap:9px;width:100%;background:transparent;border:none;color:#d8d8d8;padding:10px 13px;font-size:0.8rem;font-weight:500;border-radius:9px;cursor:pointer;text-align:left;transition:background .12s,color .12s;font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text',sans-serif;}
+                    .ios-quick-options-menu button:hover{background:rgba(0,122,255,0.14);color:#ffffff;}
+                    .ios-quick-options-menu button i{color:#007AFF;width:16px;text-align:center;font-size:0.78rem;flex-shrink:0;}
                     @keyframes qoSlideUp{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:translateY(0);}}
                     @keyframes qoSlideDown{from{opacity:0;transform:translateY(-6px);}to{opacity:1;transform:translateY(0);}}
 
@@ -514,24 +512,69 @@
                     .ios-channel-label{font-size:clamp(0.62rem, 0.52vw, 0.95rem);color:#8E8E93;font-weight:600;white-space:nowrap;}
                     .ios-channel-select{-webkit-appearance:none;appearance:none;display:inline-flex;align-items:center;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);color:#8E8E93;padding:4px 8px;border-radius:10px;font-size:clamp(0.62rem, 0.52vw, 0.95rem);font-weight:600;outline:none;cursor:pointer;white-space:nowrap;line-height:1;height:auto;}
                     .ios-channel-note{font-size:clamp(0.56rem, 0.47vw, 0.85rem);color:#8E8E93;}
-                    .ios-compose-row{display:flex;gap:5px;align-items:flex-end;padding:5px 8px 2px;}
-                    .ios-compose-input-wrap{flex:1;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.12);border-radius:16px;padding:2px 4px;transition:border-color 0.15s;}
-                    .ios-compose-input-wrap:focus-within{border-color:rgba(0,122,255,0.4);}
-                    .ios-compose-input{width:100%;background:transparent;border:none;color:#fff;padding:clamp(6px, 0.31vw, 11px) clamp(10px, 0.52vw, 19px);font-size:clamp(0.78rem, 0.65vw, 1.2rem);resize:none;outline:none;line-height:1.4;max-height:clamp(72px, 3.75vw, 137px);overflow-y:auto;font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Helvetica Neue',sans-serif;}
-                    .ios-compose-input::placeholder{color:#636366;}
-                    .ios-send-btn{width:clamp(28px, 1.46vw, 53px);height:clamp(28px, 1.46vw, 53px);border-radius:50%;background:#007AFF;border:none;color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:clamp(0.75rem, 0.63vw, 1.15rem);transition:background 0.15s,transform 0.1s;margin-bottom:1px;}
-                    .ios-send-btn:hover{background:#0A84FF;}
-                    .ios-send-btn:active{transform:scale(0.9);}
-                    .ios-compose-footer{display:flex;align-items:center;justify-content:space-between;padding:0 10px 3px;}
-                    .ios-sms-status{font-size:clamp(0.62rem, 0.52vw, 0.95rem);color:#636366;min-height:clamp(12px, 0.63vw, 23px);}
-                    .ios-char-count{font-size:clamp(0.62rem, 0.52vw, 0.95rem);color:#636366;font-family:'SF Mono','JetBrains Mono',monospace;white-space:nowrap;}
-                    /* Compact composer toolbar */
-                    .ios-composer-toolbar{display:flex;align-items:center;gap:4px;padding:2px 8px 0;overflow-x:auto;scrollbar-width:none;}
-                    .ios-composer-toolbar::-webkit-scrollbar{display:none;}
-                    .ios-toolbar-btn{display:inline-flex;align-items:center;gap:3px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);color:#8E8E93;border-radius:10px;padding:4px 8px;font-size:clamp(0.62rem, 0.52vw, 0.95rem);font-weight:600;cursor:pointer;white-space:nowrap;transition:all .15s;}
-                    .ios-toolbar-btn:hover{background:rgba(0,122,255,0.12);color:#007AFF;border-color:rgba(0,122,255,0.25);}
-                    .ios-toolbar-ai{background:rgba(0,122,255,0.1);border-color:rgba(0,122,255,0.25);color:#007AFF;}
-                    .ios-toolbar-ai:hover{background:rgba(0,122,255,0.2);}
+
+                    /* ── Premium iMessage Composer ─────────────────────────── */
+                    /* Container */
+                    .ios-composer { flex-direction:column; gap:0; padding:0; background:#101010; border-top:1px solid rgba(255,255,255,0.07); }
+
+                    /* Top action strip: [AI] [Quick] spacer [Via selector] */
+                    .ios-composer-toolbar { display:flex; align-items:center; gap:5px; padding:7px 10px 5px; overflow-x:auto; scrollbar-width:none; border-bottom:1px solid rgba(255,255,255,0.04); }
+                    .ios-composer-toolbar::-webkit-scrollbar { display:none; }
+
+                    /* AI Reply — gradient accent pill */
+                    .ios-toolbar-ai {
+                        display:inline-flex; align-items:center; gap:4px;
+                        background:linear-gradient(135deg,rgba(0,122,255,0.15),rgba(124,58,237,0.13));
+                        border:1px solid rgba(0,122,255,0.28); color:#60a5fa;
+                        border-radius:12px; padding:5px 11px;
+                        font-size:0.72rem; font-weight:700; cursor:pointer;
+                        transition:all .15s; white-space:nowrap; letter-spacing:0.02em;
+                        flex-shrink:0;
+                    }
+                    .ios-toolbar-ai:hover { background:linear-gradient(135deg,rgba(0,122,255,0.25),rgba(124,58,237,0.20)); border-color:rgba(0,122,255,0.45); color:#93c5fd; }
+                    .ios-toolbar-ai i { font-size:0.72rem; }
+
+                    /* Generic toolbar button (Quick Options etc) */
+                    .ios-toolbar-btn { display:inline-flex; align-items:center; gap:4px; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.09); color:#8E8E93; border-radius:12px; padding:5px 11px; font-size:0.72rem; font-weight:600; cursor:pointer; white-space:nowrap; transition:all .15s; flex-shrink:0; }
+                    .ios-toolbar-btn:hover { background:rgba(0,122,255,0.12); color:#007AFF; border-color:rgba(0,122,255,0.28); }
+
+                    /* Input row: buttons + input + send */
+                    .ios-compose-row { display:flex; gap:6px; align-items:flex-end; padding:6px 8px 5px; }
+
+                    /* Text input wrapper */
+                    .ios-compose-input-wrap {
+                        flex:1; background:#1c1c1e; border:1px solid rgba(255,255,255,0.10);
+                        border-radius:18px; padding:3px 5px; transition:border-color 0.18s;
+                        min-width:0;
+                    }
+                    .ios-compose-input-wrap:focus-within { border-color:rgba(0,122,255,0.45); }
+
+                    /* Textarea */
+                    .ios-compose-input {
+                        width:100%; background:transparent; border:none; color:#ffffff;
+                        padding:7px 10px;
+                        font-size:0.83rem; resize:none; outline:none; line-height:1.45;
+                        max-height:96px; overflow-y:auto;
+                        font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Helvetica Neue',sans-serif;
+                    }
+                    .ios-compose-input::placeholder { color:#636366; }
+
+                    /* Send button */
+                    .ios-send-btn {
+                        width:32px; height:32px; border-radius:50%; background:#007AFF; border:none;
+                        color:#fff; cursor:pointer; display:flex; align-items:center; justify-content:center;
+                        flex-shrink:0; font-size:0.82rem; transition:background 0.15s, transform 0.10s, box-shadow 0.15s;
+                        margin-bottom:2px; box-shadow:0 2px 8px rgba(0,122,255,0.40);
+                    }
+                    .ios-send-btn:hover { background:#0A84FF; box-shadow:0 4px 14px rgba(0,122,255,0.55); }
+                    .ios-send-btn:active { transform:scale(0.88); }
+                    .ios-send-btn:disabled { opacity:0.30; cursor:not-allowed; transform:none; box-shadow:none; }
+
+                    /* Footer: status + char count */
+                    .ios-compose-footer { display:flex; align-items:center; justify-content:space-between; padding:0 10px 5px; }
+                    .ios-sms-status { font-size:0.62rem; color:#636366; min-height:14px; }
+                    .ios-char-count { font-size:0.62rem; color:#636366; font-family:'SF Mono',ui-monospace,monospace; white-space:nowrap; }
+                    /* ── End Composer ──────────────────────────────────────── */
 
                     /* Call Log */
                     .ios-call-log-scroll{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;background:#000;}
@@ -729,6 +772,8 @@
                     body.light-theme .ios-app-label { color: #1a1a2e !important; text-shadow: none !important; }
                     body.light-theme .ios-status-bar { color: #1a1a2e !important; }
                     body.light-theme .ios-time { color: #fff !important; }
+                    body.light-theme .ios-status-icons,
+                    body.light-theme .ios-status-icons i { color: #ffffff !important; }
                     body.light-theme .ios-dynamic-island { background: #1a1a2e !important; }
                     body.light-theme .ios-dm-label { color: #1a1a2e !important; }
                     body.light-theme .ios-dm-btn { color: rgba(0,0,0,0.4) !important; }
@@ -761,12 +806,17 @@
                     body.light-theme .iphone-frame .ios-back-btn:hover { background: rgba(0,122,255,0.12) !important; }
                     body.light-theme .iphone-frame .ios-nav-subtitle { color: #636366 !important; }
                     body.light-theme .iphone-frame .ios-nav-action { color: #007AFF !important; }
+                    /* Light theme — Premium composer */
+                    body.light-theme .iphone-frame .ios-composer { background: #f2f2f7 !important; border-top-color: rgba(0,0,0,0.09) !important; }
+                    body.light-theme .iphone-frame .ios-composer-toolbar { border-bottom-color: rgba(0,0,0,0.06) !important; }
+                    body.light-theme .iphone-frame .ios-compose-input-wrap { background: #ffffff !important; border-color: rgba(0,0,0,0.12) !important; box-shadow:0 1px 4px rgba(0,0,0,0.06); }
+                    body.light-theme .iphone-frame .ios-compose-input-wrap:focus-within { border-color: rgba(0,122,255,0.40) !important; }
                     body.light-theme .iphone-frame .ios-compose-input { color: #1a1a2e !important; }
                     body.light-theme .iphone-frame .ios-compose-input::placeholder { color: #aeaeb2 !important; }
-                    body.light-theme .iphone-frame .ios-compose-input-wrap { background: rgba(0,0,0,0.04) !important; border-color: rgba(0,0,0,0.1) !important; }
-                    body.light-theme .iphone-frame .ios-toolbar-btn { background: rgba(0,0,0,0.04) !important; border-color: rgba(0,0,0,0.08) !important; color: #636366 !important; }
-                    body.light-theme .iphone-frame .ios-toolbar-btn:hover { background: rgba(0,122,255,0.08) !important; color: #007AFF !important; border-color: rgba(0,122,255,0.2) !important; }
-                    body.light-theme .iphone-frame .ios-toolbar-ai { background: rgba(0,122,255,0.08) !important; border-color: rgba(0,122,255,0.2) !important; color: #007AFF !important; }
+                    body.light-theme .iphone-frame .ios-toolbar-btn { background: rgba(0,0,0,0.05) !important; border-color: rgba(0,0,0,0.09) !important; color: #636366 !important; }
+                    body.light-theme .iphone-frame .ios-toolbar-btn:hover { background: rgba(0,122,255,0.08) !important; color: #007AFF !important; border-color: rgba(0,122,255,0.22) !important; }
+                    body.light-theme .iphone-frame .ios-toolbar-ai { background: rgba(0,122,255,0.08) !important; border-color: rgba(0,122,255,0.22) !important; color: #007AFF !important; }
+                    body.light-theme .iphone-frame .ios-toolbar-ai:hover { background: rgba(0,122,255,0.14) !important; }
                     body.light-theme .iphone-frame .ios-channel-select { background-color: rgba(0,0,0,0.04) !important; border-color: rgba(0,0,0,0.1) !important; color: #1a1a2e !important; }
                     body.light-theme .iphone-frame .ios-channel-label { color: #636366 !important; }
                     body.light-theme .iphone-frame .ios-char-count { color: #8e8e93 !important; }
@@ -796,16 +846,17 @@
                     body.light-theme #iosCalMonthTitle { color: #1a1a2e !important; }
                     body.light-theme .ios-cal-picker-bar { background: #f8f8f8 !important; border-bottom-color: rgba(0,0,0,0.08) !important; }
                     body.light-theme .ios-cal-picker-icon { color: #9ca3af !important; }
-                    body.light-theme .ios-cal-picker-select { background: rgba(0,0,0,0.04) !important; border-color: rgba(0,0,0,0.1) !important; color: #1a1a2e !important; }
+                    body.light-theme .ios-cal-picker-select { background: rgba(0,0,0,0.04) !important; border-color: rgba(0,0,0,0.10) !important; color: #1f2937 !important; font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Segoe UI',system-ui,sans-serif !important; font-weight:500 !important; }
                     body.light-theme #iosCalGoogleBtn { background: rgba(0,0,0,0.04) !important; border-color: rgba(0,0,0,0.1) !important; color: #636366 !important; }
                     body.light-theme #iosCalDateHeader { border-top-color: rgba(0,0,0,0.08) !important; }
                     body.light-theme #iosCalSlotArea { background: #f2f2f7 !important; color: #1a1a2e !important; }
                     body.light-theme #iosCalGrid { color: #1a1a2e !important; }
                     body.light-theme #iosCalSlots { color: #1a1a2e !important; }
                     /* Calendar picker sub-header */
-                    .ios-cal-picker-bar { display:flex;align-items:center;gap:8px;padding:8px 14px;flex-shrink:0;background:#0a0a0a;border-bottom:1px solid rgba(255,255,255,0.06); }
-                    .ios-cal-picker-icon { color:rgba(255,255,255,0.3);font-size:0.78rem;flex-shrink:0; }
-                    .ios-cal-picker-select { flex:1;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);color:#e0e0e0;border-radius:8px;padding:6px 10px;font-size:0.8rem;outline:none;cursor:pointer;font-family:inherit;max-width:100%; }
+                    .ios-cal-picker-bar { display:flex;align-items:center;gap:8px;padding:8px 12px;flex-shrink:0;background:#0a0a0a;border-bottom:1px solid rgba(255,255,255,0.06);overflow:hidden; }
+                    .ios-cal-picker-icon { color:rgba(255,255,255,0.35);font-size:0.8rem;flex-shrink:0;width:16px;text-align:center; }
+                    .ios-cal-picker-select { flex:1;min-width:0;background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.10);color:#e8e8e8;border-radius:8px;padding:6px 10px;font-size:0.8rem;font-weight:500;font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Segoe UI',system-ui,sans-serif;outline:none;cursor:pointer;width:0;transition:border-color 0.15s; }
+                    .ios-cal-picker-select:focus { border-color:rgba(0,255,136,0.35); }
 
                     /* Light theme — Discord/Slack Connect buttons always white text */
                     body.light-theme .dlr-panel-14 { color: #ffffff !important; }
@@ -844,6 +895,8 @@
                     /* Status bar dark text on light wallpaper — but clock stays white */
                     body.light-theme .iphone-frame .ios-status-bar { color: #1a1a2e !important; }
                     body.light-theme .iphone-frame .ios-time { color: #fff !important; }
+                    body.light-theme .iphone-frame .ios-status-icons,
+                    body.light-theme .iphone-frame .ios-status-icons i { color: #ffffff !important; }
                     body.light-theme .iphone-frame .iphone-screen { background: #f2f2f7 !important; }
                     /* App icon labels: dark with light shadow so readable on bright wallpaper */
                     body.light-theme .iphone-frame .ios-app-label { color: #1a1a2e !important; text-shadow: 0 1px 3px rgba(255,255,255,0.9) !important; }
@@ -1001,6 +1054,8 @@
                     .mvp-move:disabled { opacity:.4; cursor:default; }
                     .mvp-row-btn { padding:1px 7px; border-radius:4px; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1); color:#888; font-size:0.7rem; font-weight:600; cursor:pointer; transition:all .14s; white-space:nowrap; flex-shrink:0; }
                     .mvp-row-btn:hover { background:rgba(0,255,136,0.1); border-color:rgba(0,255,136,0.25); color:#00ff88; }
+                    /* Equal-size for Add-to-Queue / Move-Pipeline buttons */
+                    .dlr-action-btn-equal { border-radius:4px !important; padding:3px 9px !important; font-size:0.73rem !important; font-weight:600 !important; line-height:1.4 !important; cursor:pointer; height:24px; display:inline-flex; align-items:center; box-sizing:border-box; }
                     .dlr-move-bulk-btn { border-radius:4px; padding:2px 8px; font-size:0.75rem; font-weight:600; cursor:pointer; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.12); color:#aaa; transition:all .15s; }
                     .dlr-move-bulk-btn:hover:not(:disabled) { background:rgba(0,255,136,0.1); border-color:rgba(0,255,136,0.25); color:#00ff88; }
                     .dlr-move-bulk-btn:disabled { opacity:.4; cursor:default; }
@@ -1517,10 +1572,10 @@
                                     All <span id="dialerSelectedCount" class="dlr-label-cyan-2" style="font-weight:600"></span>
                                 </label>
                                 <div class="d-flex gap-2">
-                                    <button id="dialerAddSelectedBtn" onclick="dialerAddSelectedToQueue()" class="dlr-btn-cyan-outline-3" style="border-radius:4px;padding:2px 8px;font-size:0.75rem;font-weight:600;cursor:pointer" disabled>
+                                    <button id="dialerAddSelectedBtn" onclick="dialerAddSelectedToQueue()" class="dlr-btn-cyan-outline-3 dlr-action-btn-equal" disabled>
                                         <i class="fa-solid fa-plus me-1"></i>Add to Queue
                                     </button>
-                                    <button id="dialerMoveSelectedBtn" onclick="_mvpOpen()" class="dlr-move-bulk-btn" disabled>Move Pipeline</button>
+                                    <button id="dialerMoveSelectedBtn" onclick="_mvpOpen()" class="dlr-move-bulk-btn dlr-action-btn-equal" disabled>Move Pipeline</button>
                                 </div>
                             </div>
                         </div>
@@ -1667,22 +1722,7 @@
                                                 <span class="ios-app-label">Calls</span>
                                                 <span class="ios-badge" id="iosBadgeCalls" style="display:none;">0</span>
                                             </button>
-                                            <!-- Voicemail App -->
-                                            <button class="ios-app-icon" onclick="iosOpenApp('voicemail')">
-                                                <div class="ios-icon dlr-bg-ios-orange" >
-                                                    <i class="fa-solid fa-voicemail"></i>
-                                                </div>
-                                                <span class="ios-app-label">Voicemail</span>
-                                                <span class="ios-badge" id="iosBadgeVoicemail" style="display:none;">0</span>
-                                            </button>
-                                            <!-- Recording History App -->
-                                            <button class="ios-app-icon" onclick="iosOpenApp('recordings')">
-                                                <div class="ios-icon ios-icon-voicemail">
-                                                    <i class="fa-solid fa-record-vinyl"></i>
-                                                </div>
-                                                <span class="ios-app-label">Recordings</span>
-                                                <span class="ios-badge" id="iosBadgeRecs" style="display:none;">0</span>
-                                            </button>
+                                            <!-- (Voicemail + Recordings now live inside Calls app tabs) -->
                                             <!-- Inbox App (iMessage-style Conversations) -->
                                             <button class="ios-app-icon" onclick="iosOpenApp('inbox')">
                                                 <div class="ios-icon dlr-bg-ios-purple" >
@@ -1745,19 +1785,43 @@
                                                 <i class="fa-solid fa-chevron-left"></i><span class="ios-back-label">Back</span>
                                             </button>
                                             <div class="ios-nav-title" style="font-weight:700;font-size:0.95rem;">Statistics</div>
-                                            <div style="display:flex;gap:4px;">
+                                            <div style="display:flex;gap:4px;align-items:center;">
+                                                <!-- Period filter button -->
+                                                <button id="iosStatsFilterBtn" class="ios-nav-action ios-rec-filter-btn" onclick="iosStatsToggleFilter()" title="Filter Period">
+                                                    <i class="fa-solid fa-sliders"></i>
+                                                </button>
                                                 <button onclick="iosStatsRefresh()" class="ios-nav-action" title="Refresh">
                                                     <i class="fa-solid fa-arrows-rotate" id="iosStatsRefreshIcon"></i>
                                                 </button>
                                             </div>
                                         </div>
-                                        <!-- Period pills -->
-                                        <div style="padding:8px 12px 4px;display:flex;gap:4px;flex-shrink:0;">
-                                            <button class="ios-stats-period active" data-period="today"  onclick="iosStatsSetPeriod('today')">Today</button>
-                                            <button class="ios-stats-period" data-period="week"   onclick="iosStatsSetPeriod('week')">7 Days</button>
-                                            <button class="ios-stats-period" data-period="month"  onclick="iosStatsSetPeriod('month')">30 Days</button>
-                                            <button class="ios-stats-period" data-period="all"    onclick="iosStatsSetPeriod('all')">All</button>
+                                        <!-- Period filter panel (collapsed by default) -->
+                                        <div id="iosStatsFilterPanel" class="ios-rec-filter-panel">
+                                            <div class="ios-rec-filter-row">
+                                                <label class="ios-rec-filter-label">Period</label>
+                                                <select id="iosStatsPeriodSelect" class="ios-rec-filter-select" onchange="iosStatsOnPeriodChange()">
+                                                    <option value="today" selected>Today</option>
+                                                    <option value="yesterday">Yesterday</option>
+                                                    <option value="two_days_ago">Two Days Ago</option>
+                                                    <option value="this_week">This Week</option>
+                                                    <option value="last_week">Last Week</option>
+                                                    <option value="month">Last 30 Days</option>
+                                                    <option value="all">All Time</option>
+                                                    <option value="custom">Custom Range</option>
+                                                </select>
+                                            </div>
+                                            <!-- Custom date range rows (hidden unless custom selected) -->
+                                            <div id="iosStatsCustomStart" class="ios-rec-filter-row" style="display:none;">
+                                                <label class="ios-rec-filter-label">From</label>
+                                                <input type="date" id="iosStatsDateStart" class="ios-rec-filter-select" style="color-scheme:dark;" onchange="iosStatsLoad()">
+                                            </div>
+                                            <div id="iosStatsCustomEnd" class="ios-rec-filter-row" style="display:none;">
+                                                <label class="ios-rec-filter-label">To</label>
+                                                <input type="date" id="iosStatsDateEnd" class="ios-rec-filter-select" style="color-scheme:dark;" onchange="iosStatsLoad()">
+                                            </div>
                                         </div>
+                                        <!-- Active period badge -->
+                                        <div id="iosStatsPeriodBadge" class="ios-stats-period-badge">Today</div>
                                         <!-- Stats content -->
                                         <div id="iosStatsContent" style="flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:10px 12px;">
                                             <div style="text-align:center;padding:40px;"><i class="fa-solid fa-spinner fa-spin" style="color:#00ff88;font-size:1.4rem;"></i></div>
@@ -1842,42 +1906,84 @@
                                         <div class="ios-home-indicator-bar"><div class="ios-home-indicator ios-home-indicator-dark"></div></div>
                                     </div>
 
-                                    <!-- ═══ PHONE APP (Call History) ═══ -->
+                                    <!-- ═══ PHONE APP (Call History + Voicemail) ═══ -->
                                     <div class="ios-app-view" id="iosAppCalls" style="display:none;">
+                                        <!-- Nav bar -->
                                         <div class="ios-nav-bar">
                                             <button class="ios-back-btn" onclick="iosGoHome()">
                                                 <i class="fa-solid fa-chevron-left"></i><span class="ios-back-label">Back</span>
                                             </button>
                                             <div class="ios-nav-title">
-                                                <div style="font-weight:700;font-size:0.95rem;">Recents</div>
+                                                <div id="iosCallsNavTitle" style="font-weight:700;font-size:0.95rem;">Recents</div>
                                             </div>
-                                            <div style="display:flex;gap:4px;">
-                                                <button id="dialerCallsViewAllBtn" onclick="dialerToggleCallHistoryScope()" class="ios-nav-action dlr-panel-10" style="font-size:0.75rem;padding:3px 8px;border-radius:12px">
+                                            <div style="display:flex;gap:4px;align-items:center;">
+                                                <!-- Filter icon (Recents tab only: smart date/duration filter) -->
+                                                <button id="dialerCallsFilterBtn" class="ios-nav-action" onclick="toggleDialerCallsFilter()" title="Filter" style="display:inline-flex;">
+                                                    <i class="fa-solid fa-sliders"></i>
+                                                </button>
+                                                <!-- Scope toggle -->
+                                                <button id="dialerCallsViewAllBtn" onclick="dialerToggleCallHistoryScope()" class="ios-nav-action dlr-panel-10" style="font-size:0.75rem;padding:3px 8px;border-radius:12px;display:none;">
                                                     <span id="dialerCallsLabel" style="font-weight:600;">All</span>
                                                 </button>
-                                                <button onclick="dialerLoadAllCallHistory()" class="ios-nav-action" title="Refresh">
+                                                <!-- Refresh -->
+                                                <button id="iosCallsRefreshBtn" onclick="iosCallsRefresh()" class="ios-nav-action" title="Refresh">
                                                     <i class="fa-solid fa-arrows-rotate"></i>
                                                 </button>
                                             </div>
                                         </div>
-                                        <!-- Tab Bar -->
-                                        <div class="ios-calls-tab-bar">
-                                            <button id="iosCallsTabSingle" class="ios-calls-tab active" onclick="iosCallsSetTab('single')">Single Call</button>
-                                            <button id="iosCallsTabCampaigns" class="ios-calls-tab" onclick="iosCallsSetTab('campaigns')">Campaigns</button>
+
+                                        <!-- Smart filter panel (Recents tab) — collapsed by default -->
+                                        <div id="dialerCallsFilterPanel" class="ios-rec-filter-panel">
+                                            <div class="ios-rec-filter-row">
+                                                <label class="ios-rec-filter-label">Filter By</label>
+                                                <select class="ios-rec-filter-select" id="dialerCallsFilterType" onchange="dialerCallsOnFilterTypeChange()">
+                                                    <option value="none">None</option>
+                                                    <option value="date">Date</option>
+                                                    <option value="duration">Duration</option>
+                                                </select>
+                                            </div>
+                                            <!-- Date row — shown when filter=date -->
+                                            <div class="ios-rec-filter-row" id="dialerCallsDateRow" style="display:none;">
+                                                <label class="ios-rec-filter-label">Date</label>
+                                                <input type="date" class="ios-rec-filter-select" id="dialerCallsDateFilter" onchange="dialerLoadAllCallHistory()" style="color-scheme:dark;">
+                                            </div>
+                                            <!-- Duration row — shown when filter=duration -->
+                                            <div class="ios-rec-filter-row" id="dialerCallsDurationRow" style="display:none;">
+                                                <label class="ios-rec-filter-label">Duration</label>
+                                                <select class="ios-rec-filter-select" id="dialerCallsDurationFilter" onchange="dialerLoadAllCallHistory()">
+                                                    <option value="">All</option>
+                                                    <option value="0-1">0–1 min</option>
+                                                    <option value="1-2">1–2 min</option>
+                                                    <option value="2-5">2–5 min</option>
+                                                    <option value="5+">5+ min</option>
+                                                </select>
+                                            </div>
+                                            <!-- Keep old IDs for backward compat with recordings JS -->
+                                            <select id="dialerRecsSortBy" style="display:none;"><option value="created_at">Date</option></select>
+                                            <select id="dialerRecsMinutesFilter" style="display:none;"><option value="">All</option><option value="0-1">0-1 min</option><option value="1-2">1-2 min</option><option value="2-5">2-5 min</option><option value="5+">5+ min</option></select>
                                         </div>
-                                        <!-- Single Call tab content -->
+
+                                        <!-- 3-tab bar -->
+                                        <div class="ios-calls-tab-bar">
+                                            <button id="iosCallsTabSingle"    class="ios-calls-tab active" onclick="iosCallsSetTab('single')">Recents</button>
+                                            <button id="iosCallsTabCampaigns" class="ios-calls-tab"        onclick="iosCallsSetTab('campaigns')">Campaigns</button>
+                                            <button id="iosCallsTabVoicemail" class="ios-calls-tab"        onclick="iosCallsSetTab('voicemail')">Voicemail</button>
+                                        </div>
+
+                                        <!-- ── TAB: Recents (call history with audio scrubbers) ── -->
                                         <div id="dlrHistoryCalls" class="ios-call-log-scroll">
                                             <div id="dialerHistoryList" style="padding:0;">
                                                 <div class="ios-empty-state" style="padding-top:60px;">
-                                                    <div class="ios-empty-icon dlr-bg-bordered" >
-                                                        <i class="fa-solid fa-phone dlr-text-c34c759" ></i>
+                                                    <div class="ios-empty-icon dlr-bg-bordered">
+                                                        <i class="fa-solid fa-phone dlr-text-c34c759"></i>
                                                     </div>
                                                     <div class="ios-empty-title">No Recent Calls</div>
                                                     <div class="ios-empty-sub">Your call history will appear here</div>
                                                 </div>
                                             </div>
                                         </div>
-                                        <!-- Campaigns tab content -->
+
+                                        <!-- ── TAB: Campaigns ── -->
                                         <div id="dlrHistoryCampaigns" class="ios-call-log-scroll" style="display:none;">
                                             <div id="dlrCampaignHistory" style="padding:4px 8px;">
                                                 <div class="ios-empty-state" style="padding-top:60px;">
@@ -1889,108 +1995,59 @@
                                                 </div>
                                             </div>
                                         </div>
-                                        <div class="ios-home-indicator-bar"><div class="ios-home-indicator ios-home-indicator-dark"></div></div>
-                                    </div>
 
-                                    <!-- ═══ RECORDINGS APP ═══ -->
-                                    <div class="ios-app-view" id="iosAppRecordings" style="display:none;">
-                                         <div class="ios-nav-bar">
-                                             <button class="ios-back-btn" onclick="iosGoHome()">
-                                                 <i class="fa-solid fa-chevron-left"></i><span class="ios-back-label">Back</span>
-                                             </button>
-                                             <div class="ios-nav-title">
-                                                 <div style="font-weight:700;font-size:0.95rem;">Recordings</div>
-                                             </div>
-                                             <div style="display:flex;align-items:center;gap:4px;">
-                                                 <button id="dialerRecsFilterBtn" class="ios-rec-filter-btn ios-nav-action" onclick="toggleDialerRecsFilter()" title="Filter &amp; Sort" aria-label="Filter recordings">
-                                                     <i class="fa-solid fa-sliders"></i>
-                                                 </button>
-                                                 <button id="dialerRecsViewAllBtn" onclick="dialerToggleRecordingsScope()" class="ios-nav-action dlr-panel-10" style="font-size:0.75rem;padding:3px 8px;border-radius:12px;display:none;">
-                                                     <span id="dialerRecordingsLabel" style="font-weight:600;">All</span>
-                                                 </button>
-                                                 <button onclick="dialerLoadRecordings()" class="ios-nav-action" title="Refresh">
-                                                     <i class="fa-solid fa-arrows-rotate"></i>
-                                                 </button>
-                                                 <!-- Hidden selects retain their IDs so JS can read values -->
-                                                 <select id="dialerRecsSortBy" onchange="dialerLoadRecordings()" style="display:none;"><option value="created_at">Date</option><option value="duration">Length</option></select>
-                                                 <select id="dialerRecsMinutesFilter" onchange="dialerLoadRecordings()" style="display:none;"><option value="">All Minutes</option><option value="0-1">0-1 min</option><option value="1-2">1-2 min</option><option value="2-5">2-5 min</option><option value="5+">5+ min</option></select>
-                                                 <select id="dialerRecsLengthFilter" onchange="dialerLoadRecordings()" style="display:none;"><option value="">All Lengths</option><option value="short">Short (&lt;30s)</option><option value="medium">Medium (30s-2m)</option><option value="long">Long (2m+)</option></select>
-                                             </div>
-                                         </div>
-                                         <!-- Collapsible filter panel — sits between nav bar and scroll list -->
-                                         <div class="ios-rec-filter-panel" id="dialerRecsFilterPanel">
-                                             <div class="ios-rec-filter-row">
-                                                 <label class="ios-rec-filter-label">Sort By</label>
-                                                 <select class="ios-rec-filter-select" onchange="document.getElementById('dialerRecsSortBy').value=this.value;dialerLoadRecordings()">
-                                                     <option value="created_at">Date</option>
-                                                     <option value="duration">Length</option>
-                                                 </select>
-                                             </div>
-                                             <div class="ios-rec-filter-row">
-                                                 <label class="ios-rec-filter-label">Duration</label>
-                                                 <select class="ios-rec-filter-select" onchange="document.getElementById('dialerRecsMinutesFilter').value=this.value;dialerLoadRecordings()">
-                                                     <option value="">All</option>
-                                                     <option value="0-1">0–1 min</option>
-                                                     <option value="1-2">1–2 min</option>
-                                                     <option value="2-5">2–5 min</option>
-                                                     <option value="5+">5+ min</option>
-                                                 </select>
-                                             </div>
-                                             <div class="ios-rec-filter-row">
-                                                 <label class="ios-rec-filter-label">Length</label>
-                                                 <select class="ios-rec-filter-select" onchange="document.getElementById('dialerRecsLengthFilter').value=this.value;dialerLoadRecordings()">
-                                                     <option value="">All</option>
-                                                     <option value="short">Short (&lt;30s)</option>
-                                                     <option value="medium">30s–2m</option>
-                                                     <option value="long">2m+</option>
-                                                 </select>
-                                             </div>
-                                         </div>
-                                        <div id="dlrHistoryRecordings" class="ios-voicemail-scroll">
-                                            <div id="dialerRecordingsList" style="padding:0;">
-                                                <div class="ios-empty-state" style="padding-top:60px;">
-                                                    <div class="ios-empty-icon dlr-vm-unread" >
-                                                        <i class="fa-solid fa-voicemail dlr-text-ios-orange" ></i>
-                                                    </div>
-                                                    <div class="ios-empty-title">No Voicemail</div>
-                                                    <div class="ios-empty-sub">Recorded calls will appear here</div>
+                                        <!-- ── TAB: Voicemail ── -->
+                                        <div id="dlrTabVoicemail" class="ios-call-log-scroll" style="display:none;flex-direction:column;">
+                                            <!-- Greeting management bar -->
+                                            <div class="ios-vm-greeting-bar">
+                                                <div class="ios-vm-greeting-left">
+                                                    <i class="fa-solid fa-microphone-lines" style="font-size:0.8rem;color:#ff9f0a;"></i>
+                                                    <span id="ios-vm-greeting-label" style="font-size:0.78rem;color:#aaa;">No greeting set</span>
+                                                </div>
+                                                <div style="display:flex;gap:6px;">
+                                                    <button class="ios-vm-greeting-btn" id="iosVmRecordBtn" onclick="iosVmToggleRecord()" title="Record greeting via microphone">
+                                                        <i class="fa-solid fa-circle-dot" style="color:#ff453a;font-size:0.8rem;"></i>
+                                                        <span>Record</span>
+                                                    </button>
+                                                    <button class="ios-vm-greeting-btn" onclick="document.getElementById('iosVmGreetingFile').click()" title="Upload greeting file">
+                                                        <i class="fa-solid fa-arrow-up-from-bracket" style="font-size:0.8rem;"></i>
+                                                        <span>Upload</span>
+                                                    </button>
                                                 </div>
                                             </div>
-                                        </div>
-                                        <div class="ios-home-indicator-bar"><div class="ios-home-indicator ios-home-indicator-dark"></div></div>
-                                    </div>
-
-                                    <!-- ═══ VOICEMAIL APP (iPhone-style) ═══ -->
-                                    <div class="ios-app-view" id="iosAppVoicemail" style="display:none;">
-                                        <div class="ios-nav-bar dlr-misc-12" >
-                                            <button class="ios-back-btn" onclick="iosGoHome()">
-                                                <i class="fa-solid fa-chevron-left"></i><span class="ios-back-label">Back</span>
-                                            </button>
-                                            <div class="ios-nav-title">
-                                                <div style="font-weight:700;font-size:0.95rem;">Voicemail</div>
-                                            </div>
-                                            <div style="display:flex;gap:4px;">
-                                                <button onclick="vmRefresh()" class="ios-nav-action" title="Refresh">
-                                                    <i class="fa-solid fa-arrows-rotate" id="vmRefreshIcon"></i>
-                                                </button>
-                                            </div>
-                                        </div>
-                                        <div style="flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;">
-                                            <div id="vmList" style="padding:0;">
-                                                <div class="ios-empty-state" style="padding-top:60px;">
-                                                    <div class="ios-empty-icon dlr-vm-unread" >
-                                                        <i class="fa-solid fa-voicemail dlr-text-ios-orange" ></i>
-                                                    </div>
-                                                    <div class="ios-empty-title">No Voicemail</div>
-                                                    <div class="ios-empty-sub">Missed calls with messages will appear here</div>
+                                            <!-- Live recording indicator (hidden until recording) -->
+                                            <div id="iosVmRecordingBar" style="display:none;" class="ios-vm-recording-bar">
+                                                <div style="display:flex;align-items:center;gap:8px;">
+                                                    <span id="iosVmRecDot" class="ios-vm-rec-dot"></span>
+                                                    <span id="iosVmRecTime" style="font-size:0.82rem;font-weight:700;font-family:monospace;color:#fff;">0:00</span>
+                                                    <span style="font-size:0.72rem;color:#888;">Recording...</span>
+                                                </div>
+                                                <div style="display:flex;gap:6px;">
+                                                    <button onclick="iosVmStopRecord(false)" style="background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.12);color:#aaa;padding:4px 10px;border-radius:8px;font-size:0.72rem;cursor:pointer;">Cancel</button>
+                                                    <button onclick="iosVmStopRecord(true)" style="background:rgba(0,255,136,0.15);border:1px solid rgba(0,255,136,0.3);color:#00ff88;padding:4px 10px;border-radius:8px;font-size:0.72rem;font-weight:700;cursor:pointer;">Save</button>
                                                 </div>
                                             </div>
+                                            <!-- Hidden file input -->
+                                            <input type="file" id="iosVmGreetingFile" accept="audio/*,.mp3,.wav,.m4a,.ogg" style="display:none;" onchange="iosVmHandleGreetingFile(this)">
+                                            <!-- Voicemail list -->
+                                            <div style="flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;">
+                                                <div id="vmList" style="padding:0;">
+                                                    <div class="ios-empty-state" style="padding-top:50px;">
+                                                        <div class="ios-empty-icon dlr-vm-unread">
+                                                            <i class="fa-solid fa-voicemail dlr-text-ios-orange"></i>
+                                                        </div>
+                                                        <div class="ios-empty-title">No Voicemail</div>
+                                                        <div class="ios-empty-sub">Missed calls with messages will appear here</div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <!-- Voicemail audio player bar -->
+                                            <div id="vmPlayerBar" style="display:none;padding:10px 14px;flex-shrink:0;background:rgba(14,14,14,0.98);border-top:1px solid rgba(255,255,255,0.06);">
+                                                <div id="vmPlayerContent"></div>
+                                                <audio id="vmAudioPlayer" style="display:none;"></audio>
+                                            </div>
                                         </div>
-                                        <!-- Audio player bar (hidden by default) -->
-                                        <div id="vmPlayerBar" class="dlr-misc-13" style="display:none;padding:10px 14px;flex-shrink:0">
-                                            <div id="vmPlayerContent"></div>
-                                            <audio id="vmAudioPlayer" style="display:none;"></audio>
-                                        </div>
+
                                         <div class="ios-home-indicator-bar"><div class="ios-home-indicator ios-home-indicator-dark"></div></div>
                                     </div>
 

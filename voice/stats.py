@@ -42,20 +42,46 @@ def get_dialer_stats():
 
         period = request.args.get('period', 'month')
         now = datetime.now(user_tz)
+        today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        end_date = now  # default — open-ended
+
         if period == 'today':
-            start_date = now.replace(hour=0, minute=0, second=0, microsecond=0)
+            start_date = today_start
+        elif period == 'yesterday':
+            start_date = today_start - timedelta(days=1)
+            end_date   = today_start
+        elif period == 'two_days_ago':
+            start_date = today_start - timedelta(days=2)
+            end_date   = today_start - timedelta(days=1)
+        elif period == 'this_week':
+            # Monday of the current week
+            start_date = today_start - timedelta(days=now.weekday())
+        elif period == 'last_week':
+            monday_this = today_start - timedelta(days=now.weekday())
+            start_date  = monday_this - timedelta(weeks=1)
+            end_date    = monday_this
         elif period == 'week':
             start_date = now - timedelta(days=7)
-        elif period == 'month':
+        elif period in ('month', '30_days'):
             start_date = now - timedelta(days=30)
-        else:
+        elif period == 'custom':
+            try:
+                start_date = user_tz.localize(datetime.strptime(request.args.get('start', ''), '%Y-%m-%d'))
+                end_date   = user_tz.localize(datetime.strptime(request.args.get('end',   ''), '%Y-%m-%d')) + timedelta(days=1)
+            except Exception:
+                start_date = now - timedelta(days=30)
+        else:  # 'all'
             start_date = datetime(2000, 1, 1, tzinfo=pytz.utc)
 
-        # Convert start_date to UTC for SQL comparison (created_at is stored as UTC)
+        # Convert to UTC for SQL comparison (created_at stored as UTC)
         if start_date.tzinfo is not None:
             start_date_utc = start_date.astimezone(pytz.utc)
         else:
             start_date_utc = pytz.utc.localize(start_date)
+        if end_date.tzinfo is not None:
+            end_date_utc = end_date.astimezone(pytz.utc)
+        else:
+            end_date_utc = pytz.utc.localize(end_date)
 
         # Core KPIs
         cur.execute("""
@@ -79,8 +105,8 @@ def get_dialer_stats():
                 COUNT(*) FILTER (WHERE pdd_ms > 6000)                         AS high_pdd_calls,
                 COUNT(*) FILTER (WHERE quality_tags IS NOT NULL AND array_length(quality_tags, 1) > 0) AS tagged_calls
             FROM call_history
-            WHERE location_id = %s AND created_at >= %s
-        """, (location_id, start_date_utc))
+            WHERE location_id = %s AND created_at >= %s AND created_at < %s
+        """, (location_id, start_date_utc, end_date_utc))
         r = cur.fetchone()
         total           = r['total_calls'] or 0
         outbound        = r['outbound_calls'] or 0
@@ -102,23 +128,16 @@ def get_dialer_stats():
         connect_rate    = round(connected / total * 100, 1) if total else 0.0
 
         # Days in period (for "per day" averages)
-        if period == 'today':
+        period_duration = end_date - start_date
+        days = max(1, period_duration.days) if period_duration.days > 0 else 1
+        if period == 'today' or period in ('yesterday', 'two_days_ago'):
             days = 1
-        elif period == 'week':
-            days = 7
-        elif period == 'month':
-            days = 30
-        else:
-            cur.execute("SELECT MIN(created_at) AS first_call FROM call_history WHERE location_id = %s", (location_id,))
-            first = cur.fetchone()['first_call']
-            if first and first.tzinfo is None:
-                first = pytz.utc.localize(first)
-            days = max(1, (now - first).days) if first else 1
 
-        # Prior period comparison (skip for 'all')
+        # Prior period comparison (skip for 'all' and fully-bounded single-day periods)
         prior = None
-        if period != 'all':
-            period_len  = now - start_date
+        skip_prior = period in ('all',)
+        if not skip_prior:
+            period_len  = end_date - start_date
             prior_end   = start_date_utc
             prior_start = start_date_utc - period_len
             cur.execute("""
@@ -163,11 +182,11 @@ def get_dialer_stats():
                     COALESCE(NULLIF(TRIM(disposition), ''), 'none') AS disp,
                     COUNT(*) AS cnt
                 FROM call_history
-                WHERE location_id = %s AND created_at >= %s
+                WHERE location_id = %s AND created_at >= %s AND created_at < %s
                   AND disposition IS NOT NULL AND TRIM(disposition) != ''
                 GROUP BY disp
                 ORDER BY cnt DESC
-            """, (location_id, start_date_utc))
+            """, (location_id, start_date_utc, end_date_utc))
             dispositions = {row['disp']: row['cnt'] for row in cur.fetchall()}
         except Exception:
             conn.rollback()
@@ -179,9 +198,9 @@ def get_dialer_stats():
                    COUNT(*) FILTER (WHERE status = 'completed' AND duration > 0) AS connected,
                    COALESCE(SUM(duration), 0) AS total_secs
             FROM call_history
-            WHERE location_id = %s AND created_at >= %s
+            WHERE location_id = %s AND created_at >= %s AND created_at < %s
             GROUP BY day ORDER BY day
-        """, (tz_name, location_id, start_date_utc))
+        """, (tz_name, location_id, start_date_utc, end_date_utc))
         daily = [
             {"day": str(row['day']), "calls": row['calls'], "connected": row['connected'], "total_secs": row['total_secs']}
             for row in cur.fetchall()
@@ -191,9 +210,9 @@ def get_dialer_stats():
         cur.execute("""
             SELECT EXTRACT(HOUR FROM created_at AT TIME ZONE 'UTC' AT TIME ZONE %s)::int AS hr, COUNT(*) AS calls
             FROM call_history
-            WHERE location_id = %s AND created_at >= %s
+            WHERE location_id = %s AND created_at >= %s AND created_at < %s
             GROUP BY hr ORDER BY hr
-        """, (tz_name, location_id, start_date_utc))
+        """, (tz_name, location_id, start_date_utc, end_date_utc))
         hourly_map = {row['hr']: row['calls'] for row in cur.fetchall()}
         hourly = [{"hour": h, "calls": hourly_map.get(h, 0)} for h in range(24)]
 
@@ -202,10 +221,10 @@ def get_dialer_stats():
             SELECT contact_id, contact_name, COUNT(*) AS cnt,
                    MAX(created_at) AS last_called
             FROM call_history
-            WHERE location_id = %s AND created_at >= %s
+            WHERE location_id = %s AND created_at >= %s AND created_at < %s
             GROUP BY contact_id, contact_name
             ORDER BY cnt DESC LIMIT 5
-        """, (location_id, start_date_utc))
+        """, (location_id, start_date_utc, end_date_utc))
         top_contacts = [
             {"id": row['contact_id'], "name": row['contact_name'] or "Unknown", "count": row['cnt'], "last_called": str(row['last_called'])}
             for row in cur.fetchall()
@@ -218,10 +237,10 @@ def get_dialer_stats():
                 SELECT COALESCE(NULLIF(TRIM(stir_status), ''), 'none') AS level,
                        COUNT(*) AS cnt
                 FROM call_history
-                WHERE location_id = %s AND created_at >= %s
+                WHERE location_id = %s AND created_at >= %s AND created_at < %s
                   AND direction = 'outbound'
                 GROUP BY level
-            """, (location_id, start_date_utc))
+            """, (location_id, start_date_utc, end_date_utc))
             for row in cur.fetchall():
                 lvl = row['level'].upper() if row['level'] != 'none' else 'none'
                 stir_stats[lvl] = stir_stats.get(lvl, 0) + row['cnt']
@@ -237,10 +256,10 @@ def get_dialer_stats():
             cur.execute("""
                 SELECT tag, COUNT(*) AS cnt
                 FROM call_history, unnest(quality_tags) AS tag
-                WHERE location_id = %s AND created_at >= %s
+                WHERE location_id = %s AND created_at >= %s AND created_at < %s
                   AND quality_tags IS NOT NULL
                 GROUP BY tag ORDER BY cnt DESC
-            """, (location_id, start_date_utc))
+            """, (location_id, start_date_utc, end_date_utc))
             quality_tag_breakdown = {row['tag']: row['cnt'] for row in cur.fetchall()}
         except Exception:
             try:
@@ -257,9 +276,9 @@ def get_dialer_stats():
                     COALESCE(AVG((quality_metrics->>'avg_ttfa_ms')::float), 0) AS avg_ttfa,
                     COALESCE(AVG((quality_metrics->>'turn_count')::float), 0) AS avg_turns
                 FROM call_history
-                WHERE location_id = %s AND created_at >= %s
+                WHERE location_id = %s AND created_at >= %s AND created_at < %s
                   AND quality_metrics IS NOT NULL
-            """, (location_id, start_date_utc))
+            """, (location_id, start_date_utc, end_date_utc))
             qr = cur.fetchone()
             ai_quality = {
                 "calls_with_metrics": qr['cnt'] or 0,
@@ -279,9 +298,9 @@ def get_dialer_stats():
                 SELECT source, COUNT(*) AS cnt
                 FROM crm_conversations
                 WHERE location_id = %s AND message_type IN ('call', 'voicemail')
-                  AND date_added >= %s::text
+                  AND date_added >= %s::text AND date_added < %s::text
                 GROUP BY source
-            """, (location_id, start_date_utc.isoformat()))
+            """, (location_id, start_date_utc.isoformat(), end_date_utc.isoformat()))
             for row in cur.fetchall():
                 src = row['source'] or 'unknown'
                 if src in source_breakdown:

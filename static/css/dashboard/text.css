@@ -289,6 +289,18 @@ small.text-muted { color: #666666; }
 [data-theme="light"] .call-history-row { border-bottom-color: rgba(0,0,0,0.06); }
 [data-theme="light"] .call-history-row:hover { background: rgba(0,0,0,0.02); }
 
+/* Call history row line layout helpers */
+.chr-line1,
+.chr-line2 {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+}
+.chr-line2 {
+    margin-top: 3px;
+}
+
 /* Call history text classes */
 .chr-name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #dddddd; }
 .chr-dir { color: #555555; font-size: 0.72rem; white-space: nowrap; }

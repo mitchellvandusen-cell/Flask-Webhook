@@ -166,6 +166,182 @@
     flex-shrink: 0;
 }
 
+/* ════════════════════════════════════════════════════════════════
+   AUDIO SCRUBBER PLAYER
+   High-end recording playback widget embedded in call rows.
+   Appears below the STIR/status line when a recording exists.
+   ════════════════════════════════════════════════════════════════ */
+
+/* Outer player card */
+.chr-audio-player {
+    margin: 7px 0 2px;
+    background: #141414;
+    border: 1px solid rgba(255,255,255,0.07);
+    border-radius: 10px;
+    padding: 8px 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+/* Controls row: [play] [stop] | scrubber | [download] */
+.chr-ap-controls {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+/* Icon-only button base */
+.chr-ap-btn {
+    width: 28px;
+    height: 28px;
+    border-radius: 7px;
+    border: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 0.72rem;
+    flex-shrink: 0;
+    transition: background 0.14s, transform 0.12s, box-shadow 0.12s;
+    text-decoration: none;
+}
+.chr-ap-btn:hover { transform: translateY(-1px); }
+.chr-ap-btn:active { transform: translateY(0); }
+
+/* Play/Pause — iOS blue */
+.chr-ap-play {
+    background: #007AFF;
+    color: #ffffff;
+    box-shadow: 0 2px 8px rgba(0,122,255,0.40);
+}
+.chr-ap-play:hover { box-shadow: 0 4px 14px rgba(0,122,255,0.58); }
+
+/* Stop — muted slate */
+.chr-ap-stop {
+    background: rgba(255,255,255,0.08);
+    color: #888888;
+    border: 1px solid rgba(255,255,255,0.07);
+}
+.chr-ap-stop:hover { background: rgba(255,255,255,0.13); color: #cccccc; }
+
+/* Download — ghost neon */
+.chr-ap-dl {
+    background: rgba(0,255,136,0.09);
+    color: #00ff88;
+    border: 1px solid rgba(0,255,136,0.18);
+    margin-left: auto;
+}
+.chr-ap-dl:hover {
+    background: rgba(0,255,136,0.16);
+    box-shadow: 0 2px 10px rgba(0,255,136,0.28);
+    color: #00ff88;
+    text-decoration: none;
+}
+
+/* Scrubber area: [current] [track] [total] */
+.chr-ap-scrub-wrap {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex: 1;
+    min-width: 0;
+}
+
+/* Monospace time labels */
+.chr-ap-time {
+    font-family: 'SF Mono', 'Fira Mono', ui-monospace, monospace;
+    font-size: 0.66rem;
+    color: #666666;
+    white-space: nowrap;
+    flex-shrink: 0;
+    min-width: 26px;
+    text-align: center;
+}
+
+/* Range scrubber track — filled portion driven by --pct CSS var (set by JS) */
+.chr-ap-scrubber {
+    -webkit-appearance: none;
+    appearance: none;
+    flex: 1;
+    height: 3px;
+    border-radius: 2px;
+    outline: none;
+    cursor: pointer;
+    min-width: 0;
+    background: linear-gradient(
+        to right,
+        #007AFF 0%,
+        #007AFF var(--pct, 0%),
+        rgba(255,255,255,0.14) var(--pct, 0%),
+        rgba(255,255,255,0.14) 100%
+    );
+}
+.chr-ap-scrubber::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: #007AFF;
+    cursor: pointer;
+    box-shadow: 0 0 5px rgba(0,122,255,0.55);
+    transition: transform 0.12s;
+}
+.chr-ap-scrubber::-webkit-slider-thumb:hover { transform: scale(1.3); }
+.chr-ap-scrubber::-moz-range-thumb {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: #007AFF;
+    border: none;
+    cursor: pointer;
+    box-shadow: 0 0 5px rgba(0,122,255,0.55);
+}
+
+/* Light theme — audio player */
+[data-theme="light"] .chr-audio-player,
+body.light-theme .iphone-frame .chr-audio-player {
+    background: #f0f2f5;
+    border-color: rgba(0,0,0,0.08);
+}
+[data-theme="light"] .chr-ap-stop,
+body.light-theme .iphone-frame .chr-ap-stop {
+    background: rgba(0,0,0,0.05);
+    border-color: rgba(0,0,0,0.10);
+    color: #888888;
+}
+[data-theme="light"] .chr-ap-stop:hover,
+body.light-theme .iphone-frame .chr-ap-stop:hover {
+    background: rgba(0,0,0,0.09);
+    color: #444444;
+}
+[data-theme="light"] .chr-ap-dl,
+body.light-theme .iphone-frame .chr-ap-dl {
+    background: rgba(5,150,105,0.08);
+    color: #059669;
+    border-color: rgba(5,150,105,0.20);
+}
+[data-theme="light"] .chr-ap-dl:hover,
+body.light-theme .iphone-frame .chr-ap-dl:hover {
+    background: rgba(5,150,105,0.14);
+    color: #059669;
+}
+[data-theme="light"] .chr-ap-time,
+body.light-theme .iphone-frame .chr-ap-time {
+    color: #aaaaaa;
+}
+[data-theme="light"] .chr-ap-scrubber,
+body.light-theme .iphone-frame .chr-ap-scrubber {
+    background: linear-gradient(
+        to right,
+        #2563eb 0%,
+        #2563eb var(--pct, 0%),
+        rgba(0,0,0,0.12) var(--pct, 0%),
+        rgba(0,0,0,0.12) 100%
+    );
+}
+
 /* ── "Info" button on each row ── */
 .ios-call-info-btn {
     background: none;

@@ -1,3 +1,4 @@
+import base64
 import json
 import os
 import logging
@@ -274,3 +275,109 @@ def transcribe_recording():
     except Exception as e:
         logger.error(f"transcribe_recording xAI failed for {call_sid}: {e}")
         return jsonify({"error": f"Transcription failed: {str(e)}"}), 500
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Voicemail Greeting — save + serve
+# ──────────────────────────────────────────────────────────────────────────────
+
+@recordings_bp.route('/voice/voicemail-greeting', methods=['POST'])
+@jwt_or_session_required
+def save_voicemail_greeting():
+    """
+    Accept a voicemail greeting audio upload from the dashboard.
+    Stores the raw bytes as base64 in voice_config JSONB so it survives
+    container restarts (no ephemeral-filesystem dependency).
+    Returns the serving URL so the JS can show "Greeting saved".
+    """
+    file = request.files.get('greeting')
+    if not file:
+        return jsonify({"error": "No greeting file provided"}), 400
+
+    audio_bytes = file.read()
+    if len(audio_bytes) > 5 * 1024 * 1024:
+        return jsonify({"error": "Greeting file too large (max 5 MB)"}), 413
+
+    audio_b64    = base64.b64encode(audio_bytes).decode('utf-8')
+    content_type = file.content_type or 'audio/mpeg'
+    filename     = file.filename or 'greeting.mp3'
+
+    conn = get_db_connection()
+    if not conn:
+        return jsonify({"error": "Database unavailable"}), 503
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT location_id, voice_config FROM subscribers WHERE email = %s",
+                    (current_user.email,))
+        row = cur.fetchone()
+        if not row:
+            return jsonify({"error": "User not found"}), 404
+
+        location_id = row['location_id']
+        vc = row.get('voice_config') or {}
+        if isinstance(vc, str):
+            vc = json.loads(vc)
+
+        vc['voicemail_greeting_data'] = audio_b64
+        vc['voicemail_greeting_type'] = content_type
+        vc['voicemail_greeting_name'] = filename
+
+        cur.execute(
+            "UPDATE subscribers SET voice_config = %s WHERE location_id = %s",
+            (json.dumps(vc), location_id)
+        )
+        conn.commit()
+        cur.close()
+
+        domain = os.getenv('YOUR_DOMAIN', 'http://localhost:8080').rstrip('/')
+        greeting_url = f"{domain}/voice/voicemail-greeting/audio"
+        logger.info(f"Voicemail greeting saved for {location_id}: {filename} ({len(audio_bytes)} bytes)")
+        return jsonify({"ok": True, "url": greeting_url})
+    except Exception as e:
+        logger.error(f"Failed to save voicemail greeting: {e}")
+        try:
+            conn.rollback()
+        except Exception:
+            pass
+        return jsonify({"error": "Failed to save greeting"}), 500
+    finally:
+        return_db_connection(conn)
+
+
+@recordings_bp.route('/voice/voicemail-greeting/audio', methods=['GET'])
+@jwt_or_session_required
+def serve_voicemail_greeting():
+    """Serve the subscriber's stored voicemail greeting audio (used by Twilio and the browser preview)."""
+    conn = get_db_connection()
+    if not conn:
+        return jsonify({"error": "DB unavailable"}), 503
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT voice_config FROM subscribers WHERE email = %s", (current_user.email,))
+        row = cur.fetchone()
+        cur.close()
+        if not row:
+            return jsonify({"error": "Not found"}), 404
+
+        vc = row.get('voice_config') or {}
+        if isinstance(vc, str):
+            vc = json.loads(vc)
+
+        b64 = vc.get('voicemail_greeting_data')
+        if not b64:
+            return jsonify({"error": "No greeting configured"}), 404
+
+        audio_bytes  = base64.b64decode(b64)
+        content_type = vc.get('voicemail_greeting_type', 'audio/mpeg')
+        filename     = vc.get('voicemail_greeting_name', 'greeting.mp3')
+
+        return Response(
+            audio_bytes,
+            content_type=content_type,
+            headers={'Content-Disposition': f'inline; filename="{filename}"'}
+        )
+    except Exception as e:
+        logger.error(f"Failed to serve voicemail greeting: {e}")
+        return jsonify({"error": "Failed to serve greeting"}), 500
+    finally:
+        return_db_connection(conn)
