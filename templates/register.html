@@ -1,123 +1,897 @@
 {% extends "base.html" %}
 
-{% block title %}Get Started | Omnisconn{% endblock %}
+{% block title %}Get Started — Omnisconn{% endblock %}
 
 {% block content %}
-<div class="auth-wrapper">
-    <div class="auth-card">
-        <div class="auth-logo">
-            Insurance<span class="text-accent">Grok</span>Bot
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;1,400;1,500&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+
+<div class="reg-v2-page">
+
+    <!-- ── Left editorial panel ── -->
+    <div class="reg-v2-left">
+        <div class="reg-v2-grid-bg" aria-hidden="true"></div>
+        <div class="reg-v2-accent-line" aria-hidden="true"></div>
+
+        <div class="reg-v2-left-top">
+            <a href="/" class="reg-v2-brand" aria-label="Omnisconn home">
+                Omnis<span>conn</span>
+            </a>
         </div>
 
-        {% with messages = get_flashed_messages(with_categories=true) %}
-            {% if messages %}
-                {% for category, message in messages %}
-                    <div class="alert alert-{{ 'danger' if category == 'error' else category }} alert-dismissible fade show" role="alert" style="font-size: 0.9rem;">
-                        <i class="fa-solid {{ 'fa-check-circle' if category == 'success' else 'fa-circle-exclamation' }} me-2"></i>
-                        {{ message }}
-                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        <div class="reg-v2-left-mid">
+            <p class="reg-v2-eyebrow">Built for closers</p>
+            <h1 class="reg-v2-headline">
+                The agents<br>
+                <em>closing more</em><br>
+                don't work harder.
+            </h1>
+            <p class="reg-v2-sub">
+                AI that works your leads around the clock — so every conversation you walk into is already warm.
+            </p>
+        </div>
+
+        <div class="reg-v2-left-bottom">
+            <div class="reg-v2-stats" role="list">
+                <div class="reg-v2-stat" role="listitem">
+                    <span class="reg-v2-stat-num">2,400+</span>
+                    <span class="reg-v2-stat-label">Active agents</span>
+                </div>
+                <div class="reg-v2-stat-div" aria-hidden="true"></div>
+                <div class="reg-v2-stat" role="listitem">
+                    <span class="reg-v2-stat-num">98.9%</span>
+                    <span class="reg-v2-stat-label">Uptime</span>
+                </div>
+                <div class="reg-v2-stat-div" aria-hidden="true"></div>
+                <div class="reg-v2-stat" role="listitem">
+                    <span class="reg-v2-stat-num">&lt;1s</span>
+                    <span class="reg-v2-stat-label">Response time</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── Right form panel ── -->
+    <div class="reg-v2-right">
+        <div class="reg-v2-form-wrap">
+
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="reg-v2-alert reg-v2-alert-{{ 'error' if category == 'error' else category }}" role="alert">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                            {{ message }}
+                        </div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+
+            {% if request.args.get('location_id') %}
+            {# ──────────────────────────────────────────
+               MARKETPLACE FLOW — set password to finish
+               ────────────────────────────────────────── #}
+            <div class="reg-v2-header">
+                <p class="reg-v2-step">Account setup</p>
+                <h2 class="reg-v2-title">Finish your account</h2>
+                <p class="reg-v2-desc">Your CRM is connected. Create a password to activate your dashboard.</p>
+            </div>
+
+            <form method="post" action="{{ url_for('register') }}" class="reg-v2-form" novalidate>
+                {{ form.hidden_tag() }}
+
+                <div class="reg-v2-field">
+                    <label class="reg-v2-label" for="reg-email">Email address</label>
+                    {{ form.email(class="reg-v2-input", id="reg-email", placeholder="you@agency.com", autocomplete="email") }}
+                    {% for error in form.email.errors %}
+                        <span class="reg-v2-error" role="alert">{{ error }}</span>
+                    {% endfor %}
+                </div>
+
+                <div class="reg-v2-field">
+                    <label class="reg-v2-label" for="reg-location">Location ID</label>
+                    {{ form.location_id(class="reg-v2-input reg-v2-input-locked", id="reg-location", readonly=true) }}
+                    <span class="reg-v2-field-hint">
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
+                        Auto-filled from your marketplace install
+                    </span>
+                    {% for error in form.location_id.errors %}
+                        <span class="reg-v2-error" role="alert">{{ error }}</span>
+                    {% endfor %}
+                </div>
+
+                <div class="reg-v2-field-row">
+                    <div class="reg-v2-field">
+                        <label class="reg-v2-label" for="reg-password">Password</label>
+                        {{ form.password(class="reg-v2-input", id="reg-password", placeholder="••••••••", autocomplete="new-password") }}
+                        {% for error in form.password.errors %}
+                            <span class="reg-v2-error" role="alert">{{ error }}</span>
+                        {% endfor %}
                     </div>
-                {% endfor %}
-            {% endif %}
-        {% endwith %}
-
-        {% if request.args.get('location_id') %}
-        <!-- Marketplace install flow: user already installed from LC, just needs to set a password -->
-        <p class="auth-subtitle">Set up your account</p>
-        <p class="reg-crm-hint">Complete your registration below to finish connecting your CRM.</p>
-
-        <form method="post" action="{{ url_for('register') }}">
-            {{ form.hidden_tag() }}
-
-            <div class="mb-3">
-                <label class="form-label">Email Address</label>
-                <div class="input-group">
-                    <span class="input-group-text"><i class="fa-solid fa-envelope"></i></span>
-                    {{ form.email(class="form-control", placeholder="name@agency.com") }}
+                    <div class="reg-v2-field">
+                        <label class="reg-v2-label" for="reg-confirm">Confirm password</label>
+                        {{ form.confirm(class="reg-v2-input", id="reg-confirm", placeholder="••••••••", autocomplete="new-password") }}
+                        {% for error in form.confirm.errors %}
+                            <span class="reg-v2-error" role="alert">{{ error }}</span>
+                        {% endfor %}
+                    </div>
                 </div>
-                {% for error in form.email.errors %}
-                    <span class="text-danger small">{{ error }}</span>
-                {% endfor %}
+
+                <!-- SMS Consent — A2P 10DLC compliance -->
+                <div class="reg-v2-consent" id="smsConsentBox">
+                    <label class="reg-v2-consent-label" for="sms_consent">
+                        <div class="reg-v2-checkbox-wrap">
+                            <input
+                                type="checkbox"
+                                id="sms_consent"
+                                name="sms_consent"
+                                class="reg-v2-checkbox"
+                                required
+                                onchange="updateRegBtn()"
+                                aria-required="true"
+                            >
+                            <span class="reg-v2-checkmark" aria-hidden="true"></span>
+                        </div>
+                        <span class="reg-v2-consent-text">
+                            I consent to receive SMS from <strong>Omnisconn</strong> including account notifications and security codes. Msg &amp; data rates may apply. Reply <strong>STOP</strong> to opt out. &nbsp;
+                            <a href="/privacy" target="_blank" rel="noopener" class="reg-v2-link">Privacy Policy</a>&thinsp;·&thinsp;<a href="/terms" target="_blank" rel="noopener" class="reg-v2-link">Terms</a>
+                        </span>
+                    </label>
+                </div>
+
+                <button type="submit" class="reg-v2-submit" id="regSubmitBtn" disabled aria-disabled="true">
+                    <span>Create Account</span>
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+                </button>
+            </form>
+
+            {% else %}
+            {# ──────────────────────────────────────────
+               DIRECT FLOW — choose a plan to subscribe
+               ────────────────────────────────────────── #}
+            <div class="reg-v2-header">
+                <h2 class="reg-v2-title">Choose your plan</h2>
+                <p class="reg-v2-desc">7-day free trial. Your account is created at checkout — no separate registration.</p>
             </div>
 
-            <div class="mb-3">
-                <label class="form-label">Location ID</label>
-                <div class="input-group">
-                    <span class="input-group-text"><i class="fa-solid fa-location-dot"></i></span>
-                    {{ form.location_id(class="form-control", placeholder="Location ID", readonly=true) }}
-                </div>
-                <div class="form-text small" style="color: var(--accent);">
-                    <i class="fa-solid fa-check-circle me-1"></i>Auto-filled from your marketplace install.
-                </div>
-                {% for error in form.location_id.errors %}
-                    <span class="text-danger small">{{ error }}</span>
-                {% endfor %}
-            </div>
+            <div class="reg-v2-plans" role="list">
+                <a href="/checkout" class="reg-v2-plan reg-v2-plan-featured" role="listitem">
+                    <div class="reg-v2-plan-inner">
+                        <div class="reg-v2-plan-badge">Most popular</div>
+                        <div class="reg-v2-plan-name">Power Dialer</div>
+                        <div class="reg-v2-plan-price">$149<span>/mo</span></div>
+                        <div class="reg-v2-plan-desc">AI texting · AI voice · Full dialer</div>
+                    </div>
+                    <div class="reg-v2-plan-arrow" aria-hidden="true">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+                    </div>
+                </a>
 
-            <div class="mb-3">
-                <label class="form-label">Create Password</label>
-                <div class="input-group">
-                    <span class="input-group-text"><i class="fa-solid fa-lock"></i></span>
-                    {{ form.password(class="form-control", placeholder="••••••••") }}
-                </div>
-                {% for error in form.password.errors %}
-                    <span class="text-danger small">{{ error }}</span>
-                {% endfor %}
-            </div>
+                <a href="/checkout/sms-bot" class="reg-v2-plan" role="listitem">
+                    <div class="reg-v2-plan-inner">
+                        <div class="reg-v2-plan-name">SMS Bot</div>
+                        <div class="reg-v2-plan-price">$99<span>/mo</span></div>
+                        <div class="reg-v2-plan-desc">AI texting only</div>
+                    </div>
+                    <div class="reg-v2-plan-arrow" aria-hidden="true">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+                    </div>
+                </a>
 
-            <div class="mb-4">
-                <label class="form-label">Confirm Password</label>
-                <div class="input-group">
-                    <span class="input-group-text"><i class="fa-solid fa-lock"></i></span>
-                    {{ form.confirm(class="form-control", placeholder="••••••••") }}
-                </div>
-                {% for error in form.confirm.errors %}
-                    <span class="text-danger small">{{ error }}</span>
-                {% endfor %}
-            </div>
-
-            <button type="submit" class="btn btn-primary w-100 py-3">Create Account</button>
-        </form>
-
-        {% else %}
-        <!-- Default: direct visitors to subscribe or log in -->
-        <p class="auth-subtitle">Create your account</p>
-
-        <div class="reg-cta-section">
-            <div class="reg-cta-card reg-cta-primary">
-                <i class="fa-solid fa-bolt reg-cta-icon reg-cta-icon-accent"></i>
-                <h5 class="reg-cta-title">Subscribe to Get Started</h5>
-                <p class="reg-cta-desc">
-                    Your account is created automatically when you subscribe. Choose a plan and you'll be up and running in minutes.
-                </p>
-                <a href="/checkout" class="vc-btn-primary reg-cta-btn">
-                    Start Free Trial <i class="fa-solid fa-arrow-right ms-2"></i>
+                <a href="/checkout/pro-dialer" class="reg-v2-plan" role="listitem">
+                    <div class="reg-v2-plan-inner">
+                        <div class="reg-v2-plan-name">Pro Dialer</div>
+                        <div class="reg-v2-plan-price">$225<span>/mo</span></div>
+                        <div class="reg-v2-plan-desc">Multi-line · Predictive pacing</div>
+                    </div>
+                    <div class="reg-v2-plan-arrow" aria-hidden="true">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+                    </div>
                 </a>
             </div>
-        </div>
 
-        <div class="reg-divider">
-            <span class="reg-divider-text">or</span>
-        </div>
+            <div class="reg-v2-divider" role="separator"><span>or</span></div>
 
-        <div class="reg-cta-card reg-cta-secondary">
-            <i class="fa-solid fa-cloud-arrow-down reg-cta-icon reg-cta-icon-cyan"></i>
-            <h6 class="reg-cta-title-sm">Using LeadConnector?</h6>
-            <p class="reg-cta-desc">
-                Install from the <a href="https://marketplace.leadconnectorhq.com" target="_blank" rel="noopener noreferrer" class="reg-marketplace-link">Marketplace</a> for one-click CRM sync, then complete registration.
-            </p>
-        </div>
-        {% endif %}
+            <div class="reg-v2-marketplace">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+                <div>
+                    <p class="reg-v2-marketplace-title">Already on LeadConnector?</p>
+                    <p class="reg-v2-marketplace-sub">
+                        Install from the
+                        <a href="https://marketplace.leadconnectorhq.com" target="_blank" rel="noopener noreferrer" class="reg-v2-link">Marketplace</a>
+                        for one-click CRM sync, then return here to finish setup.
+                    </p>
+                </div>
+            </div>
+            {% endif %}
 
-        <div class="reg-footer">
-            <p class="reg-login-link">
-                Already have an account? <a href="/login" class="text-accent reg-link-bold">Log In</a>
-            </p>
-            <div class="reg-hr"></div>
-            <a href="/" class="reg-back-link">
-                <i class="fa-solid fa-arrow-left me-1"></i> Back to Website
-            </a>
+            <div class="reg-v2-footer">
+                <span>Have an account?</span>
+                <a href="/login" class="reg-v2-link reg-v2-link-bold">Log in</a>
+                <span class="reg-v2-footer-sep" aria-hidden="true">·</span>
+                <a href="/" class="reg-v2-link">Back to site</a>
+            </div>
+
         </div>
     </div>
 </div>
+
+<style>
+/* ── Hide site nav on register page ── */
+.navbar { display: none !important; }
+#main-content { padding-top: 0 !important; }
+
+/* ── Google Fonts applied locally ── */
+.reg-v2-page,
+.reg-v2-page * {
+    box-sizing: border-box;
+}
+
+/* ── Page shell ── */
+.reg-v2-page {
+    display: grid;
+    grid-template-columns: 420px 1fr;
+    min-height: 100vh;
+    background: #000;
+    font-family: 'Inter', -apple-system, sans-serif;
+}
+
+/* ════════════════════════════════════
+   LEFT PANEL
+   ════════════════════════════════════ */
+.reg-v2-left {
+    position: relative;
+    background: #000;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    padding: 44px 48px;
+    overflow: hidden;
+}
+
+/* Subtle grid */
+.reg-v2-grid-bg {
+    position: absolute;
+    inset: 0;
+    background-image:
+        linear-gradient(rgba(0,255,136,0.025) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0,255,136,0.025) 1px, transparent 1px);
+    background-size: 52px 52px;
+    pointer-events: none;
+}
+
+/* Thin accent line top */
+.reg-v2-accent-line {
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, #00ff88 0%, transparent 60%);
+    animation: reg-line-in 0.8s ease forwards;
+}
+@keyframes reg-line-in {
+    from { transform: scaleX(0); transform-origin: left; }
+    to   { transform: scaleX(1); transform-origin: left; }
+}
+
+/* Brand mark */
+.reg-v2-brand {
+    font-family: 'Inter', sans-serif;
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #fff;
+    text-decoration: none;
+    letter-spacing: -0.01em;
+    position: relative;
+    z-index: 1;
+}
+.reg-v2-brand span { color: #00ff88; }
+
+/* Editorial section */
+.reg-v2-left-mid {
+    position: relative;
+    z-index: 1;
+}
+
+.reg-v2-eyebrow {
+    font-size: 0.7rem;
+    font-weight: 500;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: #00ff88;
+    margin: 0 0 20px;
+}
+
+.reg-v2-headline {
+    font-family: 'Playfair Display', Georgia, serif;
+    font-size: clamp(2rem, 3.2vw, 2.8rem);
+    font-weight: 400;
+    line-height: 1.22;
+    color: #fff;
+    margin: 0 0 20px;
+    letter-spacing: -0.01em;
+}
+.reg-v2-headline em {
+    font-style: italic;
+    color: #00ff88;
+}
+
+.reg-v2-sub {
+    font-size: 0.875rem;
+    color: #555;
+    line-height: 1.65;
+    margin: 0;
+    max-width: 300px;
+}
+
+/* Stats row */
+.reg-v2-left-bottom { position: relative; z-index: 1; }
+
+.reg-v2-stats {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+}
+
+.reg-v2-stat {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.reg-v2-stat-num {
+    font-size: 1rem;
+    font-weight: 600;
+    color: #fff;
+    letter-spacing: -0.02em;
+    font-variant-numeric: tabular-nums;
+}
+
+.reg-v2-stat-label {
+    font-size: 0.68rem;
+    color: #444;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+}
+
+.reg-v2-stat-div {
+    width: 1px;
+    height: 28px;
+    background: #1a1a1a;
+    flex-shrink: 0;
+}
+
+/* ════════════════════════════════════
+   RIGHT PANEL
+   ════════════════════════════════════ */
+.reg-v2-right {
+    background: #060606;
+    border-left: 1px solid #0f0f0f;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 60px 40px;
+}
+
+.reg-v2-form-wrap {
+    width: 100%;
+    max-width: 400px;
+    animation: reg-fade-up 0.45s ease forwards;
+}
+@keyframes reg-fade-up {
+    from { opacity: 0; transform: translateY(12px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Header ── */
+.reg-v2-header { margin-bottom: 36px; }
+
+.reg-v2-step {
+    font-size: 0.68rem;
+    font-weight: 500;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: #00ff88;
+    margin: 0 0 10px;
+}
+
+.reg-v2-title {
+    font-family: 'Playfair Display', Georgia, serif;
+    font-size: 1.75rem;
+    font-weight: 400;
+    color: #fff;
+    margin: 0 0 8px;
+    letter-spacing: -0.01em;
+    line-height: 1.2;
+}
+
+.reg-v2-desc {
+    font-size: 0.825rem;
+    color: #555;
+    line-height: 1.6;
+    margin: 0;
+}
+
+/* ── Alert ── */
+.reg-v2-alert {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    font-size: 0.8rem;
+    padding: 12px 14px;
+    border-radius: 6px;
+    margin-bottom: 20px;
+    background: rgba(239,68,68,0.08);
+    border: 1px solid rgba(239,68,68,0.2);
+    color: #f87171;
+    line-height: 1.5;
+}
+.reg-v2-alert-success {
+    background: rgba(0,255,136,0.06);
+    border-color: rgba(0,255,136,0.2);
+    color: #00ff88;
+}
+.reg-v2-alert-info {
+    background: rgba(99,179,237,0.08);
+    border-color: rgba(99,179,237,0.2);
+    color: #63b3ed;
+}
+
+/* ── Form fields ── */
+.reg-v2-form { display: flex; flex-direction: column; gap: 0; }
+
+.reg-v2-field {
+    position: relative;
+    margin-bottom: 28px;
+}
+
+.reg-v2-field-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+}
+
+.reg-v2-label {
+    display: block;
+    font-size: 0.68rem;
+    font-weight: 500;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: #444;
+    margin-bottom: 10px;
+    transition: color 0.15s ease;
+}
+
+.reg-v2-field:focus-within .reg-v2-label { color: #777; }
+
+.reg-v2-input {
+    display: block;
+    width: 100%;
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid #1a1a1a;
+    border-radius: 0;
+    color: #fff;
+    font-family: 'Inter', sans-serif;
+    font-size: 0.9rem;
+    font-weight: 400;
+    padding: 10px 0 12px;
+    outline: none;
+    transition: border-color 0.2s ease;
+    -webkit-appearance: none;
+    appearance: none;
+}
+.reg-v2-input::placeholder { color: #2a2a2a; }
+.reg-v2-input:focus { border-bottom-color: #00ff88; }
+.reg-v2-input:-webkit-autofill,
+.reg-v2-input:-webkit-autofill:focus {
+    -webkit-box-shadow: 0 0 0 100px #060606 inset;
+    -webkit-text-fill-color: #fff;
+    caret-color: #fff;
+}
+
+.reg-v2-input-locked {
+    color: #3a3a3a;
+    cursor: default;
+}
+
+.reg-v2-field-hint {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 0.72rem;
+    color: #00ff88;
+    margin-top: 7px;
+}
+
+.reg-v2-error {
+    display: block;
+    font-size: 0.72rem;
+    color: #f87171;
+    margin-top: 6px;
+}
+
+/* ── SMS Consent ── */
+.reg-v2-consent {
+    margin-bottom: 28px;
+    padding: 14px 16px;
+    border: 1px solid #111;
+    border-radius: 6px;
+    transition: border-color 0.2s ease;
+}
+.reg-v2-consent.is-checked { border-color: rgba(0,255,136,0.25); }
+
+.reg-v2-consent-label {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    cursor: pointer;
+    margin: 0;
+}
+
+.reg-v2-checkbox-wrap {
+    flex-shrink: 0;
+    position: relative;
+    width: 16px;
+    height: 16px;
+    margin-top: 2px;
+}
+
+.reg-v2-checkbox {
+    position: absolute;
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.reg-v2-checkmark {
+    position: absolute;
+    inset: 0;
+    background: #0a0a0a;
+    border: 1px solid #2a2a2a;
+    border-radius: 3px;
+    transition: all 0.15s ease;
+}
+.reg-v2-checkmark::after {
+    content: '';
+    position: absolute;
+    display: none;
+    left: 4px; top: 1px;
+    width: 5px; height: 9px;
+    border: 1.5px solid #00ff88;
+    border-top: none;
+    border-left: none;
+    transform: rotate(45deg);
+}
+.reg-v2-checkbox:checked ~ .reg-v2-checkmark {
+    background: rgba(0,255,136,0.08);
+    border-color: #00ff88;
+}
+.reg-v2-checkbox:checked ~ .reg-v2-checkmark::after { display: block; }
+.reg-v2-checkbox:focus-visible ~ .reg-v2-checkmark {
+    outline: 2px solid #00ff88;
+    outline-offset: 2px;
+}
+
+.reg-v2-consent-text {
+    font-size: 0.73rem;
+    color: #444;
+    line-height: 1.6;
+}
+.reg-v2-consent-text strong { color: #666; }
+
+/* ── Submit button ── */
+.reg-v2-submit {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: 100%;
+    padding: 14px 20px;
+    background: #00ff88;
+    color: #000;
+    font-family: 'Inter', sans-serif;
+    font-size: 0.875rem;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background 0.18s ease, opacity 0.18s ease, transform 0.15s ease;
+    -webkit-appearance: none;
+}
+.reg-v2-submit:hover:not(:disabled) {
+    background: #00e87a;
+    transform: translateY(-1px);
+}
+.reg-v2-submit:active:not(:disabled) { transform: translateY(0); }
+.reg-v2-submit:disabled {
+    opacity: 0.22;
+    cursor: not-allowed;
+    transform: none;
+}
+
+/* ── Plan cards (subscribe flow) ── */
+.reg-v2-plans {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 28px;
+}
+
+.reg-v2-plan {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 18px 20px;
+    background: #0a0a0a;
+    border: 1px solid #111;
+    border-radius: 6px;
+    text-decoration: none;
+    cursor: pointer;
+    transition: border-color 0.18s ease, background 0.18s ease;
+}
+.reg-v2-plan:hover {
+    border-color: rgba(0,255,136,0.25);
+    background: #0d0d0d;
+}
+.reg-v2-plan-featured {
+    border-color: rgba(0,255,136,0.2);
+    background: #080808;
+}
+.reg-v2-plan-featured:hover { border-color: rgba(0,255,136,0.45); }
+
+.reg-v2-plan-inner { display: flex; flex-direction: column; gap: 3px; }
+
+.reg-v2-plan-badge {
+    font-size: 0.62rem;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: #00ff88;
+    margin-bottom: 4px;
+}
+
+.reg-v2-plan-name {
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: #ddd;
+}
+
+.reg-v2-plan-price {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #fff;
+    letter-spacing: -0.02em;
+    font-variant-numeric: tabular-nums;
+}
+.reg-v2-plan-price span {
+    font-size: 0.75rem;
+    font-weight: 400;
+    color: #555;
+}
+
+.reg-v2-plan-desc {
+    font-size: 0.72rem;
+    color: #444;
+    margin-top: 2px;
+}
+
+.reg-v2-plan-arrow {
+    color: #2a2a2a;
+    flex-shrink: 0;
+    transition: color 0.18s ease, transform 0.18s ease;
+}
+.reg-v2-plan:hover .reg-v2-plan-arrow {
+    color: #00ff88;
+    transform: translateX(2px);
+}
+
+/* ── Divider ── */
+.reg-v2-divider {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 4px 0 20px;
+    color: #1f1f1f;
+    font-size: 0.72rem;
+}
+.reg-v2-divider::before,
+.reg-v2-divider::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: #111;
+}
+.reg-v2-divider span { color: #333; flex-shrink: 0; }
+
+/* ── Marketplace hint ── */
+.reg-v2-marketplace {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 16px;
+    background: #080808;
+    border: 1px solid #111;
+    border-radius: 6px;
+    margin-bottom: 28px;
+}
+.reg-v2-marketplace > svg { color: #333; flex-shrink: 0; margin-top: 1px; }
+
+.reg-v2-marketplace-title {
+    font-size: 0.8rem;
+    font-weight: 500;
+    color: #888;
+    margin: 0 0 3px;
+}
+.reg-v2-marketplace-sub {
+    font-size: 0.75rem;
+    color: #444;
+    line-height: 1.55;
+    margin: 0;
+}
+
+/* ── Footer ── */
+.reg-v2-footer {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.78rem;
+    color: #333;
+    padding-top: 20px;
+    border-top: 1px solid #0d0d0d;
+}
+
+.reg-v2-footer-sep { color: #222; }
+
+/* ── Links ── */
+.reg-v2-link {
+    color: #555;
+    text-decoration: none;
+    transition: color 0.15s ease;
+}
+.reg-v2-link:hover { color: #00ff88; }
+.reg-v2-link-bold {
+    color: #00ff88;
+    font-weight: 500;
+}
+.reg-v2-link-bold:hover { color: #00e87a; }
+
+/* ════════════════════════════════════
+   MOBILE — stack vertically
+   ════════════════════════════════════ */
+@media (max-width: 860px) {
+    .reg-v2-page { grid-template-columns: 1fr; }
+
+    .reg-v2-left {
+        padding: 28px 24px 24px;
+        min-height: auto;
+    }
+    .reg-v2-left-mid { margin: 24px 0; }
+    .reg-v2-headline { font-size: 1.75rem; }
+    .reg-v2-sub { display: none; }
+
+    .reg-v2-right {
+        border-left: none;
+        border-top: 1px solid #0f0f0f;
+        padding: 36px 24px 48px;
+        align-items: flex-start;
+    }
+    .reg-v2-form-wrap { max-width: 100%; }
+    .reg-v2-field-row { grid-template-columns: 1fr; gap: 0; }
+}
+
+@media (max-width: 480px) {
+    .reg-v2-stats { gap: 14px; }
+    .reg-v2-headline { font-size: 1.55rem; }
+}
+
+/* ════════════════════════════════════
+   LIGHT THEME
+   ════════════════════════════════════ */
+body.light-theme .reg-v2-page { background: #f4f6fa; }
+
+body.light-theme .reg-v2-left {
+    background: #0a0a0a;
+}
+
+body.light-theme .reg-v2-right {
+    background: #fff;
+    border-left-color: #e8e8e8;
+}
+
+body.light-theme .reg-v2-title { color: #0a0a0a; }
+body.light-theme .reg-v2-desc { color: #888; }
+body.light-theme .reg-v2-step { color: var(--lt-accent); }
+
+body.light-theme .reg-v2-label { color: #aaa; }
+body.light-theme .reg-v2-field:focus-within .reg-v2-label { color: #666; }
+
+body.light-theme .reg-v2-input {
+    color: #111;
+    border-bottom-color: #ddd;
+}
+body.light-theme .reg-v2-input::placeholder { color: #ccc; }
+body.light-theme .reg-v2-input:focus { border-bottom-color: var(--lt-accent); }
+body.light-theme .reg-v2-input:-webkit-autofill,
+body.light-theme .reg-v2-input:-webkit-autofill:focus {
+    -webkit-box-shadow: 0 0 0 100px #fff inset;
+    -webkit-text-fill-color: #111;
+}
+body.light-theme .reg-v2-input-locked { color: #bbb; }
+body.light-theme .reg-v2-field-hint { color: var(--lt-accent); }
+
+body.light-theme .reg-v2-consent {
+    border-color: #eee;
+    background: #fafafa;
+}
+body.light-theme .reg-v2-consent.is-checked { border-color: rgba(5,150,105,0.3); }
+body.light-theme .reg-v2-checkmark {
+    background: #fff;
+    border-color: #ddd;
+}
+body.light-theme .reg-v2-checkbox:checked ~ .reg-v2-checkmark {
+    background: rgba(5,150,105,0.08);
+    border-color: var(--lt-accent);
+}
+body.light-theme .reg-v2-checkmark::after { border-color: var(--lt-accent); }
+body.light-theme .reg-v2-consent-text { color: #999; }
+body.light-theme .reg-v2-consent-text strong { color: #666; }
+
+body.light-theme .reg-v2-submit {
+    background: var(--lt-accent);
+    color: #fff;
+}
+body.light-theme .reg-v2-submit:hover:not(:disabled) { background: #047857; }
+
+body.light-theme .reg-v2-plan {
+    background: #fafafa;
+    border-color: #eee;
+}
+body.light-theme .reg-v2-plan:hover { border-color: rgba(5,150,105,0.3); background: #f5f5f5; }
+body.light-theme .reg-v2-plan-featured { border-color: rgba(5,150,105,0.2); background: #f0fdf9; }
+body.light-theme .reg-v2-plan-badge { color: var(--lt-accent); }
+body.light-theme .reg-v2-plan-name { color: #333; }
+body.light-theme .reg-v2-plan-price { color: #111; }
+body.light-theme .reg-v2-plan-price span { color: #aaa; }
+body.light-theme .reg-v2-plan-desc { color: #aaa; }
+body.light-theme .reg-v2-plan-arrow { color: #ddd; }
+body.light-theme .reg-v2-plan:hover .reg-v2-plan-arrow { color: var(--lt-accent); }
+
+body.light-theme .reg-v2-divider::before,
+body.light-theme .reg-v2-divider::after { background: #eee; }
+body.light-theme .reg-v2-divider span { color: #ccc; }
+
+body.light-theme .reg-v2-marketplace { background: #fafafa; border-color: #eee; }
+body.light-theme .reg-v2-marketplace > svg { color: #ccc; }
+body.light-theme .reg-v2-marketplace-title { color: #555; }
+body.light-theme .reg-v2-marketplace-sub { color: #aaa; }
+
+body.light-theme .reg-v2-footer { color: #ccc; border-top-color: #eee; }
+body.light-theme .reg-v2-footer-sep { color: #ddd; }
+body.light-theme .reg-v2-link { color: #aaa; }
+body.light-theme .reg-v2-link:hover { color: var(--lt-accent); }
+body.light-theme .reg-v2-link-bold { color: var(--lt-accent); }
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+    .reg-v2-accent-line,
+    .reg-v2-form-wrap { animation: none; }
+    .reg-v2-submit,
+    .reg-v2-plan,
+    .reg-v2-plan-arrow { transition: none; }
+}
+</style>
+
+<script>
+function updateRegBtn() {
+    var cb  = document.getElementById('sms_consent');
+    var btn = document.getElementById('regSubmitBtn');
+    var box = document.getElementById('smsConsentBox');
+    if (!cb || !btn) return;
+    var checked = cb.checked;
+    btn.disabled = !checked;
+    btn.setAttribute('aria-disabled', String(!checked));
+    if (box) box.classList.toggle('is-checked', checked);
+}
+</script>
 {% endblock %}

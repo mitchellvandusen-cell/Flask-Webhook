@@ -102,13 +102,21 @@ def register():
                 flash("Location ID does not match your email. Please reconnect via OAuth.", "error")
                 return redirect("/register")
 
+            sms_consent = request.form.get('sms_consent')
+            client_ip = (
+                request.headers.get('X-Forwarded-For', '').split(',')[0].strip()
+                or request.remote_addr
+            )
             cur.execute("""
                 UPDATE subscribers
                 SET password_hash = %s,
                     onboarding_status = 'claimed',
+                    sms_consent_at = CASE WHEN %s THEN NOW() ELSE sms_consent_at END,
+                    sms_consent_ip = CASE WHEN %s THEN %s ELSE sms_consent_ip END,
                     updated_at = NOW()
                 WHERE location_id = %s
-            """, (password_hash, submitted_location_id))
+            """, (password_hash, bool(sms_consent), bool(sms_consent), client_ip,
+                  submitted_location_id))
 
             conn.commit()
             logger.info(f"Post-OAuth registration completed: {email}")
@@ -649,6 +657,8 @@ def twofa_confirm():
                 cur.close()
                 session.pop('_2fa_setup_phone', None)
                 logger.info(f"2FA enabled for {current_user.email}")
+                from two_factor import send_confirmation_sms
+                send_confirmation_sms(phone)
                 return flask_jsonify({"status": "enabled"})
             except Exception as e:
                 conn.rollback()

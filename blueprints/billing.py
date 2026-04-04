@@ -928,6 +928,16 @@ def checkout():
             line_items=[{"price": price_id, "quantity": 1}],
             customer_email=customer_email,
             consent_collection={"terms_of_service": "required"},
+            custom_text={
+                "terms_of_service_acceptance": {
+                    "message": (
+                        "By checking this box, I consent to receive SMS/text messages from "
+                        "Omnisconn, including account notifications, service updates, and "
+                        "marketing messages. Message frequency varies. Message & data rates "
+                        "may apply. Reply STOP to opt out at any time."
+                    )
+                }
+            },
             metadata={
                 "user_email": customer_email,
                 "target_role": "individual",
@@ -998,6 +1008,16 @@ def checkout_sms_bot():
             line_items=[{"price": price_id, "quantity": 1}],
             customer_email=customer_email,
             consent_collection={"terms_of_service": "required"},
+            custom_text={
+                "terms_of_service_acceptance": {
+                    "message": (
+                        "By checking this box, I consent to receive SMS/text messages from "
+                        "Omnisconn, including account notifications, service updates, and "
+                        "marketing messages. Message frequency varies. Message & data rates "
+                        "may apply. Reply STOP to opt out at any time."
+                    )
+                }
+            },
             metadata={
                 "user_email": customer_email,
                 "target_role": "individual",
@@ -1057,6 +1077,16 @@ def checkout_pro_dialer():
             line_items=[{"price": price_id, "quantity": 1}],
             customer_email=customer_email,
             consent_collection={"terms_of_service": "required"},
+            custom_text={
+                "terms_of_service_acceptance": {
+                    "message": (
+                        "By checking this box, I consent to receive SMS/text messages from "
+                        "Omnisconn, including account notifications, service updates, and "
+                        "marketing messages. Message frequency varies. Message & data rates "
+                        "may apply. Reply STOP to opt out at any time."
+                    )
+                }
+            },
             metadata={
                 "user_email": customer_email,
                 "target_role": "individual",
@@ -1132,6 +1162,16 @@ def checkout_solo_predictive():
             line_items=[{"price": price_id, "quantity": 1}],
             customer_email=customer_email,
             consent_collection={"terms_of_service": "required"},
+            custom_text={
+                "terms_of_service_acceptance": {
+                    "message": (
+                        "By checking this box, I consent to receive SMS/text messages from "
+                        "Omnisconn, including account notifications, service updates, and "
+                        "marketing messages. Message frequency varies. Message & data rates "
+                        "may apply. Reply STOP to opt out at any time."
+                    )
+                }
+            },
             metadata={
                 "user_email": customer_email,
                 "target_role": "individual",
@@ -1196,6 +1236,7 @@ def success():
             customer_id = checkout_session.customer
         except Exception as e:
             logger.error(f"Stripe session retrieve failed: {e}")
+            checkout_session = None
 
     if not email:
         flash("Could not verify payment. Please contact support.", "error")
@@ -1210,6 +1251,23 @@ def success():
         target_role = meta.get('target_role', 'individual')
 
     # Ensure user record exists — handles race condition with Stripe webhook delivery.
+    # Check if SMS consent was given (terms_of_service accepted in Stripe)
+    sms_consent_accepted = False
+    if checkout_session:
+        try:
+            consent = getattr(checkout_session, 'consent', None) or {}
+            if hasattr(consent, 'terms_of_service'):
+                sms_consent_accepted = (consent.terms_of_service == 'accepted')
+            elif isinstance(consent, dict):
+                sms_consent_accepted = (consent.get('terms_of_service') == 'accepted')
+        except Exception:
+            pass
+
+    client_ip = (
+        request.headers.get('X-Forwarded-For', '').split(',')[0].strip()
+        or request.remote_addr
+    )
+
     conn = get_db_connection()
     if conn:
         try:
@@ -1230,6 +1288,16 @@ def success():
                     updated_at = NOW()
             """, (temp_id, email, customer_id, target_role, target_tier,
                   '', 'Grok', 'America/Chicago'))
+            # Record SMS consent if accepted during Stripe checkout
+            if sms_consent_accepted:
+                cur.execute("""
+                    UPDATE subscribers
+                    SET sms_consent_at = NOW(),
+                        sms_consent_ip = %s
+                    WHERE email = %s
+                      AND sms_consent_at IS NULL
+                """, (client_ip, email))
+                logger.info(f"SMS consent recorded for {email} from {client_ip}")
             conn.commit()
             logger.info(f"Success page: ensured user record exists for {email}")
         except Exception as e:

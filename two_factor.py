@@ -57,6 +57,34 @@ def send_verification_code(phone: str) -> dict:
         return {'success': False, 'error': str(e)}
 
 
+def send_confirmation_sms(phone: str) -> None:
+    """Send a one-time confirmation SMS after 2FA is successfully enabled.
+
+    Uses the master Twilio account (same credentials as _get_client()).
+    Fires-and-forgets — failure is logged but never raises.
+    """
+    client = _get_client()
+    if not client:
+        return
+
+    from_number = os.getenv('TWILIO_PHONE_NUMBER')
+    if not from_number:
+        logger.warning("TWILIO_PHONE_NUMBER not set — skipping 2FA confirmation SMS")
+        return
+
+    body = (
+        "You've successfully enabled two-factor authentication on your Omnisconn "
+        "account. You'll now receive a verification code each time you log in. "
+        "Reply STOP to opt out."
+    )
+
+    try:
+        client.messages.create(to=phone, from_=from_number, body=body)
+        logger.info(f"2FA confirmation SMS sent to {phone[:6]}***")
+    except Exception as e:
+        logger.error(f"2FA confirmation SMS failed for {phone[:6]}***: {e}")
+
+
 def check_verification_code(phone: str, code: str) -> dict:
     """Verify a 6-digit code entered by the user.
 
