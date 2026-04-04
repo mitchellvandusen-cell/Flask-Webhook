@@ -81,23 +81,47 @@
 
         // ── iPhone 15 Pro UI bridge ──
         let _iosCurrentApp = null;
+        let _dlrMsgViewMode = 'list'; // 'list' | 'thread'
 
-        function iosOpenApp(app) {
-            // Redirect legacy standalone apps into Calls tabs
+        function dlrMsgBack() {
+            if (_dlrMsgViewMode === 'thread') {
+                _dlrMsgViewMode = 'list';
+                const lv = document.getElementById('dlrMsgListView');
+                const tv = document.getElementById('dlrMsgThreadView');
+                if (lv) lv.style.display = 'flex';
+                if (tv) tv.style.display = 'none';
+            } else {
+                iosGoHome();
+            }
+        }
+
+        function iosOpenApp(app, mode) {
+            // Redirect legacy inbox → messages list
+            if (app === 'inbox') { iosOpenApp('messages', 'list'); return; }
             if (app === 'voicemail') { iosOpenApp('calls'); iosCallsSetTab('voicemail'); return; }
             if (app === 'recordings') { iosOpenApp('calls'); return; }
             _iosCurrentApp = app;
             const home = document.getElementById('iosHome');
-            const apps = { messages: 'iosAppMessages', calls: 'iosAppCalls', inbox: 'iosAppInbox', calendar: 'iosAppCalendar', discord: 'iosAppDiscord', slack: 'iosAppSlack', insights: 'iosAppInsights', stats: 'iosAppStats' };
+            const appMap = { messages: 'iosAppMessages', calls: 'iosAppCalls', calendar: 'iosAppCalendar', discord: 'iosAppDiscord', slack: 'iosAppSlack', insights: 'iosAppInsights', stats: 'iosAppStats' };
             if (home) home.style.display = 'none';
-            Object.keys(apps).forEach(k => {
-                const el = document.getElementById(apps[k]);
+            Object.keys(appMap).forEach(k => {
+                const el = document.getElementById(appMap[k]);
                 if (el) { el.style.display = k === app ? 'flex' : 'none'; el.style.animation = k === app ? 'iosAppOpen 0.3s cubic-bezier(0.2,0.9,0.3,1)' : ''; }
             });
-            // Trigger data load
-            if (app === 'messages') dlrRefreshMessages();
+            // Messages: show list or thread sub-view
+            if (app === 'messages') {
+                const showThread = mode === 'thread';
+                _dlrMsgViewMode = showThread ? 'thread' : 'list';
+                const lv = document.getElementById('dlrMsgListView');
+                const tv = document.getElementById('dlrMsgThreadView');
+                if (lv) lv.style.display = showThread ? 'none' : 'flex';
+                if (tv) tv.style.display = showThread ? 'flex' : 'none';
+                if (!showThread) inboxRefresh();
+                // thread callers manage their own data load
+                return;
+            }
+            // Other apps
             if (app === 'calls') dialerLoadAllCallHistory();
-            if (app === 'inbox') inboxRefresh();
             if (app === 'calendar') calendarInit();
             if (app === 'discord') iosDiscordInit();
             if (app === 'slack') iosSlackInit();
@@ -107,7 +131,7 @@
 
         function iosGoHome() {
             const home = document.getElementById('iosHome');
-            const apps = ['iosAppMessages', 'iosAppCalls', 'iosAppInbox', 'iosAppCalendar', 'iosAppDiscord', 'iosAppSlack', 'iosAppInsights', 'iosAppStats'];
+            const apps = ['iosAppMessages', 'iosAppCalls', 'iosAppCalendar', 'iosAppDiscord', 'iosAppSlack', 'iosAppInsights', 'iosAppStats'];
             apps.forEach(id => { const el = document.getElementById(id); if (el) el.style.display = 'none'; });
             if (home) home.style.display = 'flex';
             _iosCurrentApp = null;
@@ -2742,8 +2766,16 @@
             if (avatar) avatar.textContent = (_dlrSmsContactName || '?')[0].toUpperCase();
             if (nameEl) nameEl.textContent = _dlrSmsContactName || 'Contact';
             if (phoneEl) phoneEl.textContent = formatPhone(_dlrSmsContactPhone);
-            // Auto-open Messages app when contact selected
-            if (_iosCurrentApp !== 'messages') iosOpenApp('messages');
+            // Auto-open Messages app in thread mode when contact selected
+            if (_iosCurrentApp !== 'messages') {
+                iosOpenApp('messages', 'thread');
+            } else {
+                _dlrMsgViewMode = 'thread';
+                const lv = document.getElementById('dlrMsgListView');
+                const tv = document.getElementById('dlrMsgThreadView');
+                if (lv) lv.style.display = 'none';
+                if (tv) tv.style.display = 'flex';
+            }
 
             const msgPanel = document.getElementById('dlrMessagesList');
             const composer = document.getElementById('dlrSmsComposer');
@@ -6666,7 +6698,7 @@
                 _inboxApplyFilter();
 
                 // Update badge
-                const badge = document.getElementById('iosBadgeInbox');
+                const badge = document.getElementById('iosBadgeMsgs');
                 if (badge) {
                     const total = data.total || _inboxAllData.length;
                     if (total > 0) { badge.textContent = total > 99 ? '99+' : total; badge.style.display = ''; }
@@ -6693,8 +6725,14 @@
             if (_inboxFilter === 'all') {
                 _inboxData = [..._inboxAllData];
             } else if (_inboxFilter === 'unread') {
-                // "Unread" = last message was inbound (they messaged, we haven't replied yet)
+                // "Unread" = truly new messages that arrived since page load (tracked in _inboxUnreadIds)
+                _inboxData = _inboxAllData.filter(c => _inboxUnreadIds.has(c.contact_id));
+            } else if (_inboxFilter === 'inbound') {
+                // "Received" = last message in thread was inbound (they messaged us)
                 _inboxData = _inboxAllData.filter(c => c.last_direction === 'inbound');
+            } else if (_inboxFilter === 'outbound') {
+                // "Sent" = last message in thread was outbound (we messaged them)
+                _inboxData = _inboxAllData.filter(c => c.last_direction === 'outbound');
             } else {
                 _inboxData = _inboxAllData.filter(c => c.last_direction === _inboxFilter);
             }
@@ -6716,7 +6754,9 @@
             if (!_inboxData.length) {
                 const search = (document.getElementById('inboxSearchInput') || {}).value || '';
                 if (search.trim()) {
-                    list.innerHTML = '<div style="padding:40px 20px;text-align:center;"><div style="font-size:2rem;margin-bottom:8px;">🔍</div><div style="color:#8E8E93;font-size:0.82rem;">No results for "' + search.trim().replace(/</g,'&lt;') + '"</div></div>';
+                    list.innerHTML = '<div style="padding:40px 20px;text-align:center;"><div style="color:#8E8E93;font-size:0.82rem;">No results for &ldquo;' + search.trim().replace(/</g,'&lt;') + '&rdquo;</div></div>';
+                } else if (_inboxFilter === 'unread') {
+                    list.innerHTML = '<div style="padding:40px 20px;text-align:center;"><div style="width:50px;height:50px;border-radius:50%;background:rgba(0,122,255,0.08);display:flex;align-items:center;justify-content:center;margin:0 auto 12px;"><i class="fa-solid fa-check-double" style="color:#007AFF;font-size:1.1rem;"></i></div><div style="color:#fff;font-size:0.88rem;font-weight:600;">All caught up</div><div style="color:#8E8E93;font-size:0.75rem;margin-top:4px;">No new messages since you opened the app</div><div style="color:#8E8E93;font-size:0.72rem;margin-top:6px;">Switch to <span style="color:#007AFF;font-weight:600;">Received</span> to see who needs a reply</div></div>';
                 } else {
                     list.innerHTML = '<div style="padding:40px 20px;text-align:center;"><div style="width:50px;height:50px;border-radius:50%;background:rgba(0,122,255,0.08);display:flex;align-items:center;justify-content:center;margin:0 auto 12px;"><i class="fa-solid fa-message" style="color:#007AFF;font-size:1.1rem;"></i></div><div style="color:#fff;font-size:0.88rem;font-weight:600;">No Messages</div><div style="color:#8E8E93;font-size:0.75rem;margin-top:4px;">Conversations will appear here</div></div>';
                 }
@@ -6813,107 +6853,51 @@
                 _renderInboxList();
             }
 
-            const threadView = document.getElementById('inboxThreadView');
-            const threadName = document.getElementById('inboxThreadName');
-            const threadPhone = document.getElementById('inboxThreadPhone');
-            const threadAvatar = document.getElementById('inboxThreadAvatar');
-            const msgContainer = document.getElementById('inboxThreadMessages');
+            // Set contact vars for the Messages thread view
+            _dlrSmsContactId = contactId;
+            _dlrSmsContactName = contactName || '';
+            _dlrSmsContactPhone = contactPhone || '';
 
+            // Update Messages thread nav bar directly
+            const avatar = document.getElementById('iosMsgAvatar');
+            const nameEl = document.getElementById('iosMsgContactName');
+            const phoneEl = document.getElementById('iosMsgContactPhone');
             const initials = (contactName || '?').split(' ').map(w => (w||'')[0]).join('').slice(0, 2).toUpperCase();
             const hue = _inboxNameHue(contactName || '');
+            if (avatar) { avatar.textContent = initials; avatar.style.background = 'linear-gradient(135deg,hsl(' + hue + ',55%,45%),hsl(' + (hue+30) + ',60%,35%))'; }
+            if (nameEl) nameEl.textContent = contactName || 'Contact';
+            if (phoneEl) phoneEl.textContent = formatPhone(contactPhone || '');
 
-            // Populate channel selector from main dialer's loaded channels
-            const inboxChSel = document.getElementById('inboxChannelSelect');
-            const mainChSel = document.getElementById('dlrChannelSelect');
-            if (inboxChSel && mainChSel) {
-                inboxChSel.innerHTML = mainChSel.innerHTML;
-                inboxChSel.value = mainChSel.value;
-            }
-            const inboxChRow = document.getElementById('inboxChannelRow');
-            if (inboxChRow && _dlrAvailableChannels && _dlrAvailableChannels.length > 1) {
-                inboxChRow.style.display = 'flex';
-            }
+            // Switch Messages app to thread sub-view
+            _dlrMsgViewMode = 'thread';
+            const lv = document.getElementById('dlrMsgListView');
+            const tv = document.getElementById('dlrMsgThreadView');
+            if (lv) lv.style.display = 'none';
+            if (tv) tv.style.display = 'flex';
 
-            // Reset composer
-            const inboxText = document.getElementById('inboxSmsText');
-            if (inboxText) { inboxText.value = ''; inboxText.style.height = ''; }
-            const inboxStatus = document.getElementById('inboxSmsStatus');
-            if (inboxStatus) inboxStatus.textContent = '';
-            const inboxCount = document.getElementById('inboxCharCount');
-            if (inboxCount) inboxCount.textContent = '0 / 160';
+            // Load messages using the Messages thread renderer
+            const msgPanel = document.getElementById('dlrMessagesList');
+            const composer = document.getElementById('dlrSmsComposer');
+            if (msgPanel) msgPanel.innerHTML = '<div style="text-align:center;padding:30px;"><i class="fa-solid fa-spinner fa-spin" style="color:#00ff88;"></i></div>';
+            if (composer) composer.style.display = 'none';
 
-            if (threadName) threadName.textContent = contactName || 'Contact';
-            if (threadPhone) threadPhone.textContent = contactPhone || '';
-            if (threadAvatar) {
-                threadAvatar.textContent = initials;
-                threadAvatar.style.background = 'linear-gradient(135deg,hsl(' + hue + ',55%,45%),hsl(' + (hue+30) + ',60%,35%))';
-            }
-            if (msgContainer) msgContainer.innerHTML = '<div style="text-align:center;padding:40px;color:#8E8E93;"><i class="fa-solid fa-spinner fa-spin"></i></div>';
-            if (threadView) { threadView.style.display = 'flex'; threadView.style.flexDirection = 'column'; }
-
-            fetch('/api/inbox/thread/' + contactId + '?limit=200')
+            fetch('/voice/contact/' + contactId + '/messages')
                 .then(r => r.json())
-                .then(data => {
-                    const msgs = data.messages || [];
-                    const pipeline = data.pipeline;
-
-                    // Pipeline badge
-                    const badgeEl = document.getElementById('inboxThreadBadge');
-                    if (badgeEl && pipeline) {
-                        badgeEl.textContent = pipeline.stage_name;
-                        badgeEl.style.display = '';
-                        badgeEl.style.background = pipeline.status === 'won' ? 'rgba(52,199,89,0.15)' : pipeline.status === 'lost' ? 'rgba(255,59,48,0.15)' : 'rgba(91,127,255,0.15)';
-                        badgeEl.style.color = pipeline.status === 'won' ? '#34C759' : pipeline.status === 'lost' ? '#FF3B30' : '#5B7FFF';
-                    } else if (badgeEl) {
-                        badgeEl.style.display = 'none';
-                    }
-
-                    let html = '';
-                    let lastDateLabel = '';
-
-                    msgs.forEach(m => {
-                        const isOutbound = m.direction === 'outbound';
-                        const isCall = m.type === 'call' || m.type === 'voicemail';
-
-                        // Date separator
-                        const dateLabel = _inboxThreadDateLabel(m.date);
-                        if (dateLabel !== lastDateLabel) {
-                            html += '<div class="imsg-date-sep">' + dateLabel + '</div>';
-                            lastDateLabel = dateLabel;
-                        }
-
-                        if (isCall) {
-                            const callIcon = m.type === 'voicemail' ? 'fa-voicemail' : 'fa-phone';
-                            const callLabel = m.type === 'voicemail' ? 'Voicemail' : (isOutbound ? 'Outgoing Call' : 'Incoming Call');
-                            html += '<div class="imsg-call-pill"><span><i class="fa-solid ' + callIcon + '" style="font-size:0.75rem;"></i>' + callLabel + ' · ' + _inboxFormatTimeShort(m.date) + '</span></div>';
-                        } else {
-                            const body = (m.body || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-                            html += '<div class="imsg-bubble ' + (isOutbound ? 'outbound' : 'inbound') + '">' +
-                                body +
-                                '<div class="imsg-bubble-time">' + _inboxFormatTimeShort(m.date) + '</div>' +
-                            '</div>';
-                        }
-                    });
-
-                    if (!msgs.length) {
-                        html = '<div style="text-align:center;padding:40px;color:#8E8E93;font-size:0.82rem;">No messages yet</div>';
-                    }
-
-                    if (msgContainer) {
-                        msgContainer.innerHTML = html;
-                        msgContainer.scrollTop = msgContainer.scrollHeight;
-                    }
+                .then(d => {
+                    if (msgPanel) { msgPanel.innerHTML = _dlrRenderThread(d.messages || []); msgPanel.scrollTop = msgPanel.scrollHeight; }
+                    if (composer) { composer.style.display = 'block'; dlrLoadChannels(); }
+                    const ta = document.getElementById('dlrSmsText');
+                    if (ta) { ta.value = ''; ta.style.height = ''; dlrUpdateCharCount(''); }
                 })
-                .catch(() => {
-                    if (msgContainer) msgContainer.innerHTML = '<div style="text-align:center;padding:40px;color:#8E8E93;">Failed to load messages</div>';
-                });
+                .catch(() => { if (msgPanel) msgPanel.innerHTML = '<div style="color:#888;padding:24px;text-align:center;font-size:.82rem;">Could not load messages</div>'; });
         }
 
         function inboxBackToList() {
-            const threadView = document.getElementById('inboxThreadView');
-            if (threadView) threadView.style.display = 'none';
-            const badge = document.getElementById('inboxThreadBadge');
-            if (badge) badge.style.display = 'none';
+            _dlrMsgViewMode = 'list';
+            const lv = document.getElementById('dlrMsgListView');
+            const tv = document.getElementById('dlrMsgThreadView');
+            if (lv) lv.style.display = 'flex';
+            if (tv) tv.style.display = 'none';
             _inboxThreadContactId = null;
         }
 
@@ -7196,7 +7180,7 @@
             }, 5000);
 
             // Update inbox badge
-            const badge = document.getElementById('iosBadgeInbox');
+            const badge = document.getElementById('iosBadgeMsgs');
             if (badge) {
                 const current = parseInt(badge.textContent) || 0;
                 badge.textContent = current + 1;
@@ -7247,16 +7231,18 @@
                 _inboxFetch(false);
             }
 
-            // 3. If this contact's thread is open, append the message bubble live
-            if (contactId && contactId === _inboxThreadContactId) {
-                const msgContainer = document.getElementById('inboxThreadMessages');
+            // 3. If this contact's thread is open in Messages app, append the message bubble live
+            if (contactId && contactId === _inboxThreadContactId && _dlrMsgViewMode === 'thread') {
+                const msgContainer = document.getElementById('dlrMessagesList');
                 if (msgContainer && preview) {
-                    const bubble = document.createElement('div');
-                    bubble.className = 'imsg-bubble ' + (direction === 'inbound' ? 'inbound' : 'outbound');
+                    const isOut = direction === 'outbound';
                     const timeStr = new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
-                    bubble.innerHTML = preview.replace(/</g, '&lt;').replace(/>/g, '&gt;') +
-                        '<div class="imsg-bubble-time">' + timeStr + '</div>';
-                    msgContainer.appendChild(bubble);
+                    const row = document.createElement('div');
+                    row.className = 'dlr-msg-row ' + (isOut ? 'outbound' : 'inbound');
+                    row.innerHTML = '<div class="dlr-bubble ' + (isOut ? 'outbound sent' : 'inbound') + '">' +
+                        preview.replace(/</g,'&lt;').replace(/>/g,'&gt;') + '</div>' +
+                        '<div class="dlr-msg-meta"><span>' + timeStr + '</span></div>';
+                    msgContainer.appendChild(row);
                     msgContainer.scrollTop = msgContainer.scrollHeight;
                 }
             }
