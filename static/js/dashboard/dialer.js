@@ -9423,3 +9423,203 @@
             _dialerPageInit();
         }
 
+        // ═══ iOS-style App Reordering (press-and-hold to enter edit mode, drag to rearrange) ═══
+        (function() {
+            const LS_KEY = 'dialer_app_order_v1';
+            let editMode = false;
+            let pressTimer = null;
+            let draggingEl = null;
+            let dragStartX = 0, dragStartY = 0;
+            let dragOffsetX = 0, dragOffsetY = 0;
+            let origRect = null;
+
+            function getGrid() { return document.querySelector('.ios-app-grid'); }
+
+            function extractAppFromOnclick(btn) {
+                const onclick = btn.getAttribute('onclick') || '';
+                const m = onclick.match(/iosOpenApp\(['"](\w+)['"]/);
+                return m ? m[1] : null;
+            }
+
+            function initAppReorder() {
+                const grid = getGrid();
+                if (!grid || grid.dataset.reorderInit) return;
+                grid.dataset.reorderInit = '1';
+
+                // Tag each icon with its app name from the inline onclick
+                [...grid.querySelectorAll('.ios-app-icon')].forEach(btn => {
+                    if (!btn.dataset.app) {
+                        const app = extractAppFromOnclick(btn);
+                        if (app) btn.dataset.app = app;
+                    }
+                });
+
+                // Restore saved order
+                try {
+                    const saved = JSON.parse(localStorage.getItem(LS_KEY) || 'null');
+                    if (Array.isArray(saved) && saved.length) {
+                        const icons = [...grid.querySelectorAll('.ios-app-icon')];
+                        const byApp = {};
+                        icons.forEach(el => { if (el.dataset.app) byApp[el.dataset.app] = el; });
+                        saved.forEach(name => { if (byApp[name]) grid.appendChild(byApp[name]); });
+                        icons.forEach(el => { if (el.dataset.app && !saved.includes(el.dataset.app)) grid.appendChild(el); });
+                    }
+                } catch(e) {}
+
+                // Block iosOpenApp while in edit mode
+                if (typeof window.iosOpenApp === 'function' && !window.iosOpenApp._editWrapped) {
+                    const orig = window.iosOpenApp;
+                    window.iosOpenApp = function(...args) {
+                        if (editMode) return;
+                        return orig.apply(this, args);
+                    };
+                    window.iosOpenApp._editWrapped = true;
+                }
+
+                grid.addEventListener('pointerdown', onPointerDown);
+                grid.addEventListener('contextmenu', (e) => { if (editMode) e.preventDefault(); });
+
+                // Exit edit mode on click outside grid or Escape
+                document.addEventListener('pointerdown', (e) => {
+                    if (editMode && !grid.contains(e.target)) exitEditMode();
+                }, true);
+                document.addEventListener('keydown', (e) => {
+                    if (editMode && e.key === 'Escape') exitEditMode();
+                });
+            }
+
+            function onPointerDown(e) {
+                if (e.button && e.button !== 0) return;
+                const icon = e.target.closest('.ios-app-icon');
+                if (!icon) return;
+
+                if (editMode) {
+                    e.preventDefault();
+                    startDrag(icon, e);
+                    return;
+                }
+
+                dragStartX = e.clientX;
+                dragStartY = e.clientY;
+                pressTimer = setTimeout(() => {
+                    pressTimer = null;
+                    enterEditMode();
+                    startDrag(icon, { clientX: dragStartX, clientY: dragStartY, pointerId: e.pointerId });
+                }, 450);
+
+                const cancel = () => {
+                    if (pressTimer) { clearTimeout(pressTimer); pressTimer = null; }
+                    document.removeEventListener('pointerup', cancel);
+                    document.removeEventListener('pointercancel', cancel);
+                    document.removeEventListener('pointermove', onMoveCheck);
+                };
+                const onMoveCheck = (ev) => {
+                    const dx = ev.clientX - dragStartX, dy = ev.clientY - dragStartY;
+                    if (Math.hypot(dx, dy) > 10) cancel();
+                };
+                document.addEventListener('pointerup', cancel, { once: false });
+                document.addEventListener('pointercancel', cancel, { once: false });
+                document.addEventListener('pointermove', onMoveCheck);
+            }
+
+            function enterEditMode() {
+                if (editMode) return;
+                editMode = true;
+                const grid = getGrid();
+                if (grid) grid.classList.add('editing');
+                if (navigator.vibrate) { try { navigator.vibrate(15); } catch(e) {} }
+            }
+
+            function exitEditMode() {
+                if (!editMode) return;
+                editMode = false;
+                endDrag();
+                const grid = getGrid();
+                if (grid) grid.classList.remove('editing');
+            }
+
+            function startDrag(icon, e) {
+                draggingEl = icon;
+                origRect = icon.getBoundingClientRect();
+                dragOffsetX = e.clientX - (origRect.left + origRect.width / 2);
+                dragOffsetY = e.clientY - (origRect.top + origRect.height / 2);
+                icon.classList.add('dragging');
+                icon.style.position = 'fixed';
+                icon.style.width = origRect.width + 'px';
+                icon.style.height = origRect.height + 'px';
+                icon.style.zIndex = '9999';
+                icon.style.pointerEvents = 'none';
+                moveDragged(e.clientX, e.clientY);
+                document.addEventListener('pointermove', onDragMove);
+                document.addEventListener('pointerup', onDragEnd);
+                document.addEventListener('pointercancel', onDragEnd);
+            }
+
+            function moveDragged(x, y) {
+                if (!draggingEl || !origRect) return;
+                draggingEl.style.left = (x - origRect.width / 2 - dragOffsetX) + 'px';
+                draggingEl.style.top = (y - origRect.height / 2 - dragOffsetY) + 'px';
+            }
+
+            function onDragMove(e) {
+                if (!draggingEl) return;
+                e.preventDefault();
+                moveDragged(e.clientX, e.clientY);
+
+                // Find nearest sibling under pointer (excluding dragged)
+                draggingEl.style.visibility = 'hidden';
+                const under = document.elementFromPoint(e.clientX, e.clientY);
+                draggingEl.style.visibility = '';
+                if (!under) return;
+                const target = under.closest('.ios-app-icon');
+                if (!target || target === draggingEl) return;
+                if (target.parentNode !== draggingEl.parentNode) return;
+
+                const rect = target.getBoundingClientRect();
+                const before = e.clientX < rect.left + rect.width / 2;
+                if (before) {
+                    target.parentNode.insertBefore(draggingEl, target);
+                } else {
+                    target.parentNode.insertBefore(draggingEl, target.nextSibling);
+                }
+            }
+
+            function onDragEnd() {
+                endDrag();
+                saveOrder();
+            }
+
+            function endDrag() {
+                if (!draggingEl) return;
+                draggingEl.classList.remove('dragging');
+                draggingEl.style.position = '';
+                draggingEl.style.left = '';
+                draggingEl.style.top = '';
+                draggingEl.style.width = '';
+                draggingEl.style.height = '';
+                draggingEl.style.zIndex = '';
+                draggingEl.style.pointerEvents = '';
+                draggingEl.style.visibility = '';
+                draggingEl = null;
+                origRect = null;
+                document.removeEventListener('pointermove', onDragMove);
+                document.removeEventListener('pointerup', onDragEnd);
+                document.removeEventListener('pointercancel', onDragEnd);
+            }
+
+            function saveOrder() {
+                const grid = getGrid();
+                if (!grid) return;
+                const order = [...grid.querySelectorAll('.ios-app-icon')]
+                    .map(el => el.dataset.app)
+                    .filter(Boolean);
+                try { localStorage.setItem(LS_KEY, JSON.stringify(order)); } catch(e) {}
+            }
+
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', initAppReorder);
+            } else {
+                initAppReorder();
+            }
+        })();
+

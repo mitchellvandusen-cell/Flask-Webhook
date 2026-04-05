@@ -287,9 +287,33 @@
                         linear-gradient(160deg, #1c1c3a 0%, #0d1b2a 50%, #0a0e1a 100%);
                     z-index:0;}
                     .ios-app-grid{flex:1;display:grid;grid-template-columns:repeat(3,1fr);align-items:start;justify-items:center;gap:clamp(16px, 0.83vw, 30px) clamp(12px, 0.63vw, 23px);padding:clamp(8px, 0.42vw, 16px) clamp(16px, 0.83vw, 30px);position:relative;z-index:1;align-content:start;}
-                    .ios-app-icon{display:flex;flex-direction:column;align-items:center;gap:5px;background:none;border:none;cursor:pointer;position:relative;transition:transform 0.15s;-webkit-tap-highlight-color:transparent;}
+                    .ios-app-icon{display:flex;flex-direction:column;align-items:center;gap:5px;background:none;border:none;cursor:pointer;position:relative;transition:transform 0.15s;-webkit-tap-highlight-color:transparent;touch-action:manipulation;}
                     .ios-app-icon:hover{transform:scale(1.08);}
                     .ios-app-icon:active{transform:scale(0.95);}
+
+                    /* iOS-style Edit Mode: press-and-hold to rearrange */
+                    @keyframes iosJiggle {
+                        0%,100% { transform: rotate(-1.4deg) translate(0,0); }
+                        25%    { transform: rotate(1.4deg) translate(0.5px,-0.5px); }
+                        50%    { transform: rotate(-1.4deg) translate(-0.5px,0.5px); }
+                        75%    { transform: rotate(1.4deg) translate(0.5px,0.5px); }
+                    }
+                    .ios-app-grid.editing { touch-action: none; }
+                    .ios-app-grid.editing .ios-app-icon {
+                        animation: iosJiggle 0.22s linear infinite;
+                        cursor: grab;
+                    }
+                    .ios-app-grid.editing .ios-app-icon:nth-child(2n) { animation-delay: -0.11s; animation-direction: reverse; }
+                    .ios-app-grid.editing .ios-app-icon:nth-child(3n) { animation-delay: -0.07s; }
+                    .ios-app-grid.editing .ios-app-icon:hover { transform: none; }
+                    .ios-app-grid.editing .ios-app-icon:active { transform: none; }
+                    .ios-app-grid .ios-app-icon.dragging {
+                        animation: none !important;
+                        transform: scale(1.18) !important;
+                        opacity: 0.92;
+                        filter: drop-shadow(0 10px 20px rgba(0,0,0,0.5));
+                        cursor: grabbing;
+                    }
                     .ios-icon{width:clamp(64px, 3.33vw, 122px);height:clamp(64px, 3.33vw, 122px);border-radius:clamp(14px, 0.73vw, 27px);display:flex;align-items:center;justify-content:center;font-size:clamp(2.1rem, 1.75vw, 3.2rem);color:#fff;box-shadow:0 4px 12px rgba(0,0,0,0.3);}
                     .ios-icon-messages{background:linear-gradient(180deg,#65D66A 0%,#34C759 100%);}
                     .ios-icon-phone{background:linear-gradient(180deg,#65D66A 0%,#34C759 100%);}
