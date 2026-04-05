@@ -1137,9 +1137,11 @@ def set_number_health_status():
 @login_required
 def save_trust_hub():
     """Save business profile and carrier registration status for Trust Hub."""
-    subscriber, vc, api_key = _get_current_subscriber_voice()
+    subscriber, vc, _ = _get_current_subscriber_voice()
+    if subscriber is None:
+        return jsonify({"error": "Account not found"}), 400
     if not vc:
-        return jsonify({"error": "Voice config not found"}), 400
+        vc = {}
 
     data = request.json or {}
     trust_hub = vc.get('trust_hub', {})
@@ -1494,13 +1496,28 @@ def register_spam_protection():
     existing_ni = vc.get('number_integrity', {})
     existing_vi_tp = existing_ni.get('trust_product_sid', '')
 
+    # Verify existing Voice Integrity TP still exists on Twilio — stale SIDs
+    # from previous failed registrations (wrong credentials, master contamination)
+    # return 404 and must be cleared for fresh registration.
     if existing_vi_tp:
-        vi_result = {
-            "status": "already_registered",
-            "trust_product_sid": existing_vi_tp,
-        }
-        logger.info(f"[VoiceIntegrity] Already registered — TP {existing_vi_tp}, skipping")
-    elif has_profile:
+        try:
+            _vi_check_client = twilio_provisioning.get_sub_account_client_native(sub_sid, sub_auth_token)
+            _vi_check_client.trusthub.v1.trust_products(existing_vi_tp).fetch()
+            vi_result = {
+                "status": "already_registered",
+                "trust_product_sid": existing_vi_tp,
+            }
+            logger.info(f"[VoiceIntegrity] Already registered — TP {existing_vi_tp}, verified on Twilio")
+        except Exception as vi_check_err:
+            logger.warning(
+                f"[VoiceIntegrity] Existing TP {existing_vi_tp} not found on Twilio ({vi_check_err}). "
+                "Clearing stale data for fresh registration."
+            )
+            vc.pop('number_integrity', None)
+            _save_voice_config(current_user.email, vc)
+            existing_vi_tp = ''  # Fall through to re-register
+
+    if not existing_vi_tp and has_profile:
         try:
             # Fetch all phone numbers on this sub-account
             vi_client = twilio_provisioning.get_sub_account_client(sub_sid)
@@ -2399,7 +2416,21 @@ def number_integrity_status():
                 vc['number_integrity'] = ni
                 _save_voice_config(current_user.email, vc)
         except Exception as e:
-            logger.warning(f"[NumberIntegrity] Live status check failed, using cached: {e}")
+            # If 404 — Trust Product doesn't exist on Twilio. Clear stale data.
+            err_str = str(e)
+            if '404' in err_str or 'not found' in err_str.lower():
+                logger.warning(
+                    f"[NumberIntegrity] TP {trust_product_sid} not found on Twilio (404). "
+                    "Clearing stale cached data."
+                )
+                vc.pop('number_integrity', None)
+                _save_voice_config(current_user.email, vc)
+                live_status = 'not_registered'
+                trust_product_sid = ''
+                assigned_numbers = []
+                assigned_count = 0
+            else:
+                logger.warning(f"[NumberIntegrity] Live status check failed, using cached: {e}")
 
     # Get all numbers on the sub-account for the UI
     # A number is only truly "registered" if it's assigned to an APPROVED Trust Product.
