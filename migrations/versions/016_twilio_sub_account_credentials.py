@@ -7,14 +7,14 @@ or accidentally falling back to master credentials.
 
 Backfills from existing voice_config data for all provisioned subscribers.
 
-Revision ID: 016_twilio_sub_account_credentials
+Revision ID: 016_twilio_sub_acct_creds
 Revises: 015_sms_consent
 Create Date: 2026-04-05
 """
 from typing import Sequence, Union
 from alembic import op
 
-revision: str = '016_twilio_sub_account_credentials'
+revision: str = '016_twilio_sub_acct_creds'
 down_revision: Union[str, None] = '015_sms_consent'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
