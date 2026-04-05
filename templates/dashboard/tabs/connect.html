@@ -4,6 +4,7 @@
                     <!-- Hidden menu buttons for JS switchConnectPanel compatibility -->
                     <div id="connectSettingsMenu" class="d-none">
                         <button type="button" class="conn-menu-item active" id="cnmenu-ghl"></button>
+                        <button type="button" class="conn-menu-item" id="cnmenu-hubspot"></button>
                         <button type="button" class="conn-menu-item" id="cnmenu-other-crms"></button>
                         <button type="button" class="conn-menu-item" id="cnmenu-api"></button>
                         <button type="button" class="conn-menu-item" id="cnmenu-outbound"></button>
@@ -68,6 +69,48 @@
                                         <div class="vc-step"><span class="vc-step-num">3</span> In LeadConnector: <strong>Settings &rarr; Business Profile &rarr; Integrations</strong></div>
                                         <div class="vc-step"><span class="vc-step-num">4</span> Create a <strong>Custom Webhook</strong> workflow: "Customer Replied" &rarr; Send to your webhook URL</div>
                                         <div class="vc-step"><span class="vc-step-num">5</span> Select a <strong>Calendar</strong> and set your timezone in Bot Config</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- ── Panel: HubSpot ── -->
+                            <div id="cntab-panel-hubspot" style="display:none;">
+                                <div class="hs-connect-card">
+                                    <div class="hs-connect-header">
+                                        <div class="hs-connect-logo">H</div>
+                                        <div>
+                                            <div class="hs-connect-title">HubSpot CRM</div>
+                                            <div class="hs-connect-sub">Sync contacts, log calls &amp; SMS, AI intelligence sidebar</div>
+                                        </div>
+                                        {% if sub and sub.crm_type == 'hubspot' and sub.crm_config and sub.crm_config.get('access_token') %}
+                                        <div class="hs-connect-status-connected" style="margin-left:auto;">
+                                            <div class="hs-connect-status-dot"></div>
+                                            Connected
+                                        </div>
+                                        {% endif %}
+                                    </div>
+                                    <ul class="hs-feature-list">
+                                        <li class="hs-feature-item"><div class="hs-feature-dot"></div>Real-time contact sync — phone, email, lifecycle stage</li>
+                                        <li class="hs-feature-item"><div class="hs-feature-dot"></div>AI calls &amp; SMS logged directly to HubSpot timeline</li>
+                                        <li class="hs-feature-item"><div class="hs-feature-dot"></div>AI intelligence sidebar in every contact record</li>
+                                        <li class="hs-feature-item"><div class="hs-feature-dot"></div>Custom Workflow Actions — trigger AI calls from HubSpot Workflows</li>
+                                        <li class="hs-feature-item"><div class="hs-feature-dot"></div>Embedded Omnisconn Dialer inside HubSpot</li>
+                                    </ul>
+                                    {% if sub and sub.crm_type == 'hubspot' and sub.crm_config and sub.crm_config.get('access_token') %}
+                                    <a href="/hubspot/oauth/initiate" class="hs-connect-btn">
+                                        <i class="fa-solid fa-rotate me-2"></i> Reconnect HubSpot
+                                    </a>
+                                    {% else %}
+                                    <a href="/hubspot/oauth/initiate" class="hs-connect-btn">
+                                        <i class="fa-solid fa-plug me-2"></i> Install HubSpot App
+                                    </a>
+                                    {% endif %}
+
+                                    <div class="vc-setup-steps">
+                                        <div class="vc-step"><span class="vc-step-num">1</span> Click <strong>Install HubSpot App</strong> above — you'll be redirected to HubSpot for authorization</div>
+                                        <div class="vc-step"><span class="vc-step-num">2</span> Select the HubSpot portal you want to connect</div>
+                                        <div class="vc-step"><span class="vc-step-num">3</span> Approve the permissions — Omnisconn will sync contacts and log activity automatically</div>
+                                        <div class="vc-step"><span class="vc-step-num">4</span> Return here — your HubSpot contacts will appear in the Dialer within minutes</div>
                                     </div>
                                 </div>
                             </div>

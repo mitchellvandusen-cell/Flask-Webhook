@@ -190,18 +190,23 @@
                 </a>
             </div>
 
-            <div class="reg-v2-divider" role="separator"><span>or</span></div>
+            <div class="reg-v2-divider" role="separator"><span>or connect via your CRM</span></div>
 
-            <div class="reg-v2-marketplace">
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
-                <div>
-                    <p class="reg-v2-marketplace-title">Already on LeadConnector?</p>
-                    <p class="reg-v2-marketplace-sub">
-                        Install from the
-                        <a href="https://marketplace.leadconnectorhq.com" target="_blank" rel="noopener noreferrer" class="reg-v2-link">Marketplace</a>
-                        for one-click CRM sync, then return here to finish setup.
-                    </p>
-                </div>
+            <div class="reg-v2-crm-row">
+                <a href="/hubspot/oauth/initiate" class="reg-v2-crm-btn reg-v2-crm-hs">
+                    <span class="reg-v2-crm-icon-hs">H</span>
+                    <div class="reg-v2-crm-btn-text">
+                        <span class="reg-v2-crm-btn-name">Sign in with HubSpot</span>
+                        <span class="reg-v2-crm-btn-sub">Install app &amp; create account</span>
+                    </div>
+                </a>
+                <a href="https://marketplace.gohighlevel.com/oauth/chooselocation?response_type=code&redirect_uri=https%3A%2F%2Fomnisconn.click%2Foauth%2Fcallback&client_id=695e99698a5ae81dbb426515-mkaz316h&scope=calendars.readonly+calendars%2Fevents.readonly+calendars%2Fevents.write+conversations%2Fmessage.write+conversations%2Fmessage.readonly+contacts.readonly+locations%2FcustomFields.readonly+locations%2FcustomValues.readonly+calendars%2Fgroups.readonly+conversations.readonly+conversations.write+locations%2Ftags.readonly+oauth.readonly+oauth.write+locations.readonly+users.readonly+workflows.readonly+twilioaccount.read+contacts.write+locations%2Ftags.write+locations%2FcustomFields.write+opportunities.readonly+opportunities.write+phonenumbers.read+numberpools.read&version_id=69baca8609da2bbc1060ae05" target="_blank" rel="noopener noreferrer" class="reg-v2-crm-btn reg-v2-crm-ghl">
+                    <i class="fa-solid fa-bolt reg-v2-crm-icon-ghl"></i>
+                    <div class="reg-v2-crm-btn-text">
+                        <span class="reg-v2-crm-btn-name">Install via LeadConnector</span>
+                        <span class="reg-v2-crm-btn-sub">GoHighLevel marketplace</span>
+                    </div>
+                </a>
             </div>
             {% endif %}
 
@@ -704,31 +709,62 @@
 }
 .reg-v2-divider span { color: #333; flex-shrink: 0; }
 
-/* ── Marketplace hint ── */
-.reg-v2-marketplace {
+/* ── CRM Choice Row ── */
+.reg-v2-crm-row {
     display: flex;
-    align-items: flex-start;
-    gap: 12px;
-    padding: 16px;
-    background: #080808;
-    border: 1px solid #111;
-    border-radius: 6px;
+    flex-direction: column;
+    gap: 10px;
     margin-bottom: 28px;
 }
-.reg-v2-marketplace > svg { color: #333; flex-shrink: 0; margin-top: 1px; }
-
-.reg-v2-marketplace-title {
-    font-size: 0.8rem;
-    font-weight: 500;
-    color: #888;
-    margin: 0 0 3px;
+.reg-v2-crm-btn {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 13px 16px;
+    border-radius: 2px;
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 0.9rem;
+    transition: transform 0.18s ease, box-shadow 0.18s ease;
+    border: 1px solid transparent;
 }
-.reg-v2-marketplace-sub {
-    font-size: 0.75rem;
-    color: #444;
-    line-height: 1.55;
-    margin: 0;
+.reg-v2-crm-btn:hover {
+    transform: translateY(-1px);
+    text-decoration: none;
 }
+.reg-v2-crm-hs {
+    background: linear-gradient(135deg, #ff7a59, #ff9f7f);
+    color: #fff;
+}
+.reg-v2-crm-hs:hover {
+    box-shadow: 0 4px 16px rgba(255,122,89,0.35);
+    color: #fff;
+}
+.reg-v2-crm-ghl {
+    background: linear-gradient(135deg, #FF6B00, #FF8533);
+    color: #fff;
+}
+.reg-v2-crm-ghl:hover {
+    box-shadow: 0 4px 16px rgba(255,107,0,0.3);
+    color: #fff;
+}
+.reg-v2-crm-icon-hs {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    border-radius: 3px;
+    background: #fff;
+    color: #ff7a59;
+    font-weight: 900;
+    font-size: 0.9rem;
+    flex-shrink: 0;
+}
+.reg-v2-crm-icon-ghl { font-size: 1rem; flex-shrink: 0; }
+.reg-v2-crm-btn-text { display: flex; flex-direction: column; gap: 1px; }
+.reg-v2-crm-btn-name { font-weight: 700; font-size: 0.9rem; }
+.reg-v2-crm-btn-sub { font-size: 0.75rem; opacity: 0.8; font-weight: 400; }
 
 /* ── Footer ── */
 .reg-v2-footer {
@@ -861,10 +897,7 @@ body.light-theme .reg-v2-divider::before,
 body.light-theme .reg-v2-divider::after { background: #eee; }
 body.light-theme .reg-v2-divider span { color: #ccc; }
 
-body.light-theme .reg-v2-marketplace { background: #fafafa; border-color: #eee; }
-body.light-theme .reg-v2-marketplace > svg { color: #ccc; }
-body.light-theme .reg-v2-marketplace-title { color: #555; }
-body.light-theme .reg-v2-marketplace-sub { color: #aaa; }
+/* CRM buttons stay the same in light theme — brand colors don't change */
 
 body.light-theme .reg-v2-footer { color: #ccc; border-top-color: #eee; }
 body.light-theme .reg-v2-footer-sep { color: #ddd; }

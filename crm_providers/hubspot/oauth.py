@@ -18,6 +18,7 @@ import logging
 import os
 import secrets
 import time
+from urllib.parse import urlencode
 
 import requests
 from flask import Blueprint, redirect, request, session, flash, url_for
@@ -37,9 +38,10 @@ HUBSPOT_TOKEN_URL = "https://api.hubapi.com/oauth/v1/token"
 HUBSPOT_BASE      = "https://api.hubapi.com"
 
 # Scopes must match app-hsmeta.json manifest exactly.
-# Required: contacts R/W, deals R/W, timeline
+# Required: oauth, contacts R/W, deals R/W, timeline
 # Optional: conversations R/W (HubSpot Conversations API)
 HUBSPOT_SCOPES = [
+    "oauth",
     "crm.objects.contacts.read",
     "crm.objects.contacts.write",
     "crm.objects.deals.read",
@@ -88,14 +90,12 @@ def hubspot_oauth_initiate():
 
     session["hubspot_oauth_state"] = state
 
-    scope_str  = " ".join(HUBSPOT_SCOPES)
-    auth_url = (
-        f"{HUBSPOT_AUTH_URL}"
-        f"?client_id={cid}"
-        f"&redirect_uri={_redirect_uri()}"
-        f"&scope={scope_str}"
-        f"&state={state}"
-    )
+    auth_url = f"{HUBSPOT_AUTH_URL}?{urlencode({
+        'client_id':    cid,
+        'redirect_uri': _redirect_uri(),
+        'scope':        ' '.join(HUBSPOT_SCOPES),
+        'state':        state,
+    })}"
     logger.info("HubSpot OAuth initiated (authenticated=%s)", current_user.is_authenticated)
     return redirect(auth_url)
 
@@ -235,8 +235,8 @@ def hubspot_oauth_callback():
     user = User.get(hub_email)
     if user:
         login_user(user, remember=True)
-        flash("Welcome to Omnisconn! Finish setting up your account below.", "success")
-        return redirect(url_for("auth.register") + f"?location_id={location_id}&hub=1")
+        flash("HubSpot connected! Choose a plan to activate your account.", "success")
+        return redirect("/checkout")
 
     flash("Account created. Please log in.", "success")
     return redirect(url_for("auth.login"))
@@ -280,10 +280,10 @@ def hubspot_oauth_deauthorize():
             cur.execute("""
                 UPDATE subscribers
                 SET crm_config = crm_config - 'access_token' - 'refresh_token'
-                                           || '{"disconnected_at": null}'::jsonb,
+                                           || %s::jsonb,
                     updated_at = NOW()
                 WHERE crm_config->>'hub_id' = %s
-            """, (hub_id,))
+            """, (json.dumps({"disconnected_at": int(time.time())}), hub_id))
             conn.commit()
             logger.info("HubSpot deauthorize: cleared tokens for hub_id=%s user_id=%s",
                         hub_id, user_id)

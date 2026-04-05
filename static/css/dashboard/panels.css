@@ -5392,6 +5392,9 @@ body.ghl-embed .main-wrapper {
     flex-shrink: 0;
 }
 
+/* Setup steps inside an hs-connect-card need breathing room from the install button */
+.hs-connect-card .vc-setup-steps { margin-top: 20px; }
+
 /* Light theme overrides */
 [data-theme="light"] .hs-connect-card {
     background: #fff;
