@@ -537,68 +537,194 @@
                     .ios-channel-select{-webkit-appearance:none;appearance:none;display:inline-flex;align-items:center;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);color:#8E8E93;padding:4px 8px;border-radius:10px;font-size:clamp(0.62rem, 0.52vw, 0.95rem);font-weight:600;outline:none;cursor:pointer;white-space:nowrap;line-height:1;height:auto;}
                     .ios-channel-note{font-size:clamp(0.56rem, 0.47vw, 0.85rem);color:#8E8E93;}
 
-                    /* ── Premium iMessage Composer ─────────────────────────── */
-                    /* Container */
-                    .ios-composer { flex-direction:column; gap:0; padding:0; background:#101010; border-top:1px solid rgba(255,255,255,0.07); }
+                    /* ═══ iMessage Composer (redesigned) ═══════════════════════════════════
+                       Layout:  [+]  [iMessage ..................  🎤 / ↑]
+                         · Left: 32px circular +, opens a menu with AI Reply, Quick Options,
+                           channel selector, and char/status meta. Rotates 45° when open.
+                         · Center: rounded-pill textarea. Grows vertically with content
+                           (max 120px). Mic/send button is inside the pill, bottom-right.
+                         · Right edge of pill: mic icon when empty (speech-to-text),
+                           swaps to a green send arrow when any character is typed.
+                         · Enter sends (Shift+Enter = newline). Works dark + light theme.
+                       ─────────────────────────────────────────────────────────────────── */
+                    .ios-composer {
+                        display:flex; flex-direction:column; flex-shrink:0;
+                        background:#000;
+                        border-top:1px solid rgba(255,255,255,0.07);
+                        padding:10px 12px 12px;
+                    }
+                    .ios-compose-row {
+                        display:flex; align-items:flex-end; gap:8px;
+                        position:relative;
+                    }
 
-                    /* Top action strip: [AI] [Quick] spacer [Via selector] */
-                    .ios-composer-toolbar { display:flex; align-items:center; gap:5px; padding:7px 10px 5px; overflow-x:auto; scrollbar-width:none; border-bottom:1px solid rgba(255,255,255,0.04); }
-                    .ios-composer-toolbar::-webkit-scrollbar { display:none; }
-
-                    /* AI Reply — gradient accent pill */
-                    .ios-toolbar-ai {
-                        display:inline-flex; align-items:center; gap:4px;
-                        background:linear-gradient(135deg,rgba(0,122,255,0.15),rgba(124,58,237,0.13));
-                        border:1px solid rgba(0,122,255,0.28); color:#60a5fa;
-                        border-radius:12px; padding:5px 11px;
-                        font-size:0.72rem; font-weight:700; cursor:pointer;
-                        transition:all .15s; white-space:nowrap; letter-spacing:0.02em;
+                    /* ── Plus button ──────────────────────────────────────────── */
+                    .ios-compose-plus {
                         flex-shrink:0;
+                        width:32px; height:32px; border-radius:50%;
+                        background:rgba(255,255,255,0.08);
+                        border:none; cursor:pointer;
+                        color:#60a5fa;
+                        display:flex; align-items:center; justify-content:center;
+                        font-size:0.95rem;
+                        transition:transform 220ms cubic-bezier(.2,.9,.3,1), background 160ms ease, color 160ms ease;
+                        margin-bottom:4px;
                     }
-                    .ios-toolbar-ai:hover { background:linear-gradient(135deg,rgba(0,122,255,0.25),rgba(124,58,237,0.20)); border-color:rgba(0,122,255,0.45); color:#93c5fd; }
-                    .ios-toolbar-ai i { font-size:0.72rem; }
+                    .ios-compose-plus:hover { background:rgba(0,122,255,0.18); color:#93c5fd; }
+                    .ios-compose-plus.is-active {
+                        transform:rotate(45deg);
+                        background:rgba(0,122,255,0.24);
+                        color:#fff;
+                    }
 
-                    /* Generic toolbar button (Quick Options etc) */
-                    .ios-toolbar-btn { display:inline-flex; align-items:center; gap:4px; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.09); color:#8E8E93; border-radius:12px; padding:5px 11px; font-size:0.72rem; font-weight:600; cursor:pointer; white-space:nowrap; transition:all .15s; flex-shrink:0; }
-                    .ios-toolbar-btn:hover { background:rgba(0,122,255,0.12); color:#007AFF; border-color:rgba(0,122,255,0.28); }
+                    /* ── Plus menu (dropup) ───────────────────────────────────── */
+                    .ios-plus-menu {
+                        position:absolute;
+                        bottom:calc(100% + 10px);
+                        left:0;
+                        min-width:232px;
+                        background:#1c1c1e;
+                        border:1px solid rgba(255,255,255,0.10);
+                        border-radius:14px;
+                        padding:6px;
+                        box-shadow:0 24px 60px rgba(0,0,0,0.6), 0 0 0 1px rgba(0,122,255,0.06);
+                        display:none;
+                        z-index:250;
+                        transform-origin:bottom left;
+                    }
+                    .ios-plus-menu.is-open {
+                        display:block;
+                        animation:iosPlusMenuIn 200ms cubic-bezier(.2,.9,.3,1);
+                    }
+                    @keyframes iosPlusMenuIn {
+                        from { opacity:0; transform:translateY(8px) scale(0.96); }
+                        to   { opacity:1; transform:translateY(0) scale(1); }
+                    }
+                    .ios-plus-menu button {
+                        display:flex; align-items:center; gap:11px;
+                        width:100%; padding:10px 12px;
+                        background:transparent; border:none;
+                        color:#f5f5f5;
+                        font-size:0.84rem; font-weight:500;
+                        text-align:left; cursor:pointer;
+                        border-radius:8px;
+                        transition:background 120ms ease, color 120ms ease;
+                    }
+                    .ios-plus-menu button:hover { background:rgba(0,122,255,0.14); color:#93c5fd; }
+                    .ios-plus-menu button i {
+                        width:18px; text-align:center;
+                        color:#8E8E93; font-size:0.88rem;
+                        transition:color 120ms ease;
+                    }
+                    .ios-plus-menu button:hover i { color:#93c5fd; }
 
-                    /* Input row: buttons + input + send */
-                    .ios-compose-row { display:flex; gap:6px; align-items:flex-end; padding:6px 8px 5px; }
+                    /* AI Reply gets the signature gradient treatment */
+                    .ios-plus-menu #dlrAiDraftBtn {
+                        background:linear-gradient(135deg,rgba(0,122,255,0.12),rgba(124,58,237,0.10));
+                        color:#93c5fd; font-weight:700;
+                    }
+                    .ios-plus-menu #dlrAiDraftBtn i { color:#93c5fd; }
+                    .ios-plus-menu #dlrAiDraftBtn:hover {
+                        background:linear-gradient(135deg,rgba(0,122,255,0.22),rgba(124,58,237,0.18));
+                        color:#cfd8ff;
+                    }
 
-                    /* Text input wrapper */
+                    .ios-plus-menu-divider {
+                        height:1px; background:rgba(255,255,255,0.08); margin:6px 10px;
+                    }
+                    .ios-plus-menu-channel {
+                        display:flex; align-items:center; justify-content:space-between;
+                        padding:10px 12px;
+                        font-size:0.74rem; color:#8E8E93;
+                        border-top:1px solid rgba(255,255,255,0.06);
+                        margin-top:4px;
+                    }
+                    .ios-plus-menu-channel select {
+                        background:rgba(255,255,255,0.06);
+                        border:1px solid rgba(255,255,255,0.12);
+                        border-radius:6px;
+                        padding:4px 10px;
+                        font-size:0.72rem; color:#f5f5f5;
+                        outline:none; cursor:pointer;
+                    }
+                    .ios-plus-menu-meta {
+                        display:flex; align-items:center; justify-content:space-between;
+                        padding:8px 12px 4px;
+                        font-size:0.66rem;
+                        color:#636366;
+                        font-family:'SF Mono',ui-monospace,'JetBrains Mono',monospace;
+                        border-top:1px solid rgba(255,255,255,0.06);
+                        margin-top:4px;
+                    }
+                    .ios-plus-menu-meta .ios-sms-status:empty { display:none; }
+
+                    /* ── Pill input wrap ──────────────────────────────────────── */
                     .ios-compose-input-wrap {
-                        flex:1; background:#1c1c1e; border:1px solid rgba(255,255,255,0.10);
-                        border-radius:18px; padding:3px 5px; transition:border-color 0.18s;
-                        min-width:0;
+                        flex:1; min-width:0;
+                        position:relative;
+                        background:#1c1c1e;
+                        border:1px solid rgba(255,255,255,0.12);
+                        border-radius:20px;
+                        padding:6px 40px 6px 14px;
+                        min-height:34px;
+                        display:flex; align-items:center;
+                        transition:border-color 160ms ease;
                     }
-                    .ios-compose-input-wrap:focus-within { border-color:rgba(0,122,255,0.45); }
+                    .ios-compose-input-wrap:focus-within { border-color:rgba(0,122,255,0.55); }
 
-                    /* Textarea */
                     .ios-compose-input {
-                        width:100%; background:transparent; border:none; color:#ffffff;
-                        padding:7px 10px;
-                        font-size:0.83rem; resize:none; outline:none; line-height:1.45;
-                        max-height:96px; overflow-y:auto;
-                        font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Helvetica Neue',sans-serif;
+                        width:100%;
+                        background:transparent;
+                        border:none; outline:none;
+                        color:#f5f5f5;
+                        font-size:0.9rem; line-height:1.4;
+                        resize:none;
+                        max-height:120px;
+                        font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Helvetica Neue','Inter',sans-serif;
+                        padding:2px 0;
                     }
                     .ios-compose-input::placeholder { color:#636366; }
 
-                    /* Send button */
-                    .ios-send-btn {
-                        width:32px; height:32px; border-radius:50%; background:#007AFF; border:none;
-                        color:#fff; cursor:pointer; display:flex; align-items:center; justify-content:center;
-                        flex-shrink:0; font-size:0.82rem; transition:background 0.15s, transform 0.10s, box-shadow 0.15s;
-                        margin-bottom:2px; box-shadow:0 2px 8px rgba(0,122,255,0.40);
+                    /* ── Mic / Send button (swap inside pill) ─────────────────── */
+                    .ios-compose-mic,
+                    .ios-compose-send {
+                        position:absolute;
+                        right:4px; bottom:4px;
+                        width:26px; height:26px;
+                        border-radius:50%; border:none;
+                        display:flex; align-items:center; justify-content:center;
+                        cursor:pointer;
+                        font-size:0.78rem;
+                        transition:all 180ms ease;
                     }
-                    .ios-send-btn:hover { background:#0A84FF; box-shadow:0 4px 14px rgba(0,122,255,0.55); }
-                    .ios-send-btn:active { transform:scale(0.88); }
-                    .ios-send-btn:disabled { opacity:0.30; cursor:not-allowed; transform:none; box-shadow:none; }
+                    .ios-compose-mic {
+                        background:transparent;
+                        color:#8E8E93;
+                    }
+                    .ios-compose-mic:hover { background:rgba(0,122,255,0.14); color:#60a5fa; }
+                    .ios-compose-mic.is-listening {
+                        background:#ef4444;
+                        color:#fff;
+                        animation:iosMicPulse 1.3s ease-in-out infinite;
+                    }
+                    @keyframes iosMicPulse {
+                        0%, 100% { box-shadow:0 0 0 0 rgba(239,68,68,0.55); }
+                        50%      { box-shadow:0 0 0 7px rgba(239,68,68,0); }
+                    }
 
-                    /* Footer: status + char count */
-                    .ios-compose-footer { display:flex; align-items:center; justify-content:space-between; padding:0 10px 5px; }
-                    .ios-sms-status { font-size:0.62rem; color:#636366; min-height:14px; }
-                    .ios-char-count { font-size:0.62rem; color:#636366; font-family:'SF Mono',ui-monospace,monospace; white-space:nowrap; }
-                    /* ── End Composer ──────────────────────────────────────── */
+                    .ios-compose-send {
+                        background:#00c853;              /* iMessage green */
+                        color:#fff;
+                        box-shadow:0 2px 10px rgba(0,200,83,0.35);
+                    }
+                    .ios-compose-send:hover { background:#00b34a; transform:scale(1.06); box-shadow:0 4px 14px rgba(0,200,83,0.55); }
+                    .ios-compose-send:active { transform:scale(0.92); }
+                    .ios-compose-send:disabled { opacity:0.35; cursor:not-allowed; transform:none; box-shadow:none; }
+
+                    /* Legacy char count / status — now lives inside the plus menu */
+                    .ios-sms-status { display:inline-block; }
+                    .ios-char-count { display:inline-block; }
+                    /* ═══ End composer ═════════════════════════════════════════════════ */
 
                     /* Call Log */
                     .ios-call-log-scroll{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;background:#000;}
@@ -830,21 +956,31 @@
                     body.light-theme .iphone-frame .ios-back-btn:hover { background: rgba(0,122,255,0.12) !important; }
                     body.light-theme .iphone-frame .ios-nav-subtitle { color: #636366 !important; }
                     body.light-theme .iphone-frame .ios-nav-action { color: #007AFF !important; }
-                    /* Light theme — Premium composer */
+                    /* Light theme — iMessage composer */
                     body.light-theme .iphone-frame .ios-composer { background: #f2f2f7 !important; border-top-color: rgba(0,0,0,0.09) !important; }
-                    body.light-theme .iphone-frame .ios-composer-toolbar { border-bottom-color: rgba(0,0,0,0.06) !important; }
-                    body.light-theme .iphone-frame .ios-compose-input-wrap { background: #ffffff !important; border-color: rgba(0,0,0,0.12) !important; box-shadow:0 1px 4px rgba(0,0,0,0.06); }
-                    body.light-theme .iphone-frame .ios-compose-input-wrap:focus-within { border-color: rgba(0,122,255,0.40) !important; }
+                    body.light-theme .iphone-frame .ios-compose-plus { background: rgba(0,0,0,0.06) !important; color: #007AFF !important; }
+                    body.light-theme .iphone-frame .ios-compose-plus:hover { background: rgba(0,122,255,0.14) !important; color: #0051d5 !important; }
+                    body.light-theme .iphone-frame .ios-compose-plus.is-active { background: #007AFF !important; color: #fff !important; }
+                    body.light-theme .iphone-frame .ios-plus-menu { background: #ffffff !important; border-color: rgba(0,0,0,0.10) !important; box-shadow: 0 24px 60px rgba(0,0,0,0.18) !important; }
+                    body.light-theme .iphone-frame .ios-plus-menu button { color: #1a1a2e !important; }
+                    body.light-theme .iphone-frame .ios-plus-menu button:hover { background: rgba(0,122,255,0.08) !important; color: #007AFF !important; }
+                    body.light-theme .iphone-frame .ios-plus-menu button i { color: #8E8E93 !important; }
+                    body.light-theme .iphone-frame .ios-plus-menu button:hover i { color: #007AFF !important; }
+                    body.light-theme .iphone-frame .ios-plus-menu #dlrAiDraftBtn { background: linear-gradient(135deg, rgba(0,122,255,0.10), rgba(124,58,237,0.08)) !important; color: #0051d5 !important; }
+                    body.light-theme .iphone-frame .ios-plus-menu #dlrAiDraftBtn i { color: #0051d5 !important; }
+                    body.light-theme .iphone-frame .ios-plus-menu #dlrAiDraftBtn:hover { background: linear-gradient(135deg, rgba(0,122,255,0.18), rgba(124,58,237,0.14)) !important; }
+                    body.light-theme .iphone-frame .ios-plus-menu-divider { background: rgba(0,0,0,0.08) !important; }
+                    body.light-theme .iphone-frame .ios-plus-menu-channel { color: #636366 !important; border-top-color: rgba(0,0,0,0.06) !important; }
+                    body.light-theme .iphone-frame .ios-plus-menu-channel select { background: rgba(0,0,0,0.04) !important; border-color: rgba(0,0,0,0.12) !important; color: #1a1a2e !important; }
+                    body.light-theme .iphone-frame .ios-plus-menu-meta { color: #8e8e93 !important; border-top-color: rgba(0,0,0,0.06) !important; }
+                    body.light-theme .iphone-frame .ios-compose-input-wrap { background: #ffffff !important; border-color: rgba(0,0,0,0.14) !important; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
+                    body.light-theme .iphone-frame .ios-compose-input-wrap:focus-within { border-color: rgba(0,122,255,0.45) !important; }
                     body.light-theme .iphone-frame .ios-compose-input { color: #1a1a2e !important; }
                     body.light-theme .iphone-frame .ios-compose-input::placeholder { color: #aeaeb2 !important; }
-                    body.light-theme .iphone-frame .ios-toolbar-btn { background: rgba(0,0,0,0.05) !important; border-color: rgba(0,0,0,0.09) !important; color: #636366 !important; }
-                    body.light-theme .iphone-frame .ios-toolbar-btn:hover { background: rgba(0,122,255,0.08) !important; color: #007AFF !important; border-color: rgba(0,122,255,0.22) !important; }
-                    body.light-theme .iphone-frame .ios-toolbar-ai { background: rgba(0,122,255,0.08) !important; border-color: rgba(0,122,255,0.22) !important; color: #007AFF !important; }
-                    body.light-theme .iphone-frame .ios-toolbar-ai:hover { background: rgba(0,122,255,0.14) !important; }
-                    body.light-theme .iphone-frame .ios-channel-select { background-color: rgba(0,0,0,0.04) !important; border-color: rgba(0,0,0,0.1) !important; color: #1a1a2e !important; }
-                    body.light-theme .iphone-frame .ios-channel-label { color: #636366 !important; }
-                    body.light-theme .iphone-frame .ios-char-count { color: #8e8e93 !important; }
-                    body.light-theme .iphone-frame .ios-sms-status { color: #636366 !important; }
+                    body.light-theme .iphone-frame .ios-compose-mic { color: #8E8E93 !important; }
+                    body.light-theme .iphone-frame .ios-compose-mic:hover { background: rgba(0,122,255,0.12) !important; color: #007AFF !important; }
+                    body.light-theme .iphone-frame .ios-compose-mic.is-listening { background: #ef4444 !important; color: #fff !important; }
+                    /* Send button stays iMessage green in both themes — on purpose */
                     body.light-theme .iphone-frame .ios-dynamic-island { background: #1a1a2e !important; }
                     body.light-theme .iphone-frame .ios-home-indicator { background: rgba(0,0,0,0.2) !important; }
 
@@ -1908,47 +2044,63 @@
                                                     <div class="ios-empty-sub">Select a contact to view conversation</div>
                                                 </div>
                                             </div>
+                                            <!-- iMessage-style composer: [+] [pill input .......... 🎤/↑] -->
                                             <div id="dlrSmsComposer" style="display:none;" class="ios-composer">
-                                                <div class="ios-compose-row" style="padding-top:6px;">
+                                                <div class="ios-compose-row">
+                                                    <!-- Plus button — opens menu with AI Reply, Quick Options, channel, char count -->
+                                                    <button type="button" id="dlrComposePlus" class="ios-compose-plus" onclick="dlrTogglePlusMenu(event)" title="AI, quick replies, options">
+                                                        <i class="fa-solid fa-plus"></i>
+                                                    </button>
+
+                                                    <!-- Plus menu — absolutely positioned above the + button -->
+                                                    <div id="dlrPlusMenu" class="ios-plus-menu">
+                                                        <button type="button" id="dlrAiDraftBtn" onclick="dlrAiSuggest();dlrClosePlusMenu();">
+                                                            <i class="fa-solid fa-robot"></i>
+                                                            <span id="dlrAiDraftLabel">AI Reply</span>
+                                                        </button>
+                                                        <div class="ios-plus-menu-divider"></div>
+                                                        <button type="button" onclick="dlrQuickOption('Following up — did you have a chance to review the options I sent over?');dlrClosePlusMenu();">
+                                                            <i class="fa-solid fa-reply"></i><span>Follow-up</span>
+                                                        </button>
+                                                        <button type="button" onclick="dlrQuickOption('Hi! I wanted to make sure you got everything you needed. Any questions?');dlrClosePlusMenu();">
+                                                            <i class="fa-solid fa-circle-check"></i><span>Check-in</span>
+                                                        </button>
+                                                        <button type="button" onclick="dlrQuickOption('Ready to go over your coverage options when you are — just reply here to get started.');dlrClosePlusMenu();">
+                                                            <i class="fa-solid fa-shield-halved"></i><span>Coverage</span>
+                                                        </button>
+                                                        <button type="button" onclick="dlrQuickOption('Are you available for a quick 10-minute call today or tomorrow?');dlrClosePlusMenu();">
+                                                            <i class="fa-solid fa-calendar"></i><span>Schedule</span>
+                                                        </button>
+                                                        <div id="dlrChannelRow" class="ios-plus-menu-channel" style="display:none;">
+                                                            <span>Send via</span>
+                                                            <select id="dlrChannelSelect" onchange="dlrOnChannelChange()">
+                                                                <option value="ghl">GHL</option>
+                                                            </select>
+                                                        </div>
+                                                        <div class="ios-plus-menu-meta">
+                                                            <span id="dlrSmsStatus" class="ios-sms-status"></span>
+                                                            <span id="dlrCharCount" class="ios-char-count">0 / 160</span>
+                                                        </div>
+                                                    </div>
+
+                                                    <!-- Pill input wrap with trailing mic/send swap button -->
                                                     <div class="ios-compose-input-wrap">
                                                         <textarea id="dlrSmsText"
                                                             placeholder="iMessage"
                                                             rows="1"
                                                             class="ios-compose-input"
-                                                            oninput="dlrAutoGrow(this);dlrUpdateCharCount(this.value)"
+                                                            oninput="dlrAutoGrow(this);dlrUpdateCharCount(this.value);dlrToggleSendMode(this.value)"
                                                             onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();dialerSendSms();}"
                                                         ></textarea>
-                                                    </div>
-                                                    <button onclick="dialerSendSms()" id="dlrSmsSendBtn" class="ios-send-btn" title="Send">
-                                                        <i class="fa-solid fa-arrow-up"></i>
-                                                    </button>
-                                                </div>
-                                                <div class="ios-composer-toolbar">
-                                                    <button id="dlrAiDraftBtn" onclick="dlrAiSuggest()" class="ios-toolbar-btn ios-toolbar-ai" title="Generate AI reply">
-                                                        <i class="fa-solid fa-robot"></i> <span id="dlrAiDraftLabel">AI Reply</span>
-                                                    </button>
-                                                    <div class="ios-quick-options-wrap" style="position:relative;">
-                                                        <button class="ios-toolbar-btn" onclick="dlrToggleQuickOptions(event)">
-                                                            <i class="fa-solid fa-ellipsis"></i> Quick Options
+                                                        <!-- Mic (idle) — speech-to-text dictation -->
+                                                        <button type="button" id="dlrComposeMic" class="ios-compose-mic" onclick="dlrToggleDictation()" title="Dictate (speech to text)">
+                                                            <i class="fa-solid fa-microphone"></i>
                                                         </button>
-                                                        <div id="dlrQuickOptionsMenu" class="ios-quick-options-menu">
-                                                            <button onclick="dlrQuickOption('Following up — did you have a chance to review the options I sent over?')"><i class="fa-solid fa-reply"></i> Follow-up</button>
-                                                            <button onclick="dlrQuickOption('Hi! I wanted to make sure you got everything you needed. Any questions?')"><i class="fa-solid fa-circle-check"></i> Check-in</button>
-                                                            <button onclick="dlrQuickOption('Ready to go over your coverage options when you are — just reply here to get started.')"><i class="fa-solid fa-shield-halved"></i> Coverage</button>
-                                                            <button onclick="dlrQuickOption('Are you available for a quick 10-minute call today or tomorrow?')"><i class="fa-solid fa-calendar"></i> Schedule</button>
-                                                        </div>
+                                                        <!-- Send (when text present) — matches mic footprint, green iMessage tint -->
+                                                        <button type="button" id="dlrSmsSendBtn" class="ios-compose-send" onclick="dialerSendSms()" style="display:none;" title="Send">
+                                                            <i class="fa-solid fa-arrow-up"></i>
+                                                        </button>
                                                     </div>
-                                                    <div id="dlrChannelRow" style="display:none;margin-left:auto;align-items:center;gap:4px;">
-                                                        <span class="ios-channel-label" style="font-size:0.6rem;">via</span>
-                                                        <select id="dlrChannelSelect" onchange="dlrOnChannelChange()" class="ios-channel-select" style="font-size:0.6rem;padding:2px 5px;">
-                                                            <option value="ghl">GHL</option>
-                                                        </select>
-                                                        <span id="dlrChannelNote" class="ios-channel-note"></span>
-                                                    </div>
-                                                </div>
-                                                <div class="ios-compose-footer">
-                                                    <div id="dlrSmsStatus" class="ios-sms-status"></div>
-                                                    <div id="dlrCharCount" class="ios-char-count">0 / 160</div>
                                                 </div>
                                             </div>
                                             <div class="ios-home-indicator-bar"><div class="ios-home-indicator ios-home-indicator-dark"></div></div>

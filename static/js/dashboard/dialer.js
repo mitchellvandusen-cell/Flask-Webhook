@@ -2806,9 +2806,9 @@
                 if (composer) composer.style.display = 'flex';
                 // Load available SMS channels (async, non-blocking)
                 dlrLoadChannels();
-                // Reset textarea
+                // Reset textarea + send-mode swap so the mic is visible on contact switch
                 const ta = document.getElementById('dlrSmsText');
-                if (ta) { ta.value = ''; ta.style.height = ''; dlrUpdateCharCount(''); }
+                if (ta) { ta.value = ''; ta.style.height = ''; dlrUpdateCharCount(''); dlrToggleSendMode(''); }
 
                 // Render contact-specific call history in calls tab
                 const callPanel = document.getElementById('dialerHistoryList');
@@ -2845,7 +2845,118 @@
         // ── SMS: textarea auto-grow ──
         function dlrAutoGrow(el) {
             el.style.height = 'auto';
-            el.style.height = Math.min(el.scrollHeight, 100) + 'px';
+            el.style.height = Math.min(el.scrollHeight, 120) + 'px';
+        }
+
+        // ── iMessage composer: swap mic ↔ send based on text presence ──
+        function dlrToggleSendMode(val) {
+            const mic  = document.getElementById('dlrComposeMic');
+            const send = document.getElementById('dlrSmsSendBtn');
+            if (!mic || !send) return;
+            const hasText = !!(val && String(val).trim());
+            mic.style.display  = hasText ? 'none' : 'flex';
+            send.style.display = hasText ? 'flex' : 'none';
+        }
+
+        // ── iMessage composer: plus-menu toggle ──
+        function dlrTogglePlusMenu(ev) {
+            if (ev) { ev.stopPropagation(); ev.preventDefault(); }
+            const menu = document.getElementById('dlrPlusMenu');
+            const btn  = document.getElementById('dlrComposePlus');
+            if (!menu || !btn) return;
+            const open = menu.classList.toggle('is-open');
+            btn.classList.toggle('is-active', open);
+        }
+        function dlrClosePlusMenu() {
+            const menu = document.getElementById('dlrPlusMenu');
+            const btn  = document.getElementById('dlrComposePlus');
+            if (menu) menu.classList.remove('is-open');
+            if (btn)  btn.classList.remove('is-active');
+        }
+        // Close plus menu when clicking outside it
+        document.addEventListener('click', function(e) {
+            const menu = document.getElementById('dlrPlusMenu');
+            if (!menu || !menu.classList.contains('is-open')) return;
+            if (e.target.closest('#dlrPlusMenu') || e.target.closest('#dlrComposePlus')) return;
+            dlrClosePlusMenu();
+        });
+        // Escape closes plus menu
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                const menu = document.getElementById('dlrPlusMenu');
+                if (menu && menu.classList.contains('is-open')) dlrClosePlusMenu();
+            }
+        });
+
+        // ── iMessage composer: speech-to-text dictation ──
+        // Uses the browser's Web Speech API (webkitSpeechRecognition on Chrome/Edge,
+        // SpeechRecognition on newer specs). Appends final transcripts to the existing
+        // composer text and shows interim results live while the user speaks.
+        let _dlrRecognition = null;
+        let _dlrDictating = false;
+        function dlrToggleDictation() {
+            const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+            if (!SR) {
+                if (typeof _showDashToast === 'function') {
+                    _showDashToast(false, 'Dictation requires Chrome or Edge');
+                } else {
+                    alert('Dictation requires Chrome or Edge.');
+                }
+                return;
+            }
+            const micBtn = document.getElementById('dlrComposeMic');
+            const textEl = document.getElementById('dlrSmsText');
+            if (!textEl) return;
+
+            // Second tap stops dictation
+            if (_dlrDictating) {
+                try { _dlrRecognition && _dlrRecognition.stop(); } catch (e) {}
+                return;
+            }
+
+            // Base text to preserve anything the user already typed
+            const base = textEl.value ? (textEl.value.replace(/\s+$/, '') + ' ') : '';
+            let finalTranscript = '';
+
+            _dlrRecognition = new SR();
+            _dlrRecognition.continuous = true;
+            _dlrRecognition.interimResults = true;
+            _dlrRecognition.lang = navigator.language || 'en-US';
+
+            _dlrRecognition.onresult = function (ev) {
+                let interim = '';
+                for (let i = ev.resultIndex; i < ev.results.length; i++) {
+                    const t = ev.results[i][0].transcript;
+                    if (ev.results[i].isFinal) finalTranscript += t + ' ';
+                    else interim += t;
+                }
+                textEl.value = (base + finalTranscript + interim).trimEnd();
+                dlrAutoGrow(textEl);
+                dlrUpdateCharCount(textEl.value);
+                dlrToggleSendMode(textEl.value);
+            };
+            _dlrRecognition.onerror = function (ev) {
+                console.warn('[dictation] error:', ev.error);
+                _dlrDictating = false;
+                if (micBtn) micBtn.classList.remove('is-listening');
+                if (ev.error === 'not-allowed' && typeof _showDashToast === 'function') {
+                    _showDashToast(false, 'Microphone blocked — allow it in the address bar');
+                }
+            };
+            _dlrRecognition.onend = function () {
+                _dlrDictating = false;
+                if (micBtn) micBtn.classList.remove('is-listening');
+            };
+
+            try {
+                _dlrRecognition.start();
+                _dlrDictating = true;
+                if (micBtn) micBtn.classList.add('is-listening');
+                textEl.focus();
+            } catch (e) {
+                console.error('[dictation] start failed:', e);
+                _dlrDictating = false;
+            }
         }
 
         // ── SMS: character counter with segment math ──
@@ -2871,6 +2982,7 @@
             ta.focus();
             dlrAutoGrow(ta);
             dlrUpdateCharCount(text);
+            dlrToggleSendMode(text);
         }
 
         // ── Quick Options popup menu (portaled to body to escape overflow:hidden) ──
@@ -2952,7 +3064,7 @@
                 const data = await resp.json();
                 const draft = (data.suggestion || data.reply || '').trim();
                 if (!draft) throw new Error('Empty AI response');
-                if (ta) { ta.value = draft; ta.focus(); dlrAutoGrow(ta); dlrUpdateCharCount(draft); }
+                if (ta) { ta.value = draft; ta.focus(); dlrAutoGrow(ta); dlrUpdateCharCount(draft); dlrToggleSendMode(draft); }
             } catch(e) {
                 console.error('AI suggest failed:', e);
                 const statusEl = document.getElementById('dlrSmsStatus');
@@ -3074,6 +3186,7 @@
             textEl.value = '';
             textEl.style.height = '';
             dlrUpdateCharCount('');
+            dlrToggleSendMode('');
 
             _smsSending = true;
             if (sendBtn) { sendBtn.disabled = true; sendBtn.style.opacity = '0.5'; }
@@ -3104,6 +3217,7 @@
                     textEl.value = msg;
                     dlrAutoGrow(textEl);
                     dlrUpdateCharCount(msg);
+                    dlrToggleSendMode(msg);
                 }
             } catch(e) {
                 _dlrMarkBubbleError(pendingId);
@@ -6853,7 +6967,7 @@
                     if (msgPanel) { msgPanel.innerHTML = _dlrRenderThread(d.messages || []); msgPanel.scrollTop = msgPanel.scrollHeight; }
                     if (composer) { composer.style.display = 'flex'; }
                     const ta = document.getElementById('dlrSmsText');
-                    if (ta) { ta.value = ''; ta.style.height = ''; dlrUpdateCharCount(''); }
+                    if (ta) { ta.value = ''; ta.style.height = ''; dlrUpdateCharCount(''); dlrToggleSendMode(''); }
                 })
                 .catch(() => { if (msgPanel) msgPanel.innerHTML = '<div style="color:#888;padding:24px;text-align:center;font-size:.82rem;">Could not load messages</div>'; });
         }
