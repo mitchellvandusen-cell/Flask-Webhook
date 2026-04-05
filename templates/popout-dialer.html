@@ -1,0 +1,383 @@
+{# popout-dialer.html — Standalone top-level dialer window (full feature parity).
+
+   Exists to sidestep GHL's parent-frame Permissions-Policy microphone block.
+   A window.open() target is a new top-level browsing context, so our server's
+   Permissions-Policy: microphone=* is the only policy that applies and
+   getUserMedia succeeds unconditionally.
+
+   Feature surface:
+     · Twilio Voice Device (mic, outbound connect, inbound bridge accept)
+     · Luxury state-color cascade: idle/dialing/ringing/connected/hold/ending/error
+     · Queue drawer (streamed from iframe over BroadcastChannel)
+     · AI intelligence drawer (fetched from /voice/contact-intelligence-bulk)
+     · Notes drawer (persists via /voice/call-disposition notes field)
+     · Session call history drawer (from /voice/call-history)
+     · Audio device picker (mic + speaker, persisted to localStorage)
+     · Transfer modal wired to /voice/transfer
+     · Disposition grid wired to /voice/call-disposition
+     · Incoming call ring overlay with Accept/Decline
+     · Keyboard shortcuts (M/H/Space/Esc/1-9)
+     · Session stats footer (calls/connected/talk time)
+     · Google Meet quick-launch
+     · Recording indicator (auto-shown during connected state)
+#}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+    <title>Omnisconn Dialer</title>
+
+    <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800;900&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="stylesheet" href="/static/css/popout-dialer.css?v={{ static_version if static_version else '2' }}">
+</head>
+<body class="pop-state-idle"
+      data-display-name="{{ display_name }}"
+      data-location-id="{{ location_id }}"
+      data-bot-name="{{ bot_name }}">
+
+    <!-- Top state bar (full-width, colorizes with call state) -->
+    <div class="pop-state-bar" aria-hidden="true"></div>
+
+    <!-- ═══ Header ═══ -->
+    <header class="pop-header">
+        <div class="pop-brand">
+            <span class="pop-brand-mark"></span>
+            <span class="pop-brand-text">OMNISCONN <em>DIALER</em></span>
+        </div>
+        <div class="pop-header-meta">
+            <span class="pop-sync-dot" id="popSyncDot" title="Bridge to main window"></span>
+            <span class="pop-sync-label" id="popSyncLabel">LINKED</span>
+            <button type="button" class="pop-header-btn" id="popSettingsBtn" title="Audio devices">
+                <i class="fa-solid fa-sliders"></i>
+            </button>
+        </div>
+    </header>
+
+    <!-- ═══ Live call card ═══ -->
+    <section class="pop-call-card">
+        <div class="pop-call-status-row">
+            <span class="pop-status-pill" id="popStatusPill">
+                <span class="pop-status-glyph"></span>
+                <span id="popStatusText">READY</span>
+            </span>
+            <div class="pop-status-right">
+                <span class="pop-rec-indicator" id="popRecIndicator" title="Recording" hidden>
+                    <span class="pop-rec-dot"></span>
+                    REC
+                </span>
+                <span class="pop-timer" id="popTimer">00:00</span>
+            </div>
+        </div>
+
+        <div class="pop-contact">
+            <div class="pop-contact-avatar" id="popContactAvatar">?</div>
+            <div class="pop-contact-info">
+                <div class="pop-contact-name" id="popContactName">No active call</div>
+                <div class="pop-contact-phone" id="popContactPhone">—</div>
+            </div>
+            <div class="pop-contact-temp hidden" id="popContactTemp">
+                <i class="fa-solid fa-fire"></i>
+                <span id="popContactTempLabel">HOT</span>
+                <span class="pop-contact-score" id="popContactScore"></span>
+            </div>
+        </div>
+
+        <!-- Manual dial (idle) -->
+        <div class="pop-manual-dial" id="popManualDial">
+            <input type="tel" id="popManualPhone" placeholder="+1 (555) 555-0100" inputmode="tel" autocomplete="off">
+            <button type="button" class="pop-btn pop-btn-primary" id="popManualDialBtn" aria-label="Start call">
+                <i class="fa-solid fa-phone"></i>
+                <span>CALL</span>
+            </button>
+        </div>
+
+        <!-- Call controls (active) -->
+        <div class="pop-controls" id="popControls" hidden>
+            <button type="button" class="pop-ctrl" id="popMuteBtn" title="Mute microphone (M)" aria-pressed="false">
+                <i class="fa-solid fa-microphone"></i>
+                <span>MUTE</span>
+            </button>
+            <button type="button" class="pop-ctrl" id="popHoldBtn" title="Hold (Space)" aria-pressed="false">
+                <i class="fa-solid fa-pause"></i>
+                <span>HOLD</span>
+            </button>
+            <button type="button" class="pop-ctrl" id="popKeypadBtn" title="DTMF keypad (K)" aria-pressed="false">
+                <i class="fa-solid fa-grip"></i>
+                <span>KEYS</span>
+            </button>
+            <button type="button" class="pop-ctrl" id="popTransferBtn" title="Transfer call (T)">
+                <i class="fa-solid fa-arrow-right-arrow-left"></i>
+                <span>XFER</span>
+            </button>
+            <button type="button" class="pop-ctrl pop-ctrl-vm" id="popVoicemailBtn" title="Drop voicemail + hang up (V)">
+                <i class="fa-solid fa-voicemail"></i>
+                <span>VMAIL</span>
+            </button>
+            <button type="button" class="pop-ctrl" id="popMeetBtn" title="Start Google Meet">
+                <i class="fa-solid fa-video"></i>
+                <span>MEET</span>
+            </button>
+            <button type="button" class="pop-ctrl pop-ctrl-danger" id="popHangupBtn" title="End call (H)">
+                <i class="fa-solid fa-phone-slash"></i>
+                <span>END</span>
+            </button>
+        </div>
+
+        <!-- DTMF keypad -->
+        <div class="pop-keypad" id="popKeypad" hidden>
+            <button type="button" class="pop-key" data-dtmf="1">1</button>
+            <button type="button" class="pop-key" data-dtmf="2">2<small>ABC</small></button>
+            <button type="button" class="pop-key" data-dtmf="3">3<small>DEF</small></button>
+            <button type="button" class="pop-key" data-dtmf="4">4<small>GHI</small></button>
+            <button type="button" class="pop-key" data-dtmf="5">5<small>JKL</small></button>
+            <button type="button" class="pop-key" data-dtmf="6">6<small>MNO</small></button>
+            <button type="button" class="pop-key" data-dtmf="7">7<small>PQRS</small></button>
+            <button type="button" class="pop-key" data-dtmf="8">8<small>TUV</small></button>
+            <button type="button" class="pop-key" data-dtmf="9">9<small>WXYZ</small></button>
+            <button type="button" class="pop-key" data-dtmf="*">*</button>
+            <button type="button" class="pop-key" data-dtmf="0">0<small>+</small></button>
+            <button type="button" class="pop-key" data-dtmf="#">#</button>
+        </div>
+    </section>
+
+    <!-- ═══ Intelligence drawer ═══ -->
+    <section class="pop-drawer" id="popIntelDrawer" hidden>
+        <button type="button" class="pop-drawer-toggle" id="popIntelToggle" aria-expanded="true">
+            <span class="pop-drawer-label">
+                <i class="fa-solid fa-brain"></i>
+                INTELLIGENCE
+                <span class="pop-intel-badge" id="popIntelBadge"></span>
+            </span>
+            <i class="fa-solid fa-chevron-down pop-drawer-caret"></i>
+        </button>
+        <div class="pop-drawer-body is-open" id="popIntelBody">
+            <div class="pop-intel-loading" id="popIntelLoading">
+                <i class="fa-solid fa-circle-notch fa-spin"></i>
+                <span>Loading intelligence…</span>
+            </div>
+            <div class="pop-intel-empty hidden" id="popIntelEmpty">
+                <i class="fa-solid fa-circle-info"></i>
+                <span>No AI intelligence available for this contact yet.</span>
+            </div>
+            <div class="pop-intel-card hidden" id="popIntelCard">
+                <div class="pop-intel-header">
+                    <div class="pop-intel-score-ring">
+                        <svg viewBox="0 0 42 42">
+                            <circle class="pop-ring-bg" cx="21" cy="21" r="18"/>
+                            <circle class="pop-ring-fg" cx="21" cy="21" r="18" id="popIntelRing"/>
+                        </svg>
+                        <span class="pop-intel-score" id="popIntelScoreNum">—</span>
+                    </div>
+                    <div class="pop-intel-head-meta">
+                        <div class="pop-intel-temp-label" id="popIntelTempLabel">—</div>
+                        <div class="pop-intel-temp-reason" id="popIntelTempReason">—</div>
+                    </div>
+                </div>
+                <p class="pop-intel-summary" id="popIntelSummary">—</p>
+                <div class="pop-intel-actions" id="popIntelActions"></div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ═══ Queue drawer ═══ -->
+    <section class="pop-drawer" id="popQueueDrawer">
+        <button type="button" class="pop-drawer-toggle" id="popQueueToggle" aria-expanded="false">
+            <span class="pop-drawer-label">
+                <i class="fa-solid fa-list-ol"></i>
+                QUEUE
+                <span class="pop-drawer-count" id="popQueueCount">0</span>
+            </span>
+            <i class="fa-solid fa-chevron-down pop-drawer-caret"></i>
+        </button>
+        <div class="pop-drawer-body" id="popQueueBody">
+            <div class="pop-queue-toolbar">
+                <input type="search" id="popQueueSearch" placeholder="Search queue…" autocomplete="off">
+                <button type="button" class="pop-queue-cmd" id="popQueueStart" title="Start queue">
+                    <i class="fa-solid fa-play"></i>
+                </button>
+                <button type="button" class="pop-queue-cmd" id="popQueueStop" title="Stop queue" disabled>
+                    <i class="fa-solid fa-stop"></i>
+                </button>
+                <button type="button" class="pop-queue-cmd" id="popQueueSkip" title="Skip to next">
+                    <i class="fa-solid fa-forward-step"></i>
+                </button>
+            </div>
+            <div class="pop-empty" id="popQueueEmpty">
+                <i class="fa-solid fa-inbox"></i>
+                <span>No contacts queued. Load a queue in the main dashboard and it will appear here.</span>
+            </div>
+            <ul class="pop-queue-list" id="popQueueList"></ul>
+        </div>
+    </section>
+
+    <!-- ═══ Notes drawer ═══ -->
+    <section class="pop-drawer" id="popNotesDrawer">
+        <button type="button" class="pop-drawer-toggle" id="popNotesToggle" aria-expanded="false">
+            <span class="pop-drawer-label">
+                <i class="fa-solid fa-note-sticky"></i>
+                NOTES
+                <span class="pop-notes-indicator" id="popNotesIndicator" hidden></span>
+            </span>
+            <i class="fa-solid fa-chevron-down pop-drawer-caret"></i>
+        </button>
+        <div class="pop-drawer-body" id="popNotesBody">
+            <textarea id="popNotesArea" class="pop-notes-area" placeholder="Live notes during the call…"></textarea>
+            <div class="pop-notes-foot">
+                <span class="pop-notes-auto" id="popNotesAuto">Auto-saved with disposition</span>
+                <button type="button" class="pop-btn-mini" id="popNotesClear">CLEAR</button>
+            </div>
+        </div>
+    </section>
+
+    <!-- ═══ Recent calls drawer ═══ -->
+    <section class="pop-drawer" id="popHistoryDrawer">
+        <button type="button" class="pop-drawer-toggle" id="popHistoryToggle" aria-expanded="false">
+            <span class="pop-drawer-label">
+                <i class="fa-solid fa-clock-rotate-left"></i>
+                RECENT CALLS
+            </span>
+            <i class="fa-solid fa-chevron-down pop-drawer-caret"></i>
+        </button>
+        <div class="pop-drawer-body" id="popHistoryBody">
+            <div class="pop-empty" id="popHistoryEmpty">
+                <i class="fa-solid fa-phone-slash"></i>
+                <span>No calls yet this session.</span>
+            </div>
+            <ul class="pop-history-list" id="popHistoryList"></ul>
+        </div>
+    </section>
+
+    <!-- ═══ Disposition drawer (appears after a call ends) ═══ -->
+    <section class="pop-drawer pop-drawer-disp hidden" id="popDispDrawer">
+        <div class="pop-drawer-toggle" aria-expanded="true">
+            <span class="pop-drawer-label">
+                <i class="fa-solid fa-clipboard-check"></i>
+                DISPOSITION
+            </span>
+            <span class="pop-disp-skip" id="popDispSkip">Skip</span>
+        </div>
+        <div class="pop-drawer-body is-open">
+            <div class="pop-disp-grid">
+                <button type="button" class="pop-disp-btn" data-disp="connected"><i class="fa-solid fa-check"></i>Connected</button>
+                <button type="button" class="pop-disp-btn" data-disp="voicemail"><i class="fa-solid fa-voicemail"></i>Voicemail</button>
+                <button type="button" class="pop-disp-btn" data-disp="no_answer"><i class="fa-solid fa-phone-slash"></i>No Answer</button>
+                <button type="button" class="pop-disp-btn" data-disp="callback"><i class="fa-solid fa-clock-rotate-left"></i>Callback</button>
+                <button type="button" class="pop-disp-btn" data-disp="not_interested"><i class="fa-solid fa-ban"></i>Not Interested</button>
+                <button type="button" class="pop-disp-btn" data-disp="booked"><i class="fa-solid fa-calendar-check"></i>Booked</button>
+                <button type="button" class="pop-disp-btn" data-disp="wrong_number"><i class="fa-solid fa-circle-question"></i>Wrong #</button>
+                <button type="button" class="pop-disp-btn" data-disp="dnc"><i class="fa-solid fa-shield"></i>DNC</button>
+            </div>
+        </div>
+    </section>
+
+    <!-- ═══ Footer ═══ -->
+    <footer class="pop-footer">
+        <div class="pop-footer-left">
+            <span class="pop-device-dot" id="popDeviceDot"></span>
+            <span id="popDeviceLabel">Initializing voice…</span>
+        </div>
+        <div class="pop-footer-stats" id="popFooterStats">
+            <span class="pop-stat" title="Calls this session"><i class="fa-solid fa-phone-volume"></i><span id="popStatCalls">0</span></span>
+            <span class="pop-stat" title="Connected"><i class="fa-solid fa-check"></i><span id="popStatConnected">0</span></span>
+            <span class="pop-stat" title="Talk time"><i class="fa-solid fa-stopwatch"></i><span id="popStatTalk">00:00</span></span>
+        </div>
+    </footer>
+
+    <!-- ═══ Transfer modal ═══ -->
+    <div class="pop-modal hidden" id="popTransferModal" role="dialog" aria-label="Transfer call" aria-modal="true">
+        <div class="pop-modal-backdrop" data-close-modal></div>
+        <div class="pop-modal-card">
+            <div class="pop-modal-head">
+                <span>TRANSFER CALL</span>
+                <button type="button" class="pop-modal-close" data-close-modal aria-label="Close">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            <div class="pop-modal-body">
+                <label class="pop-modal-label" for="popTransferPhone">Transfer to number</label>
+                <input type="tel" id="popTransferPhone" class="pop-modal-input" placeholder="+1 (555) 555-0100" inputmode="tel">
+                <div class="pop-modal-recents" id="popTransferRecents"></div>
+            </div>
+            <div class="pop-modal-foot">
+                <button type="button" class="pop-btn" data-close-modal>CANCEL</button>
+                <button type="button" class="pop-btn pop-btn-primary" id="popTransferConfirm">
+                    <i class="fa-solid fa-arrow-right-arrow-left"></i>
+                    <span>TRANSFER</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══ Settings modal (audio devices) ═══ -->
+    <div class="pop-modal hidden" id="popSettingsModal" role="dialog" aria-label="Audio settings" aria-modal="true">
+        <div class="pop-modal-backdrop" data-close-modal></div>
+        <div class="pop-modal-card">
+            <div class="pop-modal-head">
+                <span>AUDIO DEVICES</span>
+                <button type="button" class="pop-modal-close" data-close-modal aria-label="Close">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            <div class="pop-modal-body">
+                <label class="pop-modal-label" for="popInputDevice">Microphone</label>
+                <select id="popInputDevice" class="pop-modal-select"></select>
+
+                <label class="pop-modal-label" for="popOutputDevice">Speaker</label>
+                <select id="popOutputDevice" class="pop-modal-select"></select>
+
+                <button type="button" class="pop-btn pop-btn-ghost" id="popTestTone" style="margin-top:12px;width:100%">
+                    <i class="fa-solid fa-volume-high"></i>
+                    <span>TEST TONE</span>
+                </button>
+
+                <div class="pop-shortcuts-box">
+                    <div class="pop-shortcuts-title">KEYBOARD SHORTCUTS</div>
+                    <div class="pop-shortcuts-row"><kbd>M</kbd><span>Mute / unmute</span></div>
+                    <div class="pop-shortcuts-row"><kbd>H</kbd><span>Hang up</span></div>
+                    <div class="pop-shortcuts-row"><kbd>Space</kbd><span>Hold / resume</span></div>
+                    <div class="pop-shortcuts-row"><kbd>K</kbd><span>Toggle keypad</span></div>
+                    <div class="pop-shortcuts-row"><kbd>T</kbd><span>Transfer</span></div>
+                    <div class="pop-shortcuts-row"><kbd>V</kbd><span>Drop voicemail + hang up</span></div>
+                    <div class="pop-shortcuts-row"><kbd>1</kbd>–<kbd>9</kbd><span>Dial queue slot</span></div>
+                    <div class="pop-shortcuts-row"><kbd>Esc</kbd><span>Close modal / keypad</span></div>
+                </div>
+            </div>
+            <div class="pop-modal-foot">
+                <button type="button" class="pop-btn pop-btn-primary" data-close-modal style="width:100%">DONE</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══ Incoming call ring overlay ═══ -->
+    <div class="pop-incoming hidden" id="popIncoming" aria-live="assertive">
+        <div class="pop-incoming-inner">
+            <div class="pop-incoming-rings" aria-hidden="true">
+                <span></span><span></span><span></span>
+            </div>
+            <div class="pop-incoming-avatar" id="popIncomingAvatar">?</div>
+            <div class="pop-incoming-label">INCOMING CALL</div>
+            <div class="pop-incoming-name" id="popIncomingName">Unknown</div>
+            <div class="pop-incoming-phone" id="popIncomingPhone">—</div>
+            <div class="pop-incoming-actions">
+                <button type="button" class="pop-incoming-btn pop-incoming-decline" id="popIncomingDecline">
+                    <i class="fa-solid fa-phone-slash"></i>
+                    <span>DECLINE</span>
+                </button>
+                <button type="button" class="pop-incoming-btn pop-incoming-accept" id="popIncomingAccept">
+                    <i class="fa-solid fa-phone"></i>
+                    <span>ACCEPT</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══ Toasts ═══ -->
+    <div class="pop-toast-stack" id="popToastStack" aria-live="polite"></div>
+
+    <script src="/static/js/twilio-voice-sdk-2.18.0.min.js"></script>
+    <script src="/static/js/popout-dialer.js?v={{ static_version if static_version else '2' }}"></script>
+</body>
+</html>

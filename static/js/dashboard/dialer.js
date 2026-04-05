@@ -1488,9 +1488,6 @@
             dialerLoadAllCallHistory();
         };
 
-        // Keep old toggleDialerRecsFilter for backward compat
-        window.toggleDialerRecsFilter = window.toggleDialerCallsFilter;
-
         async function dialerFetchContacts(forceRefresh) {
             // Reset intel column to hidden state when reloading contacts
             const _ic = document.getElementById('dlrColIntel');
@@ -1941,25 +1938,28 @@
             list.innerHTML = html;
         }
 
-        // ── Select contact → load detail + messages + contact-specific calls/recordings ──
+        // ── Select contact → load detail + messages + contact-specific calls ──
         function dialerSelectContact(id) {
             const c = dialerContacts.find(x => x.id === id);
             if (!c) return;
             dialerActiveContact = c;
             _dialerCallHistoryShowAll = false;
-            _dialerRecordingsShowAll = false;
-            // Show middle intel column when a contact is selected (unless user manually hid it)
+            // Always open the middle intel column when a contact is selected.
+            // Clicking a contact is an intent signal — the whole point is to
+            // view that contact's details. Previously this respected a
+            // `dlr_intel_col_hidden` localStorage flag, which caused the panel
+            // to stay hidden forever after one hide-button press.
             const intelCol = document.getElementById('dlrColIntel');
-            if (intelCol && localStorage.getItem('dlr_intel_col_hidden') !== '1') {
+            if (intelCol) {
                 intelCol.classList.remove('dlr-col-intel-hidden');
                 intelCol.classList.add('dlr-col-intel-visible');
+                try { localStorage.removeItem('dlr_intel_col_hidden'); } catch (e) {}
             }
             dialerRenderContacts(); // highlight active
             dialerLoadContactDetail(c.id);
             dialerLoadContactMessages(c.id);
-            // Reload calls/recordings filtered to this contact
+            // Reload calls filtered to this contact
             dialerLoadAllCallHistory();
-            dialerLoadRecordings();
             // Fetch merged GHL + local call count and update badge
             dialerFetchMergedCallCount(c.id);
             // Auto-scroll contact list to active row
@@ -1991,12 +1991,17 @@
             // Update active contact and reload panels
             dialerActiveContact = c;
             _dialerCallHistoryShowAll = false;
-            _dialerRecordingsShowAll = false;
+            // Always re-open the intel column (same rationale as dialerSelectContact)
+            const intelCol = document.getElementById('dlrColIntel');
+            if (intelCol) {
+                intelCol.classList.remove('dlr-col-intel-hidden');
+                intelCol.classList.add('dlr-col-intel-visible');
+                try { localStorage.removeItem('dlr_intel_col_hidden'); } catch (e) {}
+            }
             dialerRenderContacts();
             dialerLoadContactDetail(c.id);
             dialerLoadContactMessages(c.id);
             dialerLoadAllCallHistory();
-            dialerLoadRecordings();
             dialerFetchMergedCallCount(c.id);
 
             // Visual flash on the contact row + detail panel
@@ -2781,7 +2786,12 @@
             const composer = document.getElementById('dlrSmsComposer');
             if (!msgPanel) return;
             msgPanel.innerHTML = '<div style="text-align:center;padding:30px;"><i class="fa-solid fa-spinner fa-spin" style="color:#00ff88;"></i></div>';
-            if (composer) composer.style.display = 'none';
+            // Show the composer immediately — not after the fetch. Previously we
+            // set it to `display: block` only after a successful fetch, so any
+            // render error or slow load left the user with no reply input. Also
+            // `block` ignores `.ios-composer { flex-direction: column }` and
+            // caused zero-height layout in some browsers. `flex` matches the CSS.
+            if (composer) composer.style.display = 'flex';
             try {
                 const r = await _fetchRetry('/voice/contact/' + contactId + '/messages', {}, { retries: 1, timeout: 15000, label: 'messages' });
                 if (!r.ok) { msgPanel.innerHTML = '<div style="color:#888;padding:24px;text-align:center;font-size:.82rem;">Could not load messages</div>'; return; }
@@ -2792,8 +2802,8 @@
                 msgPanel.innerHTML = _dlrRenderThread(msgs);
                 msgPanel.scrollTop = msgPanel.scrollHeight;
 
-                // Show composer
-                if (composer) composer.style.display = 'block';
+                // (composer was already shown above — belt-and-suspenders)
+                if (composer) composer.style.display = 'flex';
                 // Load available SMS channels (async, non-blocking)
                 dlrLoadChannels();
                 // Reset textarea
@@ -4387,26 +4397,13 @@
             }
         }
 
-        // ── Call History / Recordings scope (contact-specific vs all) ──
+        // ── Call History scope (contact-specific vs all) ──
         let _dialerCallHistoryShowAll = false;
-        let _dialerRecordingsShowAll = false;
 
         function dialerToggleCallHistoryScope() {
             _dialerCallHistoryShowAll = !_dialerCallHistoryShowAll;
             dialerLoadAllCallHistory();
         }
-        function dialerToggleRecordingsScope() {
-            _dialerRecordingsShowAll = !_dialerRecordingsShowAll;
-            dialerLoadRecordings();
-        }
-
-        window.toggleDialerRecsFilter = function() {
-            const panel = document.getElementById('dialerRecsFilterPanel');
-            const btn = document.getElementById('dialerRecsFilterBtn');
-            if (!panel) return;
-            const isOpen = panel.classList.toggle('open');
-            if (btn) btn.classList.toggle('active', isOpen);
-        };
 
         // ── Load Call History (filtered to active contact unless "View All") ──
         async function dialerLoadAllCallHistory() {
@@ -4591,71 +4588,15 @@
             if (c) dialerSelectContact(contactId);
         }
 
-        // ── Load Recordings (filtered to active contact unless "View All") ──
-        async function dialerLoadRecordings() {
-            const panel = document.getElementById('dialerRecordingsList');
-            const label = document.getElementById('dialerRecordingsLabel');
-            const viewBtn = document.getElementById('dialerRecsViewAllBtn');
-            panel.innerHTML = '<div style="text-align:center;padding:20px;"><i class="fa-solid fa-spinner fa-spin" style="color:#00ff88;"></i></div>';
-
-            const filterContact = (!_dialerRecordingsShowAll && dialerActiveContact) ? dialerActiveContact : null;
-
-            // Get filter values from the phone UI controls
-            const sortBy = document.getElementById('dialerRecsSortBy')?.value || 'created_at';
-            const minutesFilter = document.getElementById('dialerRecsMinutesFilter')?.value || '';
-            const lengthFilter = document.getElementById('dialerRecsLengthFilter')?.value || '';
-
-            if (label) label.textContent = filterContact ? (dialerActiveContact.firstName || dialerActiveContact.name) + "'s Recordings" : 'All Recordings';
-            if (viewBtn) {
-                viewBtn.textContent = filterContact ? 'View All' : (dialerActiveContact ? (dialerActiveContact.firstName || dialerActiveContact.name) + ' Only' : 'View All');
-                viewBtn.style.display = dialerActiveContact ? 'inline-block' : 'none';
-            }
-
-            try {
-                let url = '/voice/call-history?limit=100&sort=' + sortBy;
-                if (minutesFilter) url += '&minutes_filter=' + minutesFilter;
-                if (lengthFilter) url += '&length_filter=' + lengthFilter;
-                const r = await _fetchRetry(url, {}, { retries: 1, timeout: 15000, label: 'call-history' });
-                if (!r.ok) { panel.innerHTML = '<div style="color:#888;padding:16px;text-align:center;font-size:.88rem;">Failed to load</div>'; return; }
-                const d = await r.json();
-                let recordings = (d.calls || []).filter(c => c.recording_url);
-                // Filter by contact if scoped
-                if (filterContact) {
-                    recordings = recordings.filter(c => c.contact_id === filterContact.id || c.phone === filterContact.phone);
-                }
-                if (!recordings.length) {
-                    panel.innerHTML = '<div style="text-align:center;padding:20px;color:#555;font-size:.92rem;"><i class="fa-solid fa-record-vinyl" style="font-size:1.3rem;color:#333;margin-bottom:6px;display:block;"></i>' +
-                        (filterContact ? 'No recordings for ' + dialerEsc(filterContact.name) : 'No recordings yet') + '</div>';
-                    return;
-                }
-                panel.innerHTML = recordings.map(c => {
-                    const dur = c.duration ? Math.floor(c.duration/60) + ':' + String(c.duration%60).padStart(2,'0') : '--:--';
-                    const dt = c.created_at ? new Date(c.created_at).toLocaleString([], {month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}) : '';
-                    const hasTx = c.transcript && c.transcript.length > 0;
-                    const sid = dialerEsc(c.call_sid || '');
-                    const recUrl = dialerEsc(c.recording_url);
-                    const dirIcon = (c.direction||'outbound') === 'inbound' ? '<i class="fa-solid fa-phone-arrow-down-left" style="font-size:.65rem;"></i>' : '<i class="fa-solid fa-phone-arrow-up-right" style="font-size:.65rem;"></i>';
-                    let row = '<div class="call-history-row">';
-                    // Line 1: name · direction · date
-                    row += '<div style="display:flex;align-items:center;gap:6px;min-width:0;">';
-                    row += '<span class="chr-name">' + dialerEsc(c.contact_name || c.phone || 'Unknown') + '</span>';
-                    row += '<span class="chr-dir">' + dirIcon + ' ' + (c.direction||'outbound') + '</span>';
-                    row += '<span class="chr-date">' + dt + '</span>';
-                    row += '</div>';
-                    // Line 2: duration · action buttons
-                    row += '<div style="display:flex;align-items:center;gap:6px;margin-top:3px;">';
-                    row += '<span class="chr-dur">' + dur + '</span>';
-                    row += '<button onclick="playRecording(\'' + recUrl + '\')" class="dlr-rec-action-btn dlr-rec-action-play" title="Play"><i class="fa-solid fa-play"></i></button>';
-                    row += '<a href="' + recUrl + '?dl=1" download class="dlr-rec-action-btn dlr-rec-action-download" title="Download" onclick="event.stopPropagation();"><i class="fa-solid fa-download"></i></a>';
-                    row += hasTx ? '<button onclick=\'showTranscript(' + JSON.stringify(c.transcript).replace(/'/g, "\\'") + ')\' class="dlr-rec-action-btn dlr-rec-action-transcript" title="View Transcript"><i class="fa-solid fa-file-lines"></i></button>' : '';
-                    row += !hasTx && sid ? '<button onclick="transcribeNow(\'' + sid + '\',\'' + recUrl + '\',this)" class="dlr-rec-action-btn dlr-rec-action-transcribe" title="Transcribe"><i class="fa-solid fa-wand-magic-sparkles"></i></button>' : '';
-                    row += '</div>';
-                    row += '</div>';
-                    return row +
-                    '</div>';
-                }).join('');
-            } catch(e) { panel.innerHTML = '<div style="color:#ef4444;padding:12px;text-align:center;font-size:.88rem;">Error loading recordings</div>'; }
-        }
+        // NOTE: The legacy `dialerLoadRecordings` function was deleted here.
+        // It wrote to a `#dialerRecordingsList` element that no longer exists
+        // in the template (the standalone recordings drawer was merged into
+        // the iPhone Calls app long ago). The dead function fired on every
+        // contact click and threw an unhandled `Cannot set properties of null`
+        // that polluted the console and — via unhandled-rejection side effects
+        // — contributed to the flaky contact-panel behavior users reported.
+        // Recordings are still visible per-contact via the Calls app tab which
+        // uses `dialerLoadAllCallHistory()`.
 
         // Registry for pending queue timers so we can cancel them on stop
         let _dialerQueueTimers = [];
@@ -5299,6 +5240,21 @@
 
         async function initVoIPDevice() {
             if (_voipInitializing) { console.log('[VoIP] Already initializing, skipping'); return; }
+
+            // Iframe gate — when embedded inside GHL's Custom Page iframe, the parent's
+            // Permissions-Policy header does not delegate `microphone` to our origin, so
+            // getUserMedia() fails and Twilio Device can never register. Instead of
+            // failing silently we surface the Pop Out Dialer entry point, which opens a
+            // real top-level browser window where mic access works unconditionally.
+            if (window.omcDialerPopout && window.omcDialerPopout.isIframed) {
+                console.log('[VoIP] In GHL iframe — deferring voice to pop-out window');
+                _voipInitializing = false;
+                voipSetupDone = true;            // prevent repeated setup attempts
+                voipReady = false;               // voice runs in popup, not here
+                window.omcDialerPopout.showPopoutBanner();
+                return;
+            }
+
             _voipInitializing = true;
             console.log('[VoIP] initVoIPDevice() called');
 
@@ -6885,13 +6841,17 @@
             const msgPanel = document.getElementById('dlrMessagesList');
             const composer = document.getElementById('dlrSmsComposer');
             if (msgPanel) msgPanel.innerHTML = '<div style="text-align:center;padding:30px;"><i class="fa-solid fa-spinner fa-spin" style="color:#00ff88;"></i></div>';
-            if (composer) composer.style.display = 'none';
+            // Show the composer immediately. See dialerLoadContactMessages for
+            // the rationale — deferring to post-fetch leaves users with no reply
+            // input on slow/failed loads, and `block` breaks the composer's
+            // flex layout.
+            if (composer) { composer.style.display = 'flex'; dlrLoadChannels(); }
 
             fetch('/voice/contact/' + contactId + '/messages')
                 .then(r => r.json())
                 .then(d => {
                     if (msgPanel) { msgPanel.innerHTML = _dlrRenderThread(d.messages || []); msgPanel.scrollTop = msgPanel.scrollHeight; }
-                    if (composer) { composer.style.display = 'block'; dlrLoadChannels(); }
+                    if (composer) { composer.style.display = 'flex'; }
                     const ta = document.getElementById('dlrSmsText');
                     if (ta) { ta.value = ''; ta.style.height = ''; dlrUpdateCharCount(''); }
                 })
@@ -9620,6 +9580,444 @@
                 document.addEventListener('DOMContentLoaded', initAppReorder);
             } else {
                 initAppReorder();
+            }
+        })();
+
+        /* ═══════════════════════════════════════════════════════════════════
+         * GHL iframe → Pop-Out Dialer bridge
+         * ───────────────────────────────────────────────────────────────────
+         * When this dashboard is loaded inside GHL's Custom Page iframe the
+         * parent's Permissions-Policy does not delegate microphone to our
+         * origin, so Twilio Device cannot register here. We surface a
+         * "Pop Out Dialer" entry point that opens /dialer-popout in a new
+         * top-level window (no parent frame → our own server
+         * Permissions-Policy applies → mic works), and this module acts as
+         * the thin remote-control layer that ships commands + queue state
+         * to that popup over a same-origin BroadcastChannel.
+         *
+         * Lifecycle:
+         *   - On load in an iframe, this module initialises itself.
+         *   - It exposes window.omcDialerPopout = { isIframed, openPopup,
+         *     focusPopup, isOpen, showPopoutBanner, dial, pushQueue }.
+         *   - initVoIPDevice() checks `isIframed` and defers to us.
+         *   - dialerStartCall() is wrapped so that in iframe mode, instead
+         *     of running Twilio Device locally it opens the popup (if not
+         *     open) and posts a DIAL command over the bus.
+         * ═════════════════════════════════════════════════════════════════ */
+        (function () {
+            const isIframed = (function () {
+                try { return window.self !== window.top; } catch (e) { return true; }
+            })();
+
+            const mod = {
+                isIframed,
+                popupWin: null,
+                popupReady: false,
+                bus: null,
+                _bannerShown: false,
+                _pendingDial: null,
+                _queuePushTimer: null,
+            };
+            window.omcDialerPopout = mod;
+
+            if (!isIframed) {
+                // Not embedded — nothing to do. The normal dashboard owns voice.
+                mod.showPopoutBanner = function () { /* no-op */ };
+                mod.openPopup = function () { /* no-op */ };
+                mod.isOpen = function () { return false; };
+                mod.dial = function () { return false; };
+                mod.pushQueue = function () { /* no-op */ };
+                return;
+            }
+
+            // ── BroadcastChannel ──────────────────────────────────────────
+            try {
+                mod.bus = new BroadcastChannel('omnisconn-dialer');
+            } catch (e) {
+                console.warn('[popout-bridge] BroadcastChannel unsupported:', e);
+            }
+
+            function busSend(msg) {
+                if (!mod.bus) return;
+                try { mod.bus.postMessage(msg); } catch (e) { /* closed */ }
+            }
+
+            if (mod.bus) {
+                mod.bus.onmessage = (ev) => {
+                    const msg = ev.data || {};
+                    switch (msg.type) {
+                        case 'POPUP_HELLO':
+                        case 'POPUP_DEVICE_READY':
+                            mod.popupReady = true;
+                            mod._bannerShown && updateBannerState('ready');
+                            if (mod._pendingDial) {
+                                busSend({ type: 'DIAL', contact: mod._pendingDial });
+                                mod._pendingDial = null;
+                            }
+                            // Send current queue on first handshake
+                            schedulePushQueue(250);
+                            break;
+                        case 'POPUP_STATE':
+                            mod._bannerShown && updateBannerCallState(msg.state, msg.contact, msg.durationMs);
+                            break;
+                        case 'POPUP_CALL_ENDED':
+                            mod._bannerShown && updateBannerCallState('idle', null, 0);
+                            // When the popup ends a call while a queue run is
+                            // active in the iframe, local advance wouldn't fire
+                            // (the iframe has no voipConnection). Trigger it.
+                            try {
+                                if (typeof dialerQueueRunning !== 'undefined' && dialerQueueRunning &&
+                                    typeof dialerAdvance === 'function') {
+                                    // Mark current queue item as completed if we can
+                                    if (typeof dialerCallIdx !== 'undefined' && typeof dialerQueue !== 'undefined' &&
+                                        dialerCallIdx >= 0 && dialerCallIdx < dialerQueue.length) {
+                                        const finalStatus =
+                                            msg.reason === 'error' ? 'failed' :
+                                            msg.reason === 'canceled' ? 'no-answer' : 'completed';
+                                        dialerQueue[dialerCallIdx].status = finalStatus;
+                                        if (typeof dialerRenderQueue === 'function') dialerRenderQueue();
+                                    }
+                                    setTimeout(() => { try { dialerAdvance(); } catch (e) {} }, 1200);
+                                }
+                            } catch (e) { /* non-fatal */ }
+                            break;
+                        case 'QUEUE_START':
+                            try {
+                                if (typeof dialerQueueRunning !== 'undefined' && !dialerQueueRunning &&
+                                    typeof dialerToggleQueue === 'function') {
+                                    dialerToggleQueue();
+                                    busSend({ type: 'QUEUE_STATE', running: true });
+                                }
+                            } catch (e) { /* ignore */ }
+                            break;
+                        case 'QUEUE_STOP':
+                            try {
+                                if (typeof dialerQueueRunning !== 'undefined' && dialerQueueRunning) {
+                                    if (typeof dialerStopQueue === 'function') dialerStopQueue();
+                                    else if (typeof dialerToggleQueue === 'function') dialerToggleQueue();
+                                    busSend({ type: 'QUEUE_STATE', running: false });
+                                }
+                            } catch (e) { /* ignore */ }
+                            break;
+                        case 'QUEUE_SKIP':
+                            // Popup already hung up its own call. Mark current
+                            // item skipped and let dialerAdvance run.
+                            try {
+                                if (typeof dialerCallIdx !== 'undefined' && typeof dialerQueue !== 'undefined' &&
+                                    dialerCallIdx >= 0 && dialerCallIdx < dialerQueue.length) {
+                                    dialerQueue[dialerCallIdx].status = 'skipped';
+                                    dialerQueue[dialerCallIdx].disposition = 'skipped';
+                                    if (typeof dialerRenderQueue === 'function') dialerRenderQueue();
+                                }
+                                if (typeof dialerQueueRunning !== 'undefined' && dialerQueueRunning &&
+                                    typeof dialerAdvance === 'function') {
+                                    setTimeout(() => { try { dialerAdvance(); } catch (e) {} }, 300);
+                                }
+                            } catch (e) { /* ignore */ }
+                            break;
+                        case 'POPUP_CLOSING':
+                            mod.popupReady = false;
+                            mod._bannerShown && updateBannerState('closed');
+                            break;
+                        case 'POPUP_PONG':
+                            mod.popupReady = true;
+                            break;
+                        case 'POPUP_DISPOSITION':
+                            // Popup recorded a disposition — forward to local queue/UI if relevant
+                            try {
+                                if (typeof dialerQueue !== 'undefined' && msg.contactId) {
+                                    const item = dialerQueue.find(q => q.contactId === msg.contactId);
+                                    if (item) {
+                                        item.disposition = msg.disposition;
+                                        if (typeof dialerRenderQueue === 'function') dialerRenderQueue();
+                                    }
+                                }
+                            } catch (e) { /* non-fatal */ }
+                            break;
+                        case 'POPUP_MUTE_CHANGED':
+                            // Mirror mute state in any iframe-side UI if present
+                            break;
+                        default:
+                            break;
+                    }
+                };
+            }
+
+            // Ping the popup periodically so we know if it closes, and
+            // broadcast queue-run state so the popup's Start/Stop buttons
+            // reflect reality.
+            let _lastQueueRunningSnap = null;
+            setInterval(() => {
+                if (!mod.popupWin || mod.popupWin.closed) {
+                    if (mod.popupReady) {
+                        mod.popupReady = false;
+                        mod._bannerShown && updateBannerState('closed');
+                    }
+                    return;
+                }
+                busSend({ type: 'IFRAME_PING' });
+                try {
+                    const running = !!(typeof dialerQueueRunning !== 'undefined' && dialerQueueRunning);
+                    if (running !== _lastQueueRunningSnap) {
+                        _lastQueueRunningSnap = running;
+                        busSend({ type: 'QUEUE_STATE', running });
+                    }
+                } catch (e) { /* ignore */ }
+            }, 4000);
+
+            // Stream the focused contact to the popup (preview + intel fetch).
+            // Hooks into dialerJumpToContact which fires on queue row click.
+            try {
+                if (typeof dialerJumpToContact === 'function') {
+                    const _origJump = dialerJumpToContact;
+                    window.dialerJumpToContact = function (contactId) {
+                        const r = _origJump.apply(this, arguments);
+                        try {
+                            if (typeof dialerQueue !== 'undefined' && Array.isArray(dialerQueue)) {
+                                const c = dialerQueue.find(q => (q.id || q.contactId) === contactId);
+                                if (c) {
+                                    busSend({
+                                        type: 'FOCUS_CONTACT',
+                                        contact: {
+                                            contactId: c.id || c.contactId,
+                                            name: c.name || c.displayName || c.firstName || 'Lead',
+                                            firstName: c.firstName,
+                                            phone: c.phone,
+                                            temperature: c.temperature,
+                                            score: c.score,
+                                        },
+                                    });
+                                }
+                            }
+                        } catch (e) { /* ignore */ }
+                        return r;
+                    };
+                    try { dialerJumpToContact = window.dialerJumpToContact; } catch (e) { /* strict */ }
+                }
+            } catch (e) { /* ignore */ }
+
+            // ── Window management ─────────────────────────────────────────
+            function openPopup() {
+                if (mod.popupWin && !mod.popupWin.closed) {
+                    try { mod.popupWin.focus(); } catch (e) { /* cross-origin? */ }
+                    return mod.popupWin;
+                }
+                const w = 460, h = 820;
+                const left = Math.max(0, (window.screen.availWidth  - w) - 24);
+                const top  = Math.max(0, Math.min(48, window.screen.availHeight - h - 24));
+                const features = `width=${w},height=${h},left=${left},top=${top},` +
+                                 `menubar=no,toolbar=no,location=no,status=no,resizable=yes,scrollbars=yes`;
+                mod.popupWin = window.open('/dialer-popout', 'omnisconnDialerPopout', features);
+                if (!mod.popupWin) {
+                    updateBannerState('blocked');
+                    return null;
+                }
+                updateBannerState('opening');
+                // Handshake once it boots
+                busSend({ type: 'IFRAME_HELLO' });
+                return mod.popupWin;
+            }
+            mod.openPopup = openPopup;
+            mod.focusPopup = function () {
+                if (mod.popupWin && !mod.popupWin.closed) {
+                    try { mod.popupWin.focus(); } catch (e) { /* ignore */ }
+                }
+            };
+            mod.isOpen = function () {
+                return !!(mod.popupWin && !mod.popupWin.closed);
+            };
+
+            mod.dial = function (contact) {
+                if (!contact || !contact.phone) return false;
+                if (!mod.isOpen()) {
+                    mod._pendingDial = contact;
+                    openPopup();
+                    return true; // will fire after popup signals ready
+                }
+                if (!mod.popupReady) {
+                    mod._pendingDial = contact;
+                    return true;
+                }
+                busSend({ type: 'DIAL', contact });
+                return true;
+            };
+
+            // Queue streaming — debounced so rapid renders don't flood the bus
+            mod.pushQueue = function () { schedulePushQueue(100); };
+            function schedulePushQueue(delay) {
+                if (mod._queuePushTimer) clearTimeout(mod._queuePushTimer);
+                mod._queuePushTimer = setTimeout(() => {
+                    mod._queuePushTimer = null;
+                    try {
+                        if (typeof dialerQueue === 'undefined' || !Array.isArray(dialerQueue)) return;
+                        const slim = dialerQueue.slice(0, 200).map(c => ({
+                            contactId: c.contactId || c.id,
+                            name: c.name || c.displayName || c.firstName || 'Lead',
+                            firstName: c.firstName,
+                            phone: c.phone,
+                            status: c.status || 'pending',
+                            temperature: c.temperature,
+                            score: c.score,
+                        }));
+                        busSend({ type: 'QUEUE_UPDATE', queue: slim });
+                    } catch (e) { /* non-fatal */ }
+                }, delay || 120);
+            }
+
+            // Auto-push queue whenever dialerRenderQueue runs
+            try {
+                if (typeof dialerRenderQueue === 'function') {
+                    const _origRender = dialerRenderQueue;
+                    window.dialerRenderQueue = function () {
+                        const r = _origRender.apply(this, arguments);
+                        schedulePushQueue(150);
+                        return r;
+                    };
+                }
+            } catch (e) { /* ignore — queue streaming is best-effort */ }
+
+            // ── dialerStartCall wrap ──────────────────────────────────────
+            // In iframe mode, redirect voice calls through the popup instead of
+            // failing on the local Twilio Device.
+            try {
+                if (typeof window.dialerStartCall === 'function' || typeof dialerStartCall === 'function') {
+                    const _origStart = window.dialerStartCall || dialerStartCall;
+                    const wrapped = async function (phone, firstName, contactId, displayName) {
+                        if (typeof dialerMode !== 'undefined' && dialerMode === 'human') {
+                            // Human/browser dialing — delegate entirely to the popup.
+                            mod.dial({
+                                phone, firstName, contactId,
+                                name: displayName || firstName,
+                                displayName,
+                            });
+                            // Also mark queue item in-progress locally for visual feedback
+                            try {
+                                if (typeof dialerCallIdx !== 'undefined' && typeof dialerQueue !== 'undefined' &&
+                                    dialerCallIdx >= 0 && dialerCallIdx < dialerQueue.length) {
+                                    dialerQueue[dialerCallIdx].status = 'in-progress';
+                                    if (typeof dialerRenderQueue === 'function') dialerRenderQueue();
+                                }
+                            } catch (e) { /* ignore */ }
+                            return;
+                        }
+                        // AI dial mode: backend places the call, no mic needed — fall through.
+                        return _origStart.apply(this, arguments);
+                    };
+                    window.dialerStartCall = wrapped;
+                    // Also overwrite any closure-scoped reference used later in the file.
+                    try { dialerStartCall = wrapped; } catch (e) { /* strict mode — ignore */ }
+                }
+            } catch (e) {
+                console.warn('[popout-bridge] dialerStartCall wrap failed:', e);
+            }
+
+            // ── Banner UI (inside the iframe) ─────────────────────────────
+            // Lives inside the VoIP status area. Shows "Voice runs in a pop-out
+            // window — Open Dialer" with live call status once the popup is up.
+            let bannerEl = null;
+            mod.showPopoutBanner = function () {
+                if (mod._bannerShown) return;
+                mod._bannerShown = true;
+                bannerEl = document.createElement('div');
+                bannerEl.id = 'omcPopoutBanner';
+                bannerEl.setAttribute('role', 'region');
+                bannerEl.setAttribute('aria-label', 'Pop-out dialer');
+                bannerEl.style.cssText = [
+                    'position:fixed', 'top:14px', 'right:14px', 'z-index:9999',
+                    'background:#000', 'border:1px solid #00ff88', 'color:#f5f5f5',
+                    'padding:12px 14px', 'font-family:Inter,system-ui,sans-serif',
+                    'font-size:0.82rem', 'display:flex', 'align-items:center',
+                    'gap:12px', 'box-shadow:0 16px 40px rgba(0,0,0,0.6)',
+                    'max-width:360px',
+                ].join(';');
+                bannerEl.innerHTML = `
+                    <div style="display:flex;align-items:center;gap:10px;flex:1;min-width:0">
+                        <span id="omcPopoutBannerDot" style="width:10px;height:10px;border-radius:50%;background:#f59e0b;box-shadow:0 0 10px rgba(245,158,11,0.6);flex-shrink:0"></span>
+                        <div style="display:flex;flex-direction:column;min-width:0">
+                            <div id="omcPopoutBannerTitle" style="font-weight:700;letter-spacing:0.04em">Voice runs in a pop-out window</div>
+                            <div id="omcPopoutBannerSub" style="font-size:0.72rem;color:#8a8a8a;margin-top:2px">Mic is blocked in this GHL frame. Click to open the dialer.</div>
+                        </div>
+                    </div>
+                    <button type="button" id="omcPopoutBannerBtn" style="background:#00ff88;border:none;color:#000;font-family:Outfit,sans-serif;font-weight:800;font-size:0.72rem;letter-spacing:0.14em;text-transform:uppercase;padding:10px 14px;cursor:pointer;white-space:nowrap">
+                        <i class="fa-solid fa-up-right-from-square" style="margin-right:6px"></i>OPEN DIALER
+                    </button>
+                `;
+                document.body.appendChild(bannerEl);
+                const btn = document.getElementById('omcPopoutBannerBtn');
+                if (btn) btn.addEventListener('click', openPopup);
+            };
+
+            function updateBannerState(phase) {
+                if (!bannerEl) return;
+                const dot = document.getElementById('omcPopoutBannerDot');
+                const title = document.getElementById('omcPopoutBannerTitle');
+                const sub = document.getElementById('omcPopoutBannerSub');
+                const btn = document.getElementById('omcPopoutBannerBtn');
+                if (!dot || !title || !sub || !btn) return;
+                switch (phase) {
+                    case 'ready':
+                        dot.style.background = '#00ff88';
+                        dot.style.boxShadow = '0 0 10px rgba(0,255,136,0.7)';
+                        title.textContent = 'Pop-out dialer connected';
+                        sub.textContent = 'Voice is running in a separate window.';
+                        btn.innerHTML = '<i class="fa-solid fa-arrow-up-right-from-square" style="margin-right:6px"></i>FOCUS';
+                        break;
+                    case 'opening':
+                        dot.style.background = '#f59e0b';
+                        title.textContent = 'Opening pop-out dialer…';
+                        sub.textContent = 'A new window should appear now.';
+                        break;
+                    case 'blocked':
+                        dot.style.background = '#ef4444';
+                        dot.style.boxShadow = '0 0 10px rgba(239,68,68,0.7)';
+                        title.textContent = 'Pop-up blocked';
+                        sub.textContent = 'Allow pop-ups for this site, then click Open Dialer.';
+                        btn.innerHTML = '<i class="fa-solid fa-up-right-from-square" style="margin-right:6px"></i>OPEN DIALER';
+                        break;
+                    case 'closed':
+                        dot.style.background = '#f59e0b';
+                        dot.style.boxShadow = '0 0 10px rgba(245,158,11,0.6)';
+                        title.textContent = 'Voice runs in a pop-out window';
+                        sub.textContent = 'Mic is blocked in this GHL frame. Click to open the dialer.';
+                        btn.innerHTML = '<i class="fa-solid fa-up-right-from-square" style="margin-right:6px"></i>OPEN DIALER';
+                        break;
+                }
+            }
+
+            function updateBannerCallState(state, contact, durationMs) {
+                if (!bannerEl) return;
+                const dot = document.getElementById('omcPopoutBannerDot');
+                const title = document.getElementById('omcPopoutBannerTitle');
+                const sub = document.getElementById('omcPopoutBannerSub');
+                if (!dot || !title || !sub) return;
+                const color = {
+                    idle: '#00ff88', dialing: '#f59e0b', ringing: '#f59e0b',
+                    connected: '#00ff88', hold: '#a855f7', ending: '#6b7280', error: '#ef4444',
+                }[state] || '#00ff88';
+                dot.style.background = color;
+                dot.style.boxShadow = `0 0 10px ${color}aa`;
+                if (state === 'idle') {
+                    title.textContent = 'Pop-out dialer connected';
+                    sub.textContent = 'Ready for calls.';
+                } else if (contact) {
+                    const name = contact.name || contact.displayName || contact.firstName || 'Lead';
+                    title.textContent = `${state.toUpperCase()} · ${name}`;
+                    const durLabel = durationMs
+                        ? ' · ' + Math.floor(durationMs / 1000) + 's'
+                        : '';
+                    sub.textContent = (contact.phone || '') + durLabel;
+                } else {
+                    title.textContent = state.toUpperCase();
+                }
+            }
+
+            // Kick off — show the banner immediately so the agent has a clear
+            // way to get a working dialer. initVoIPDevice() will also call this
+            // when it hits the iframe gate.
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', () => mod.showPopoutBanner());
+            } else {
+                mod.showPopoutBanner();
             }
         })();
 

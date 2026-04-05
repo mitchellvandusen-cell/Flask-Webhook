@@ -628,6 +628,117 @@ def set_call_disposition():
 
 
 # ──────────────────────────────────────────────────────────────
+# ROUTE: Voicemail drop
+# ──────────────────────────────────────────────────────────────
+# "Voicemail drop" = the agent on a live call hits one button, the server
+# redirects the Twilio call leg to play the agent's pre-recorded greeting
+# then hangs up. Saves agents from repeating the same voicemail script 50
+# times a day in high-volume outbound dialing.
+#
+# Flow:
+#   1. Agent uploads greeting once in Voice Config — stored as base64 in
+#      subscribers.voice_config.voicemail_greeting_data (see recordings.py).
+#   2. On a live call, agent clicks VM in the dialer.
+#   3. This endpoint verifies ownership + greeting presence, signs a short-
+#      lived token (itsdangerous, 5-min TTL), builds TwiML pointing at a
+#      PUBLIC serve endpoint Twilio can fetch without auth, and calls
+#      client.calls(call_sid).update(twiml=...).
+#   4. Twilio fetches the greeting audio and plays it to the recipient,
+#      then hangs up. The agent's client leg disconnects normally.
+
+
+@call_history_bp.route('/voice/voicemail-drop', methods=['POST'])
+@login_required
+def voicemail_drop():
+    """Play the agent's pre-recorded voicemail greeting into a live call, then hang up."""
+    data = request.json or {}
+    call_sid = (data.get('call_sid') or '').strip()
+    if not call_sid:
+        return jsonify({"error": "call_sid required"}), 400
+
+    if not call_exists(call_sid):
+        return jsonify({"error": "Call not found or already ended"}), 404
+    if not _verify_call_ownership(call_sid):
+        return jsonify({"error": "Call not found or already ended"}), 404
+
+    call_info = get_active_call(call_sid)
+    if call_info is None:
+        return jsonify({"error": "Call not found or already ended"}), 404
+    if call_info.get('status') in ('completed', 'failed', 'transferred', 'no-answer', 'canceled'):
+        return jsonify({"error": f"Call already in terminal state: {call_info.get('status')}"}), 400
+
+    # Load subscriber + verify greeting + verify provisioning
+    conn = get_db_connection()
+    if not conn:
+        return jsonify({"error": "Database error"}), 500
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT location_id, voice_config FROM subscribers WHERE email = %s",
+            (current_user.email,)
+        )
+        row = cur.fetchone()
+        cur.close()
+    finally:
+        return_db_connection(conn)
+
+    if not row:
+        return jsonify({"error": "User not found"}), 404
+
+    vc = row.get('voice_config') or {}
+    if isinstance(vc, str):
+        vc = json.loads(vc)
+
+    if not vc.get('voicemail_greeting_data'):
+        return jsonify({
+            "error": "No voicemail greeting uploaded. Upload one in Voice Config \u2192 Voicemail Greeting first."
+        }), 400
+
+    sub_sid = vc.get('twilio_sub_account_sid', '')
+    sub_auth = vc.get('twilio_sub_account_auth_token', '')
+    if not sub_sid:
+        return jsonify({"error": "Voice service not provisioned"}), 400
+
+    # Sign a short-lived token so Twilio can fetch the greeting audio without auth.
+    try:
+        from itsdangerous import URLSafeTimedSerializer
+        secret = os.getenv('SESSION_SECRET') or os.getenv('SECRET_KEY') or 'dev-insecure'
+        serializer = URLSafeTimedSerializer(secret, salt='voicemail-drop-v1')
+        token = serializer.dumps(row['location_id'])
+    except Exception as e:
+        logger.error(f"Voicemail drop: failed to sign token: {e}")
+        return jsonify({"error": "Internal error"}), 500
+
+    # Absolute URL Twilio can fetch. Use the request host so it works on any
+    # deployment without env config.
+    scheme = 'https' if request.is_secure or request.headers.get('X-Forwarded-Proto') == 'https' else 'http'
+    audio_url = f"{scheme}://{request.host}/voice/voicemail-greeting/public/{token}"
+
+    from xml.sax.saxutils import escape as xml_escape
+    twiml = (
+        '<?xml version="1.0" encoding="UTF-8"?>'
+        '<Response>'
+        f'<Play>{xml_escape(audio_url)}</Play>'
+        '<Hangup/>'
+        '</Response>'
+    )
+
+    try:
+        client = twilio_provisioning.get_sub_account_client_native(sub_sid, sub_auth)
+        client.calls(call_sid).update(twiml=twiml)
+        update_active_call(call_sid, status='voicemail-dropped')
+        try:
+            update_call_history_status(call_sid, 'completed', 0)
+        except Exception as persist_err:
+            logger.warning(f"Voicemail drop DB persist failed for {call_sid}: {persist_err}")
+        logger.info(f"Voicemail drop fired on call {call_sid}")
+        return jsonify({"status": "dropped", "call_sid": call_sid})
+    except Exception as e:
+        logger.error(f"Voicemail drop failed for {call_sid}: {e}")
+        return jsonify({"error": f"Voicemail drop failed: {e}"}), 500
+
+
+# ──────────────────────────────────────────────────────────────
 # AI Auto-Callback Detection
 # ──────────────────────────────────────────────────────────────
 

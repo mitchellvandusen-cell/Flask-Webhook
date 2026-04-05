@@ -57,6 +57,34 @@ dashboard_bp = Blueprint('dashboard', __name__)
 
 # ── GHL App entry point ───────────────────────────────────────────────────────
 
+@dashboard_bp.route("/dialer-popout")
+@login_required
+def dialer_popout():
+    """Standalone top-level dialer window.
+
+    Exists so agents running inside the GHL Custom Page iframe (where the
+    parent's Permissions-Policy blocks `microphone` delegation to our origin)
+    can pop the dialer out into a real browser window. A top-level window has
+    no parent frame policy, so our own `Permissions-Policy: microphone=*`
+    header is the only policy that applies and `getUserMedia` works.
+
+    Auth-gated via the existing Flask-Login session cookie (same-origin popup
+    inherits it). All voice runs here; the iframe becomes a remote control
+    that talks to the popup via a same-origin BroadcastChannel.
+    """
+    display_name = (
+        current_user.full_name
+        or current_user.bot_first_name
+        or (current_user.email.split("@")[0] if current_user.email else "Agent")
+    )
+    return render_template(
+        "popout-dialer.html",
+        display_name=display_name,
+        location_id=current_user.location_id or "",
+        bot_name=current_user.bot_first_name or "",
+    )
+
+
 @dashboard_bp.route("/app")
 def app_entry():
     """Smart entry for GHL Custom Page sidebar link — redirects based on setup state."""

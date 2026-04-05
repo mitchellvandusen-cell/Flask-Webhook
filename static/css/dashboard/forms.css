@@ -447,10 +447,8 @@ body.light-theme select {
 [data-theme="light"] #dialerStatsToggle:hover { border-color: var(--lt-accent-border) !important; color: #059669 !important; }
 #dialerStatsToggle.dlr-stats-active { color: #00ff88 !important; }
 [data-theme="light"] #dialerStatsToggle.dlr-stats-active { color: #059669 !important; border-color: var(--lt-accent-border) !important; }
-[data-theme="light"] #dialerHistoryList > div,
-[data-theme="light"] #dialerRecordingsList > div { color: #444444 !important; border-bottom-color: #e0e0e0 !important; }
-[data-theme="light"] #dialerHistoryList > div:hover,
-[data-theme="light"] #dialerRecordingsList > div:hover { background: rgba(0,0,0,0.02) !important; }
+[data-theme="light"] #dialerHistoryList > div { color: #444444 !important; border-bottom-color: #e0e0e0 !important; }
+[data-theme="light"] #dialerHistoryList > div:hover { background: rgba(0,0,0,0.02) !important; }
 [data-theme="light"] #transcriptModal > div { background: #ffffff !important; border-color: #e0e0e0 !important; }
 [data-theme="light"] .dlr-msg-bubble.dlr-msg-lead { background: #f0f0f0 !important; border-color: #e0e0e0 !important; color: #111111 !important; }
 [data-theme="light"] .dlr-msg-bubble.dlr-msg-bot { background: rgba(5,150,105,0.07) !important; border-color: rgba(5,150,105,0.16) !important; color: #064e3b !important; }

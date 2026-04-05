@@ -344,6 +344,59 @@ def save_voicemail_greeting():
         return_db_connection(conn)
 
 
+@recordings_bp.route('/voice/voicemail-greeting/public/<token>', methods=['GET'])
+def serve_voicemail_greeting_public(token):
+    """
+    Public, token-authenticated greeting fetch used by Twilio during a
+    voicemail drop. Twilio cannot send session cookies, so the drop endpoint
+    signs a short-lived (5-minute) token keyed by location_id and embeds the
+    resulting URL in the `<Play>` TwiML. This route validates that token and
+    streams the exact same audio bytes as the authenticated `/audio` route.
+    """
+    from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
+    secret = os.getenv('SESSION_SECRET') or os.getenv('SECRET_KEY') or 'dev-insecure'
+    serializer = URLSafeTimedSerializer(secret, salt='voicemail-drop-v1')
+    try:
+        location_id = serializer.loads(token, max_age=300)  # 5 minutes
+    except SignatureExpired:
+        logger.warning("Voicemail drop public fetch: token expired")
+        return "Token expired", 403
+    except BadSignature:
+        logger.warning("Voicemail drop public fetch: bad signature")
+        return "Invalid token", 403
+
+    conn = get_db_connection()
+    if not conn:
+        return "DB unavailable", 503
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT voice_config FROM subscribers WHERE location_id = %s",
+            (location_id,)
+        )
+        row = cur.fetchone()
+        cur.close()
+        if not row:
+            return "Not found", 404
+
+        vc = row.get('voice_config') or {}
+        if isinstance(vc, str):
+            vc = json.loads(vc)
+
+        b64 = vc.get('voicemail_greeting_data')
+        if not b64:
+            return "No greeting configured", 404
+
+        audio_bytes  = base64.b64decode(b64)
+        content_type = vc.get('voicemail_greeting_type', 'audio/mpeg')
+        return Response(audio_bytes, content_type=content_type)
+    except Exception as e:
+        logger.error(f"Public voicemail greeting serve failed: {e}")
+        return "Failed", 500
+    finally:
+        return_db_connection(conn)
+
+
 @recordings_bp.route('/voice/voicemail-greeting/audio', methods=['GET'])
 @jwt_or_session_required
 def serve_voicemail_greeting():
