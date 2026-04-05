@@ -151,6 +151,7 @@ def dashboard():
     if needs_subscription:
         return render_template('dashboard.html',
             needs_subscription=True,
+            needs_onboarding=False,
             subscription_price=149.99,
             form=ConfigForm(),
             access_token_display='',
@@ -331,6 +332,13 @@ def dashboard():
     # Agency context — for sidebar/tabs showing agency-specific items
     is_agency = current_user.role == 'agency_owner'
 
+    # Business profile onboarding gate — voice-capable users must set up
+    # their business profile before accessing the workspace.
+    needs_onboarding = False
+    if current_user.subscription_tier != 'sms_bot' and not is_admin:
+        trust_hub = voice_config.get('trust_hub', {})
+        needs_onboarding = not bool(trust_hub.get('business_name', '').strip())
+
     return render_template('dashboard.html',
         form=form,
         access_token_display=access_token_display,
@@ -340,6 +348,7 @@ def dashboard():
         sub=current_user,
         profile=profile,
         needs_oauth=needs_oauth,
+        needs_onboarding=needs_onboarding,
         show_congrats=show_congrats,
         missing_fields=missing_fields,
         is_placeholder=is_placeholder,

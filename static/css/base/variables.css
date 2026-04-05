@@ -7,10 +7,10 @@
 
 html {
     font-size: clamp(15px, 0.833vw, 20px);
-    color-scheme: dark;
-}
-[data-theme="light"] {
     color-scheme: light;
+}
+[data-theme="dark"] {
+    color-scheme: dark;
 }
 
 /* ================================================================

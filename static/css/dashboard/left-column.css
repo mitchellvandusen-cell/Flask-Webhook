@@ -670,29 +670,6 @@
 .sidebar.collapsed .sb-footer-item span { display: none; }
 .sidebar.collapsed .sb-footer-item { justify-content: center; }
 
-/* Tutorial button */
-.sb-footer-tutorial {
-    border: none;
-    cursor: pointer;
-    background: none;
-    width: 100%;
-    text-align: left;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 9px 10px;
-    border-radius: 8px;
-    font-size: 0.9rem;
-    color: #00ff88;
-    transition: background 0.15s, color 0.15s;
-}
-.sb-footer-tutorial-icon {
-    width: 18px;
-    text-align: center;
-    flex-shrink: 0;
-    font-size: 0.9rem;
-}
-
 /* Sign out */
 .sb-footer-signout { color: #ef4444; }
 

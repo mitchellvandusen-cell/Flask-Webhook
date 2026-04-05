@@ -234,7 +234,7 @@
                 if (btn) btn.title = 'Expand sidebar';
             }
             // Restore light/dark theme
-            const savedTheme = _lsGet('dash_theme') || 'dark';
+            const savedTheme = _lsGet('dash_theme') || 'light';
             applyTheme(savedTheme, false);
         });
 
@@ -254,7 +254,7 @@
             if (save) _lsSet('dash_theme', theme);
         }
         function toggleTheme() {
-            const current = document.documentElement.getAttribute('data-theme') || 'dark';
+            const current = document.documentElement.getAttribute('data-theme') || 'light';
             applyTheme(current === 'light' ? 'dark' : 'light', true);
         }
 

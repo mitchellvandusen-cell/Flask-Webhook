@@ -53,6 +53,9 @@
 /* ── Business Profile Tab ── */
 @import url('dashboard/business-profile.css');
 
+/* ── Onboarding Wizard ── */
+@import url('dashboard/onboarding.css');
+
 /* ── AI Minutes Marketplace ── */
 @import url('dashboard/aiminutes.css');
 
