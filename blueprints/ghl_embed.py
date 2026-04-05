@@ -750,7 +750,9 @@ def ghl_spam_protection_status():
     sub_sid = vc.get('twilio_sub_account_sid', '')
     sub_auth = vc.get('twilio_sub_account_auth_token', '')
 
-    spam = vc.get('spam_protection') or {}
+    # Business profile lives under 'trust_hub' key in voice_config
+    # (legacy 'spam_protection' key kept as fallback for old rows)
+    spam = vc.get('trust_hub') or vc.get('spam_protection') or {}
     cnam_data = vc.get('cnam') or {}
     ni_data = vc.get('number_integrity') or {}
     a2p_data = vc.get('a2p') or {}
@@ -768,9 +770,11 @@ def ghl_spam_protection_status():
             logger.error(f"ghl spam status: number list error: {e}")
 
     return jsonify({
-        "protection_active": bool(spam.get('registered_at')),
+        "protection_active": bool(spam.get('protection_active') or spam.get('registered_at')),
         "business_name": spam.get('business_name', ''),
         "ein": spam.get('ein', ''),
+        "profile_sid": spam.get('profile_sid', ''),
+        "review_status": spam.get('review_status', ''),
         "registered_at": spam.get('registered_at', ''),
         "numbers_total": numbers_total,
         "numbers": numbers_list,
@@ -1066,7 +1070,9 @@ def ghl_trust_hub_status():
     if not subscriber:
         return jsonify({"error": "Account not found"}), 404
 
-    spam = vc.get('spam_protection') or {}
+    # Business profile lives under 'trust_hub' key in voice_config
+    # (legacy 'spam_protection' key kept as fallback for old rows)
+    spam = vc.get('trust_hub') or vc.get('spam_protection') or {}
     cnam_data = vc.get('cnam') or {}
     ni_data = vc.get('number_integrity') or {}
 
@@ -1074,14 +1080,20 @@ def ghl_trust_hub_status():
         "business_profile": {
             "business_name": spam.get('business_name', ''),
             "ein": spam.get('ein', ''),
+            "business_type": spam.get('business_type', ''),
+            "website": spam.get('website', ''),
             "street": spam.get('street', ''),
             "city": spam.get('city', ''),
             "state": spam.get('state', ''),
             "zip": spam.get('zip', ''),
             "contact_name": spam.get('contact_name', ''),
+            "contact_title": spam.get('contact_title', ''),
             "contact_email": spam.get('contact_email', ''),
             "contact_phone": spam.get('contact_phone', ''),
-            "registered": bool(spam.get('registered_at')),
+            "profile_sid": spam.get('profile_sid', ''),
+            "review_status": spam.get('review_status', ''),
+            "protection_active": bool(spam.get('protection_active')),
+            "registered": bool(spam.get('protection_active') or spam.get('registered_at')),
         },
         "cnam": {
             "registered": bool(cnam_data.get('trust_product_sid')),
