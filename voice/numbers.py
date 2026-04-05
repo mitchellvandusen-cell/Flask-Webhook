@@ -1629,7 +1629,9 @@ def spam_protection_status():
         return jsonify({"error": "Voice service not provisioned"}), 400
 
     trust_hub = (vc or {}).get('trust_hub', {})
-    sub_auth_token = (vc or {}).get('twilio_auth_token', '')
+    # Prefer dedicated column credentials over voice_config JSONB
+    sub_auth_token = (subscriber or {}).get('twilio_sub_account_auth_token') \
+        or (vc or {}).get('twilio_auth_token', '')
 
     # ── Sub-account isolation: Trust Hub scoping ──────────────────────────────
     #
@@ -1784,12 +1786,12 @@ def spam_protection_status():
         })
 
     # Check live profile status from Twilio if we have a profile_sid
+    # get_sub_account_client_native auto-refreshes stale auth tokens (60s cache)
     profile_review_status = trust_hub.get('review_status', '')
     profile_sid = trust_hub.get('profile_sid', '')
     if profile_sid and protection_active:
-        sub_auth_token_val = (vc or {}).get('twilio_auth_token', '')
         try:
-            client = twilio_provisioning.get_sub_account_client_native(sub_sid, sub_auth_token_val)
+            client = twilio_provisioning.get_sub_account_client_native(sub_sid, sub_auth_token)
             profile = client.trusthub.v1.customer_profiles(profile_sid).fetch()
             profile_review_status = getattr(profile, 'status', profile_review_status)
             # Persist
@@ -1797,6 +1799,7 @@ def spam_protection_status():
                 trust_hub['review_status'] = profile_review_status
                 vc['trust_hub'] = trust_hub
                 _save_voice_config(current_user.email, vc)
+                logger.info(f"[spam-protection] Live profile status: {profile_review_status} (was {trust_hub.get('review_status', 'unset')})")
         except Exception as e:
             logger.warning(f"[spam-protection] Could not check live profile status: {e}")
 

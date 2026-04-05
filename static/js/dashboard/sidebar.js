@@ -116,6 +116,10 @@
             if ((baseTabId === 'whitelabel' || tabId === 'whitelabel') && typeof wlInit === 'function') wlInit();
             if ((baseTabId === 'agency-members' || tabId === 'agency-members') && typeof agencyLoadMembers === 'function') agencyLoadMembers();
             if ((baseTabId === 'agency-kpis' || tabId === 'agency-kpis') && typeof agencyLoadKpis === 'function') agencyLoadKpis('today');
+            // Business Profile tab — always refresh status from Twilio on nav
+            if ((baseTabId === 'business-profile' || tabId === 'business-profile') && typeof loadSpamProtectionStatus === 'function') {
+                loadSpamProtectionStatus();
+            }
         }
 
         // Legacy compat — kept for any code that still calls showSidebarTab() or navTo()

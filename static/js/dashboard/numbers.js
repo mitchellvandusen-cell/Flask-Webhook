@@ -192,6 +192,27 @@
         // ===== SPAM PROTECTION TAB =====
         async function loadTrustHubData() { loadSpamProtectionStatus(); }
 
+        // Auto-refresh timer: poll every 30s while profile is pending-review/in-review
+        let _bizProfilePollTimer = null;
+        function _bizProfileStartPoll() {
+            if (_bizProfilePollTimer) return;
+            _bizProfilePollTimer = setInterval(() => {
+                // Only poll if the Business Profile tab is actually visible
+                const pane = document.getElementById('business-profile');
+                if (!pane || !pane.classList.contains('active')) {
+                    _bizProfileStopPoll();
+                    return;
+                }
+                loadSpamProtectionStatus();
+            }, 30000);
+        }
+        function _bizProfileStopPoll() {
+            if (_bizProfilePollTimer) {
+                clearInterval(_bizProfilePollTimer);
+                _bizProfilePollTimer = null;
+            }
+        }
+
         async function loadSpamProtectionStatus() {
             const statusEl = document.getElementById('spamProtectionStatus');
             const formEl = document.getElementById('spamProtectionForm');
@@ -213,6 +234,14 @@
                     var isPending = (rs === 'pending-review' || rs === 'in-review');
                     var isRejected = (rs === 'twilio-rejected' || rs === 'noncompliant');
                     var isDraft = (rs === 'draft');
+
+                    // Auto-refresh every 30s while profile is pending review;
+                    // stop once we reach a terminal state (approved/rejected).
+                    if (isPending || isDraft) {
+                        _bizProfileStartPoll();
+                    } else {
+                        _bizProfileStopPoll();
+                    }
 
                     // Dynamic banner colors based on real review status
                     var bannerColor, bannerBg, bannerBorder, iconClass, statusLabel;
