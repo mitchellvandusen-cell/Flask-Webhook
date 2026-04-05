@@ -61,8 +61,8 @@ def _trusthub_update_status(
     resource_type: str,
     resource_sid: str,
     target_status: str,
-    account_sid: str = "",
-    auth_token: str = "",
+    account_sid: str,
+    auth_token: str,
 ) -> dict:
     """
     Update a TrustHub resource status via direct HTTP POST.
@@ -71,20 +71,30 @@ def _trusthub_update_status(
     with TrustHub status enums — the SDK can silently drop the Status parameter,
     causing the resource to stay in 'draft' while returning HTTP 200.
 
+    REQUIRES explicit sub-account credentials. No fallback to master —
+    master account Trust Hub is managed via Twilio Console only.
+
     Args:
         resource_type: "TrustProducts" or "CustomerProfiles"
         resource_sid: The BU... SID of the resource
         target_status: Status to set (e.g. "pending-review")
-        account_sid: Account SID for auth (defaults to master)
-        auth_token: Auth token for auth (defaults to master)
+        account_sid: Sub-account SID (REQUIRED — no default)
+        auth_token: Sub-account auth token (REQUIRED — no default)
 
     Returns:
         dict: Full JSON response from Twilio API
     """
+    if not account_sid or not auth_token:
+        raise ValueError(
+            f"[TrustHub] _trusthub_update_status requires explicit sub-account "
+            f"credentials. Got account_sid={'SET' if account_sid else 'EMPTY'}, "
+            f"auth_token={'SET' if auth_token else 'EMPTY'}. "
+            f"Never fall back to master credentials for Trust Hub operations."
+        )
     import requests as _requests
     url = f"https://trusthub.twilio.com/v1/{resource_type}/{resource_sid}"
-    sid = account_sid or TWILIO_ACCOUNT_SID
-    token = auth_token or TWILIO_AUTH_TOKEN
+    sid = account_sid
+    token = auth_token
     resp = _requests.post(
         url,
         data={"Status": target_status},
@@ -132,42 +142,104 @@ def _normalize_phone_e164(phone: str) -> str:
 def _ensure_sub_account_auth_token(sub_account_sid: str, sub_account_auth_token: str) -> str:
     """Ensure we have a valid auth token for a sub-account.
 
-    If the token is missing from voice_config (e.g., older provisioned accounts),
-    attempt to recover it from the Twilio API.  Returns the token string or raises
-    ValueError if it cannot be obtained.
+    Fetches a fresh token from the Twilio API because sub-account auth tokens
+    can rotate (e.g., console access, API regeneration). Uses a 60-second
+    in-memory cache so multiple Trust Hub calls in the same request don't
+    each hit Twilio.
 
-    All Trust Hub operations are ISV-only (sub-accounts). The master account
-    handles its own Trust Hub via the Twilio Console.
+    If the fresh token differs from the stored one, persists it back to
+    the DB so future calls use the correct token.
     """
-    if is_master_account(sub_account_sid):
+    if not sub_account_sid:
         raise ValueError(
-            "Trust Hub operations are ISV-only — the master account manages "
-            "its own Business Profile, CNAM, and Voice Integrity via the Twilio Console. "
-            "This function should only be called for sub-accounts."
+            "sub_account_sid is required. Every subscriber must have a Twilio sub-account."
         )
 
-    if sub_account_auth_token:
-        return sub_account_auth_token
+    # Check short-lived cache first (avoids repeated Twilio API calls per request)
+    cached = _auth_token_cache.get(sub_account_sid)
+    if cached:
+        cached_token, cached_at = cached
+        if time.time() - cached_at < _AUTH_TOKEN_CACHE_TTL:
+            return cached_token
 
-    # Try to recover from Twilio
+    # Fetch fresh token from Twilio — stored tokens can rotate
     try:
         master = get_master_client()
         acct = master.api.accounts(sub_account_sid).fetch()
-        token = acct.auth_token or ""
-        if token:
-            logger.info(
-                f"[TrustHub] Recovered auth token for sub-account {sub_account_sid} "
-                "from Twilio API"
-            )
-            return token
+        fresh_token = acct.auth_token or ""
+        if fresh_token:
+            # Cache it for 60s
+            _auth_token_cache[sub_account_sid] = (fresh_token, time.time())
+            if fresh_token != sub_account_auth_token:
+                logger.info(
+                    f"[TrustHub] Auth token for sub-account {sub_account_sid} "
+                    f"{'recovered' if not sub_account_auth_token else 'refreshed (was stale)'} "
+                    "from Twilio API"
+                )
+                _persist_refreshed_auth_token(sub_account_sid, fresh_token)
+            return fresh_token
     except Exception as e:
-        logger.warning(f"[TrustHub] Could not fetch auth token for {sub_account_sid}: {e}")
+        logger.warning(f"[TrustHub] Could not fetch fresh auth token for {sub_account_sid}: {e}")
+
+    # Fall back to stored token if Twilio API fetch failed
+    if sub_account_auth_token:
+        logger.warning(
+            f"[TrustHub] Using stored auth token for {sub_account_sid} "
+            "(could not verify freshness)"
+        )
+        return sub_account_auth_token
 
     raise ValueError(
         f"Sub-account {sub_account_sid} has no auth token. "
-        "TrustHub API calls require native sub-account credentials. "
         "Re-provision voice to fix this."
     )
+
+
+def _persist_refreshed_auth_token(sub_account_sid: str, fresh_token: str):
+    """Persist a refreshed sub-account auth token to BOTH dedicated column
+    and voice_config JSONB.
+
+    Updates:
+      1. subscribers.twilio_sub_account_auth_token (dedicated column)
+      2. voice_config->>'twilio_auth_token' (JSONB for backward compat)
+    """
+    try:
+        from db_legacy import get_db_connection, return_db_connection
+        conn = get_db_connection()
+        if not conn:
+            logger.warning("[TrustHub] No DB connection — could not persist refreshed auth token")
+            return
+        try:
+            cur = conn.cursor()
+            # Update both: dedicated column + voice_config JSONB
+            cur.execute("""
+                UPDATE subscribers
+                SET twilio_sub_account_auth_token = %s,
+                    voice_config = COALESCE(voice_config, '{}'::jsonb) || %s::jsonb,
+                    updated_at = NOW()
+                WHERE ctid = (
+                    SELECT ctid FROM subscribers
+                    WHERE twilio_sub_account_sid = %s
+                       OR voice_config->>'twilio_sub_account_sid' = %s
+                    LIMIT 1
+                )
+            """, (fresh_token,
+                  json.dumps({"twilio_auth_token": fresh_token}),
+                  sub_account_sid, sub_account_sid))
+            conn.commit()
+            rows = cur.rowcount
+            cur.close()
+            if rows > 0:
+                logger.info(f"[TrustHub] Persisted refreshed auth token for {sub_account_sid}")
+            else:
+                logger.warning(f"[TrustHub] No subscriber found with sub_account_sid={sub_account_sid}")
+        except Exception as e:
+            conn.rollback()
+            logger.warning(f"[TrustHub] Could not persist refreshed auth token: {e}")
+        finally:
+            return_db_connection(conn)
+    except ImportError:
+        logger.warning("[TrustHub] db_legacy not available — skipping token persistence")
 
 
 def get_sub_account_client(sub_account_sid: str) -> TwilioClient:
@@ -188,15 +260,21 @@ def get_sub_account_client_native(sub_account_sid: str,
     scope resources to the `username` account — NOT to a path-based account_sid.
     Using master credentials here would return master-account resources instead of
     the subscriber's sub-account resources, causing cross-account contamination.
+
+    ALWAYS refreshes the auth token from Twilio to handle rotation.
+    Uses a short-lived cache (60s) to avoid excessive API calls when
+    multiple Trust Hub operations happen in the same request.
     """
-    if not sub_account_auth_token:
-        # Try to recover the auth token from Twilio before falling back.
-        # Silently using master credentials causes TrustHub to see the master
-        # account (a direct customer) and reject ISV operations on sub-accounts.
-        sub_account_auth_token = _ensure_sub_account_auth_token(
-            sub_account_sid, sub_account_auth_token
-        )
+    sub_account_auth_token = _ensure_sub_account_auth_token(
+        sub_account_sid, sub_account_auth_token
+    )
     return TwilioClient(sub_account_sid, sub_account_auth_token)
+
+
+# Short-lived cache for _ensure_sub_account_auth_token to avoid
+# repeated Twilio API calls within the same request cycle.
+_auth_token_cache = {}  # {sub_account_sid: (token, timestamp)}
+_AUTH_TOKEN_CACHE_TTL = 60  # seconds
 
 
 # ──────────────────────────────────────────────────────────────
@@ -1007,8 +1085,12 @@ def register_business_profile(sub_account_sid: str, business_name: str,
                     "status": "noncompliant",
                     "issues": noncompliant,
                 })
-                logger.warning(f"[SpamProtection] Evaluation noncompliant: {noncompliant}")
-                # Still proceed — CNAM via friendly_name will work regardless
+                noncompliant_str = ", ".join(noncompliant) if noncompliant else "unknown requirements"
+                logger.error(f"[SpamProtection] Evaluation NONCOMPLIANT: {noncompliant_str}")
+                results["errors"].append(
+                    f"Profile evaluation failed — missing: {noncompliant_str}. "
+                    f"Fix these and re-submit."
+                )
             else:
                 # Submit for review — use direct HTTP to bypass SDK enum issues
                 profile_resp = _trusthub_update_status(
@@ -1503,11 +1585,9 @@ def submit_cnam_for_review(
         except Exception as eval_err:
             logger.warning(f"[CNAM] Evaluation check failed (proceeding): {eval_err}")
 
-        auth_sid = sub_account_sid or TWILIO_ACCOUNT_SID
-        auth_token = sub_account_auth_token or TWILIO_AUTH_TOKEN
         resp_data = _trusthub_update_status(
             "TrustProducts", trust_product_sid, "pending-review",
-            auth_sid, auth_token,
+            sub_account_sid, sub_account_auth_token,
         )
         tp_status = resp_data.get("status", "unknown")
         logger.info(f"[CNAM] Submitted {trust_product_sid} for review → {tp_status}")
@@ -2330,15 +2410,6 @@ def check_secondary_profile_status(
             - profile_sid (str): The checked profile SID
             - message (str): Human-readable status message
     """
-    if is_master_account(sub_account_sid):
-        # Master account manages its own profiles via Twilio Console — always approved
-        return {
-            "approved": True,
-            "status": "twilio-approved",
-            "profile_sid": "",
-            "message": "Master account — profiles managed via Twilio Console.",
-        }
-
     if not profile_sid:
         return {
             "approved": False,
@@ -2411,9 +2482,9 @@ def check_secondary_profile_status(
 
 
 def is_master_account(sub_account_sid: str) -> bool:
-    """
-    Detect if a subscriber is using the master Twilio account directly
-    (i.e., the platform owner's own business) vs a sub-account (ISV customer).
+    """DEPRECATED — All subscribers are sub-accounts. Omnisconn (master) is
+    managed via Twilio Console only. Kept for backward compat but always
+    returns False for Trust Hub purposes.
 
     Master account: uses Primary Business Profile for Voice Integrity (direct customer flow).
     Sub-account:    uses Secondary Customer Profile linked to Primary (ISV flow).
@@ -2551,19 +2622,22 @@ def _find_or_create_secondary_profile(
 
 def _find_primary_profile_sid() -> str:
     """
-    Find the Primary Business Profile SID on the master Twilio account.
+    Find the Primary Business Profile SID on the Omnisconn master account.
     This is created once in the Twilio Console and reused for all sub-accounts.
-    Returns the SID (BU...) or empty string if not found.
 
-    Checks TWILIO_PRIMARY_PROFILE_SID env var first for instant lookup,
-    falls back to API discovery if not set.
+    REQUIRES TWILIO_PRIMARY_PROFILE_SID env var. Falls back to API discovery
+    but logs a warning — set the env var for reliability.
     """
-    # Fast path: env var set by operator
+    # Fast path: env var set by operator (REQUIRED for production)
     env_sid = os.getenv("TWILIO_PRIMARY_PROFILE_SID", "").strip()
     if env_sid and env_sid.startswith("BU"):
         return env_sid
 
-    # Fallback: discover via API
+    # Fallback: discover via API — but warn loudly
+    logger.warning(
+        "[TrustHub] TWILIO_PRIMARY_PROFILE_SID not set! "
+        "Attempting API discovery — set this env var for reliable Trust Hub operations."
+    )
     try:
         master = get_master_client()
         profiles = master.trusthub.v1.customer_profiles.list(
@@ -2571,14 +2645,20 @@ def _find_primary_profile_sid() -> str:
         for p in profiles:
             fname = getattr(p, "friendly_name", "")
             if "primary" in fname.lower() or "business" in fname.lower():
-                logger.info(f"[VoiceIntegrity] Found Primary Profile: {p.sid} ({fname})")
+                logger.info(f"[TrustHub] Discovered Primary Profile: {p.sid} ({fname}). "
+                           f"Set TWILIO_PRIMARY_PROFILE_SID={p.sid} to skip this lookup.")
                 return p.sid
         if profiles:
-            logger.info(f"[VoiceIntegrity] Using first master profile as Primary: {profiles[0].sid}")
+            logger.info(f"[TrustHub] Using first master profile as Primary: {profiles[0].sid}. "
+                       f"Set TWILIO_PRIMARY_PROFILE_SID={profiles[0].sid} to skip this lookup.")
             return profiles[0].sid
     except Exception as e:
-        logger.warning(f"[VoiceIntegrity] Could not find Primary Profile on master: {e}")
-    return ""
+        logger.error(f"[TrustHub] Could not find Primary Profile on master: {e}")
+
+    raise ValueError(
+        "No Primary Business Profile found on master account. "
+        "Create one in the Twilio Console and set TWILIO_PRIMARY_PROFILE_SID env var."
+    )
 
 
 def create_voice_integrity_trust_product(
@@ -2860,11 +2940,9 @@ def submit_voice_integrity_for_review(
                                 f"[VoiceIntegrity] Profile {obj_sid} still in draft, "
                                 "submitting for review first"
                             )
-                            p_auth_sid = sub_account_sid or TWILIO_ACCOUNT_SID
-                            p_auth_token = sub_account_auth_token or TWILIO_AUTH_TOKEN
                             profile_resp = _trusthub_update_status(
                                 "CustomerProfiles", obj_sid, "pending-review",
-                                p_auth_sid, p_auth_token,
+                                sub_account_sid, sub_account_auth_token,
                             )
                             logger.info(
                                 f"[VoiceIntegrity] Profile {obj_sid} submitted → "
@@ -2915,11 +2993,9 @@ def submit_voice_integrity_for_review(
         # Use direct HTTP POST instead of SDK .update() — the twilio-python SDK
         # has casing issues with TrustHub status enums that silently drop the
         # Status parameter, leaving the Trust Product in 'draft'.
-        auth_sid = sub_account_sid or TWILIO_ACCOUNT_SID
-        auth_token = sub_account_auth_token or TWILIO_AUTH_TOKEN
         resp_data = _trusthub_update_status(
             "TrustProducts", trust_product_sid, "pending-review",
-            auth_sid, auth_token,
+            sub_account_sid, sub_account_auth_token,
         )
         tp_status = resp_data.get("status", "unknown")
         tp_sid = resp_data.get("sid", trust_product_sid)
@@ -3164,11 +3240,9 @@ def resubmit_voice_integrity(
         logger.warning(f"[VoiceIntegrity] Evaluation check failed (proceeding): {eval_err}")
 
     # Direct HTTP POST to bypass SDK enum/serialization issues with Status
-    auth_sid = sub_account_sid or TWILIO_ACCOUNT_SID
-    auth_token = sub_account_auth_token or TWILIO_AUTH_TOKEN
     resp_data = _trusthub_update_status(
         "TrustProducts", new_tp_sid, "pending-review",
-        auth_sid, auth_token,
+        sub_account_sid, sub_account_auth_token,
     )
     tp_status = resp_data.get("status", "unknown")
     logger.info(f"[VoiceIntegrity] Submitted new product {new_tp_sid} for review → {tp_status}")
@@ -3476,11 +3550,9 @@ def submit_shaken_stir_for_review(
             logger.warning(f"[SHAKEN/STIR] Evaluation check failed (proceeding): {eval_err}")
 
         # ── Submit for review (direct HTTP POST — SDK bug workaround) ──
-        auth_sid = sub_account_sid or TWILIO_ACCOUNT_SID
-        auth_token = sub_account_auth_token or TWILIO_AUTH_TOKEN
         resp_data = _trusthub_update_status(
             "TrustProducts", trust_product_sid, "pending-review",
-            auth_sid, auth_token,
+            sub_account_sid, sub_account_auth_token,
         )
         tp_status = resp_data.get("status", "unknown")
         logger.info(f"[SHAKEN/STIR] Submitted {trust_product_sid} for review → {tp_status}")
@@ -3735,53 +3807,6 @@ def discover_shaken_stir_products(
 # FULL PROVISIONING
 # ──────────────────────────────────────────────────────────────
 
-def provision_master(webhook_base_url: str) -> dict:
-    """
-    Provision the platform owner (super_admin).
-    No sub-account needed — uses the master Twilio account directly.
-    Creates a TwiML app and uses the existing master phone number.
-    """
-    master_sid = TWILIO_ACCOUNT_SID
-    master_phone = TWILIO_PHONE_NUMBER
-
-    # 1. Create TwiML App on master account
-    twiml_app = create_twiml_app(master_sid, webhook_base_url)
-    twiml_app_sid = twiml_app["twiml_app_sid"]
-
-    # 2. If master phone number exists, configure its webhooks
-    number_sid = ""
-    if master_phone:
-        client = get_master_client()
-        try:
-            numbers = client.incoming_phone_numbers.list(phone_number=master_phone)
-            if numbers:
-                num = numbers[0]
-                num.update(
-                    voice_url=f"{webhook_base_url}/voice/inbound",
-                    voice_method="POST",
-                    voice_application_sid=twiml_app_sid,
-                    status_callback=f"{webhook_base_url}/voice/status",
-                    status_callback_method="POST",
-                )
-                number_sid = num.sid
-                logger.info(f"Configured master number {master_phone} with TwiML app {twiml_app_sid}")
-        except TwilioRestException as e:
-            logger.error(f"Failed to configure master number: {e}")
-
-    result = {
-        "twilio_sub_account_sid": master_sid,
-        "twilio_auth_token": TWILIO_AUTH_TOKEN,
-        "twilio_twiml_app_sid": twiml_app_sid,
-        "twilio_api_key_sid": TWILIO_API_KEY_SID,
-        "twilio_api_key_secret": TWILIO_API_KEY_SECRET,
-        "twilio_phone_number": master_phone,
-        "twilio_number_sid": number_sid,
-    }
-
-    logger.info(f"Master account provisioned: sid={master_sid} phone={master_phone}")
-    return result
-
-
 def provision_subscriber(subscriber_email: str, location_id: str,
                           webhook_base_url: str) -> dict:
     """
@@ -3821,6 +3846,31 @@ def provision_subscriber(subscriber_email: str, location_id: str,
         "twilio_phone_number": "",
         "twilio_number_sid": "",
     }
+
+    # Persist credentials to dedicated columns (not just voice_config JSONB)
+    try:
+        from db_legacy import get_db_connection, return_db_connection
+        conn = get_db_connection()
+        if conn:
+            try:
+                cur = conn.cursor()
+                cur.execute("""
+                    UPDATE subscribers
+                    SET twilio_sub_account_sid = %s,
+                        twilio_sub_account_auth_token = %s,
+                        updated_at = NOW()
+                    WHERE email = %s
+                """, (sub_sid, sub_account["auth_token"], subscriber_email))
+                conn.commit()
+                cur.close()
+                logger.info(f"[Provision] Saved Twilio credentials to dedicated columns for {subscriber_email}")
+            except Exception as e:
+                conn.rollback()
+                logger.warning(f"[Provision] Could not save to dedicated columns (non-fatal): {e}")
+            finally:
+                return_db_connection(conn)
+    except ImportError:
+        pass
 
     logger.info(f"Subscriber provisioned: {subscriber_email} -> sub_account={sub_sid} (no number — user buys their own)")
     return result

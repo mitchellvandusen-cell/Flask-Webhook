@@ -1143,11 +1143,17 @@ def save_trust_hub():
 
     data = request.json or {}
     trust_hub = vc.get('trust_hub', {})
-    # Update business profile
-    if 'business_name' in data:
-        trust_hub['business_name'] = data['business_name'].strip()
-    if 'ein' in data:
-        trust_hub['ein'] = data['ein'].strip()
+
+    # Update all business profile fields (used by onboarding wizard + settings)
+    profile_fields = [
+        'business_name', 'ein', 'business_type', 'website',
+        'street', 'city', 'state', 'zip',
+        'contact_name', 'contact_title', 'contact_email', 'contact_phone',
+    ]
+    for field in profile_fields:
+        if field in data:
+            trust_hub[field] = (data[field] or '').strip()
+
     # Update carrier registration statuses
     for carrier in ['fcr_status', 'att_status', 'tmobile_status', 'verizon_status']:
         if carrier in data:
@@ -1581,15 +1587,20 @@ def register_spam_protection():
             logger.error(f"[VoiceIntegrity] Auto-registration failed: {vi_err}", exc_info=True)
             vi_result = {"status": "error", "error": str(vi_err)}
 
-    return jsonify({
-        "status": "ok" if has_profile and not reg_errors else "partial",
+    response_data = {
+        "status": "ok" if has_profile and not reg_errors else "error",
         "results": results,
         "cnam": cnam_result,
         "cnam_display_name": cnam_display_name,
         "voice_integrity": vi_result,
         "has_profile": has_profile,
         "errors": reg_errors,
-    })
+    }
+    if not has_profile:
+        error_summary = "; ".join(reg_errors) if reg_errors else "Profile creation failed"
+        response_data["error"] = error_summary
+        return jsonify(response_data), 400
+    return jsonify(response_data)
 
 
 @numbers_bp.route('/voice/spam-protection/status', methods=['GET'])

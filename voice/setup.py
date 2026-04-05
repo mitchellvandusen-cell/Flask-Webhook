@@ -152,18 +152,13 @@ def automate_voice_setup():
             })
 
     try:
-        # Only the platform owner (super_admin) uses the master Twilio account.
-        # Everyone else — individual, agency_owner, any tier — gets a sub-account.
-        if current_user.is_super_admin:
-            result = twilio_provisioning.provision_master(
-                webhook_base_url=webhook_base_url,
-            )
-        else:
-            result = twilio_provisioning.provision_subscriber(
-                subscriber_email=current_user.email,
-                location_id=location_id,
-                webhook_base_url=webhook_base_url,
-            )
+        # Every subscriber gets a Twilio sub-account — including super_admin.
+        # Omnisconn (master account) is platform-level only, managed via Console.
+        result = twilio_provisioning.provision_subscriber(
+            subscriber_email=current_user.email,
+            location_id=location_id,
+            webhook_base_url=webhook_base_url,
+        )
 
         # Save all provisioned IDs to voice_config
         vc.update(result)

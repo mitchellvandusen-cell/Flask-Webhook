@@ -1340,13 +1340,13 @@ def ghl_voice_activate():
     is_admin = email.lower() in [e.lower() for e in ADMIN_EMAILS]
 
     try:
-        from twilio_provisioning import provision_subscriber, provision_master, is_master_account
-        import os
+        from twilio_provisioning import provision_subscriber
 
-        if is_admin and is_master_account(os.getenv('TWILIO_ACCOUNT_SID', '')):
-            result = provision_master(location_id)
-        else:
-            result = provision_subscriber(location_id, email)
+        result = provision_subscriber(
+            subscriber_email=email,
+            location_id=location_id,
+            webhook_base_url=os.getenv('YOUR_DOMAIN', 'https://insurancegrokbot.click'),
+        )
 
         if result.get('error'):
             return jsonify({"error": result['error']}), 500

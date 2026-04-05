@@ -104,7 +104,8 @@ def _get_current_subscriber_voice():
                 SELECT lu.voice_config, lu.location_id, lu.email, lu.full_name,
                        s.access_token, s.refresh_token, s.token_expires_at,
                        s.bot_first_name, s.timezone, s.subscription_tier,
-                       s.sms_send_via
+                       s.sms_send_via,
+                       s.twilio_sub_account_sid, s.twilio_sub_account_auth_token
                 FROM location_users lu
                 JOIN subscribers s ON s.location_id = lu.location_id
                 WHERE lu.id = %s
@@ -115,7 +116,12 @@ def _get_current_subscriber_voice():
                 return None, None, None
             subscriber = dict(row)
             vc = subscriber.get('voice_config') or {}
-            sub_sid = vc.get('twilio_sub_account_sid', '')
+            # Prefer dedicated column over voice_config JSONB
+            sub_sid = subscriber.get('twilio_sub_account_sid') or vc.get('twilio_sub_account_sid', '')
+            # Inject dedicated auth token for Trust Hub callers
+            dedicated_token = subscriber.get('twilio_sub_account_auth_token') or ''
+            if dedicated_token and dedicated_token != vc.get('twilio_auth_token', ''):
+                vc['twilio_auth_token'] = dedicated_token
             return subscriber, vc, sub_sid or None
 
         cur.execute("SELECT * FROM subscribers WHERE email = %s", (current_user.email,))
@@ -125,7 +131,12 @@ def _get_current_subscriber_voice():
             return None, None, None
         subscriber = dict(row)
         vc = subscriber.get('voice_config') or {}
-        sub_sid = vc.get('twilio_sub_account_sid', '')
+        # Prefer dedicated column over voice_config JSONB
+        sub_sid = subscriber.get('twilio_sub_account_sid') or vc.get('twilio_sub_account_sid', '')
+        # Inject dedicated auth token into voice_config for Trust Hub callers
+        dedicated_token = subscriber.get('twilio_sub_account_auth_token') or ''
+        if dedicated_token and dedicated_token != vc.get('twilio_auth_token', ''):
+            vc['twilio_auth_token'] = dedicated_token
         return subscriber, vc, sub_sid or None
     except Exception as e:
         logger.error(f"_get_current_subscriber_voice: {e}")
