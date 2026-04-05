@@ -628,6 +628,44 @@
     border-color: #e0e0e0 !important;
 }
 
+/* ── Kill inline translucent-white glass backgrounds on dashboard tabs ──
+   Dozens of config tab inputs/buttons use `background:rgba(255,255,255,0.04)`
+   inline — override with solid hex so they read as flat premium surfaces. */
+:not([data-theme="light"]) [style*="background:rgba(255,255,255,0.04)"],
+:not([data-theme="light"]) [style*="background: rgba(255,255,255,0.04)"],
+:not([data-theme="light"]) [style*="background:rgba(255, 255, 255, 0.04)"],
+:not([data-theme="light"]) [style*="background: rgba(255, 255, 255, 0.04)"],
+:not([data-theme="light"]) [style*="background:rgba(255,255,255,0.03)"],
+:not([data-theme="light"]) [style*="background: rgba(255,255,255,0.03)"],
+:not([data-theme="light"]) [style*="background:rgba(255,255,255,0.06)"],
+:not([data-theme="light"]) [style*="background: rgba(255,255,255,0.06)"],
+:not([data-theme="light"]) [style*="background:rgba(255,255,255,0.05)"],
+:not([data-theme="light"]) [style*="background: rgba(255,255,255,0.05)"] {
+    background: #0a0a0a !important;
+    border-color: #1a1a1a !important;
+}
+[data-theme="light"] [style*="background:rgba(255,255,255,0.04)"],
+[data-theme="light"] [style*="background: rgba(255,255,255,0.04)"],
+[data-theme="light"] [style*="background:rgba(255, 255, 255, 0.04)"],
+[data-theme="light"] [style*="background: rgba(255, 255, 255, 0.04)"],
+[data-theme="light"] [style*="background:rgba(255,255,255,0.03)"],
+[data-theme="light"] [style*="background: rgba(255,255,255,0.03)"],
+[data-theme="light"] [style*="background:rgba(255,255,255,0.06)"],
+[data-theme="light"] [style*="background: rgba(255,255,255,0.06)"],
+[data-theme="light"] [style*="background:rgba(255,255,255,0.05)"],
+[data-theme="light"] [style*="background: rgba(255,255,255,0.05)"] {
+    background: #ffffff !important;
+    border-color: #e5e7eb !important;
+}
+
+/* Kill hardcoded 1a1a2e / 1a1a1a / 0e0e0e inline select backgrounds too */
+:not([data-theme="light"]) [style*="background:#1a1a2e"] {
+    background: #0a0a0a !important;
+}
+[data-theme="light"] [style*="background:#1a1a2e"] {
+    background: #ffffff !important;
+}
+
 /* ── Dark mode text legibility — inline colors #444–#999 on dark bg ── */
 :not([data-theme="light"]) [style*="color:#444"],
 :not([data-theme="light"]) [style*="color: #444"],

@@ -299,9 +299,11 @@
 .cfg-sms-channel-label-icon { color: var(--accent); font-size: 0.85rem; }
 .cfg-sms-option {
     display: flex; align-items: center; gap: 12px; padding: 12px 16px;
-    background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08);
+    background: #0a0a0a; border: 1px solid #1a1a1a;
     border-radius: 10px; cursor: pointer; transition: background 0.15s, border-color 0.15s;
 }
+.cfg-sms-option:hover { border-color: rgba(0,255,136,0.25); }
+.cfg-sms-option:has(input:checked) { border-color: rgba(0,255,136,0.45); background: rgba(0,255,136,0.03); }
 .cfg-sms-radio { accent-color: var(--accent); width: 16px; height: 16px; flex-shrink: 0; }
 .cfg-sms-option-body { flex: 1; min-width: 0; }
 .cfg-sms-option-title { font-size: 0.85rem; font-weight: 600; color: #fff; }
@@ -310,7 +312,7 @@
     font-size: 0.75rem; background: rgba(0,255,136,0.12); color: var(--accent);
     padding: 2px 8px; border-radius: 6px; font-weight: 600; flex-shrink: 0;
 }
-.cfg-sms-last-used-icon { color: #a78bfa; font-size: 1rem; flex-shrink: 0; width: 22px; text-align: center; }
+.cfg-sms-last-used-icon { color: var(--accent); font-size: 1rem; flex-shrink: 0; width: 22px; text-align: center; }
 .cfg-sms-number-options { display: flex; flex-direction: column; gap: 8px; }
 .cfg-sms-loading { display: none; padding: 8px 16px; color: #666; font-size: 0.8rem; }
 .cfg-sms-no-numbers {
@@ -321,7 +323,7 @@
 .cfg-sms-lookup-btn {
     display: flex; align-items: center; justify-content: center; gap: 8px;
     width: 100%; padding: 10px 16px;
-    background: rgba(255,255,255,0.03); border: 1px dashed rgba(255,255,255,0.12);
+    background: #0a0a0a; border: 1px solid #1a1a1a;
     border-radius: 10px; color: #888; font-size: 0.82rem; font-weight: 500;
     cursor: pointer; transition: border-color 0.15s, color 0.15s;
 }
@@ -332,7 +334,7 @@
 
 /* ── Agency panel ── */
 .cfg-agency-box {
-    background: rgba(0,255,136,0.04); border: 1px solid rgba(0,255,136,0.12);
+    background: #0a0a0a; border: 1px solid #1a1a1a;
     border-radius: 14px;
 }
 .cfg-agency-icon-box {
@@ -349,17 +351,18 @@
 /* ── Numbers & SMS panel ── */
 .cfg-numbers-icon-box {
     width: 40px; height: 40px; border-radius: 10px;
-    background: rgba(0,255,136,0.12); border: 1px solid rgba(0,255,136,0.25);
+    background: rgba(0,255,136,0.08); border: 1px solid rgba(0,255,136,0.25);
     display: flex; align-items: center; justify-content: center; flex-shrink: 0;
 }
 .cfg-numbers-icon { color: #00ff88; }
 .cfg-numbers-title { font-weight: 700; font-size: 1rem; color: #fff; }
 .cfg-numbers-subtitle { font-size: 0.78rem; color: #888; }
 .cfg-refresh-btn {
-    background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);
+    background: #0a0a0a; border: 1px solid #1e1e1e;
     color: #aaa; border-radius: 6px; padding: 5px 12px; font-size: 0.78rem; cursor: pointer;
+    transition: border-color 0.15s, color 0.15s;
 }
-.cfg-refresh-btn:hover { background: rgba(255,255,255,0.08); color: #fff; }
+.cfg-refresh-btn:hover { border-color: rgba(0,255,136,0.35); color: #fff; }
 .cfg-buy-btn {
     background: #00ff88; border: none; color: #000;
     border-radius: 6px; padding: 5px 14px; font-size: 0.78rem; font-weight: 700; cursor: pointer;
@@ -368,21 +371,25 @@
 /* ── Buy panel ── */
 .cfg-buy-panel {
     display: none; margin-bottom: 16px; padding: 16px;
-    background: rgba(0,255,136,0.04); border: 1px solid rgba(0,255,136,0.12); border-radius: 10px;
+    background: #0a0a0a; border: 1px solid #1a1a1a; border-radius: 10px;
 }
 .cfg-buy-heading { color: #00ff88; font-weight: 700; margin-bottom: 4px; font-size: 0.88rem; }
 .cfg-buy-pricing { margin-bottom: 10px; font-size: .75rem; color: #888; }
 .cfg-buy-pricing-accent { color: #00ff88; font-weight: 700; }
 .cfg-buy-pricing-value { color: #00ff88; }
 .cfg-buy-select {
-    width: 120px; background: #2a2a35; border: 1px solid rgba(255,255,255,0.1);
+    width: 120px; background: #0a0a0a; border: 1px solid #1a1a1a;
     color: #fff; padding: 7px 12px; border-radius: 8px; font-size: 0.82rem; outline: none;
+    transition: border-color 0.15s;
 }
-.cfg-buy-select option { background: #2a2a35; color: #fff; }
+.cfg-buy-select:focus { border-color: rgba(0,255,136,0.45); }
+.cfg-buy-select option { background: #0a0a0a; color: #fff; }
 .cfg-buy-input {
-    background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1);
+    background: #0a0a0a; border: 1px solid #1a1a1a;
     color: #fff; padding: 7px 12px; border-radius: 8px; font-size: 0.82rem; outline: none;
+    transition: border-color 0.15s;
 }
+.cfg-buy-input:focus { border-color: rgba(0,255,136,0.45); }
 .cfg-buy-input-area { width: 140px; }
 .cfg-buy-input-state { width: 110px; }
 .cfg-buy-input-city { width: 120px; }
@@ -458,25 +465,25 @@
 /* ── A2P panel ── */
 .cfg-a2p-icon-box {
     width: 40px; height: 40px; border-radius: 10px;
-    background: rgba(167,139,250,0.12); border: 1px solid rgba(167,139,250,0.25);
+    background: rgba(0,255,136,0.08); border: 1px solid rgba(0,255,136,0.25);
     display: flex; align-items: center; justify-content: center; flex-shrink: 0;
 }
-.cfg-a2p-icon { color: #a78bfa; }
+.cfg-a2p-icon { color: var(--accent); }
 .cfg-a2p-flex-body { flex: 1; }
 .cfg-a2p-title { font-weight: 700; font-size: 1rem; color: #fff; }
 .cfg-a2p-subtitle { font-size: 0.78rem; color: #888; }
 
 /* ── A2P info box ── */
 .cfg-a2p-info-box {
-    background: rgba(167,139,250,0.04); border: 1px solid rgba(167,139,250,0.12); border-radius: 8px;
+    background: #0a0a0a; border: 1px solid #1a1a1a; border-radius: 8px;
 }
-.cfg-a2p-info-heading { font-size: 0.75rem; color: #a78bfa; font-weight: 600; margin-bottom: 4px; }
+.cfg-a2p-info-heading { font-size: 0.75rem; color: var(--accent); font-weight: 600; margin-bottom: 4px; }
 .cfg-a2p-info-text { font-size: 0.75rem; color: #999; line-height: 1.6; }
 .cfg-a2p-info-strong { color: #ccc; }
 
 /* ── A2P tips box ── */
 .cfg-a2p-tips-box {
-    background: rgba(0,255,136,0.03); border: 1px solid rgba(0,255,136,0.12); border-radius: 8px;
+    background: #0a0a0a; border: 1px solid #1a1a1a; border-radius: 8px;
 }
 .cfg-a2p-tips-icon { color: #00ff88; font-size: 0.85rem; }
 .cfg-a2p-tips-link { font-size: 0.78rem; color: #00ff88; font-weight: 600; text-decoration: none; }
@@ -486,23 +493,25 @@
 
 /* ── A2P payment gate ── */
 .cfg-a2p-pay-box {
-    background: rgba(255,165,0,0.06); border: 1px solid rgba(255,165,0,0.2);
+    background: #0a0a0a; border: 1px solid #1a1a1a;
     border-radius: 2px; padding: 16px;
 }
-.cfg-a2p-pay-icon { color: #ffa500; }
+.cfg-a2p-pay-icon { color: var(--accent); }
 .cfg-a2p-pay-heading { font-weight: 700; color: #fff; }
 .cfg-a2p-pay-desc { font-size: 0.78rem; color: #aaa; margin: 0 0 10px; }
 .cfg-a2p-field-label { color: #aaa; font-size: 0.75rem; font-weight: 600; display: block; margin-bottom: 4px; }
 .cfg-a2p-select {
-    width: 100%; background: #1a1a2e; border: 1px solid rgba(255,255,255,0.1);
+    width: 100%; background: #0a0a0a; border: 1px solid #1a1a1a;
     color: #fff; padding: 8px 12px; border-radius: 8px; font-size: 0.85rem; outline: none;
+    transition: border-color 0.15s;
 }
-.cfg-a2p-select option { background: #1a1a2e; color: #fff; }
+.cfg-a2p-select:focus { border-color: rgba(0,255,136,0.45); }
+.cfg-a2p-select option { background: #0a0a0a; color: #fff; }
 .cfg-a2p-select-spacing { margin-bottom: 8px; }
 .cfg-a2p-brand-info { font-size: 0.75rem; color: #666; line-height: 1.4; }
 .cfg-a2p-brand-info-label { color: #aaa; }
 .cfg-a2p-pay-btn {
-    background: linear-gradient(135deg,#ffa500,#cc8400); border: none; color: #000;
+    background: var(--accent); border: none; color: #000;
     border-radius: 10px; padding: 10px 24px; font-size: 0.85rem; font-weight: 700;
     cursor: pointer; width: 100%;
 }
@@ -511,43 +520,45 @@
 /* ── A2P step indicator ── */
 .cfg-a2p-step-active {
     flex: 1; padding: 8px 12px;
-    background: rgba(167,139,250,0.1); border: 1px solid rgba(167,139,250,0.25);
-    border-radius: 8px; text-align: center; font-size: 0.75rem; font-weight: 700; color: #a78bfa;
+    background: rgba(0,255,136,0.08); border: 1px solid rgba(0,255,136,0.35);
+    border-radius: 8px; text-align: center; font-size: 0.75rem; font-weight: 700; color: var(--accent);
 }
 .cfg-a2p-step-inactive {
     flex: 1; padding: 8px 12px;
-    background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06);
+    background: #0a0a0a; border: 1px solid #1a1a1a;
     border-radius: 8px; text-align: center; font-size: 0.75rem; font-weight: 700; color: #555;
 }
 
 /* ── A2P brand form ── */
 .cfg-a2p-brand-form {
-    background: rgba(167,139,250,0.03); border: 1px solid rgba(167,139,250,0.10); border-radius: 2px;
+    background: #0a0a0a; border: 1px solid #1a1a1a; border-radius: 2px;
 }
 .cfg-a2p-form-title { font-weight: 700; font-size: 0.9rem; color: #fff; margin-bottom: 4px; }
-.cfg-a2p-form-title-icon { color: #a78bfa; }
+.cfg-a2p-form-title-icon { color: var(--accent); }
 .cfg-a2p-form-desc { font-size: 0.75rem; color: #888; margin-bottom: 12px; }
 .cfg-a2p-fee-note { font-size: 0.75rem; color: #00ff88; margin-top: 4px; font-weight: 600; }
 .cfg-a2p-section-title { font-weight: 600; font-size: 0.82rem; color: #fff; margin-bottom: 8px; }
-.cfg-a2p-section-icon-purple { color: #a78bfa; }
-.cfg-a2p-section-icon-orange { color: #ffa500; }
-.cfg-a2p-section-icon-cyan { color: #00ff88; }
+.cfg-a2p-section-icon-purple,
+.cfg-a2p-section-icon-orange,
+.cfg-a2p-section-icon-cyan { color: var(--accent); }
 .cfg-a2p-input {
-    width: 100%; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1);
+    width: 100%; background: #0a0a0a; border: 1px solid #1a1a1a;
     color: #fff; padding: 8px 12px; border-radius: 8px; font-size: 0.85rem; outline: none;
+    transition: border-color 0.15s;
 }
+.cfg-a2p-input:focus { border-color: rgba(0,255,136,0.45); }
 .cfg-a2p-input-state { text-transform: uppercase; }
 .cfg-a2p-label { color: #aaa; font-size: 0.75rem; font-weight: 600; display: block; margin-bottom: 3px; }
 .cfg-a2p-submit-brand {
-    background: linear-gradient(135deg,#a78bfa,#7c5fcf); border: none; color: #fff;
-    border-radius: 10px; padding: 10px 24px; font-size: 0.85rem; font-weight: 700;
+    background: var(--accent); border: none; color: #000;
+    border-radius: 2px; padding: 10px 24px; font-size: 0.85rem; font-weight: 700;
     cursor: pointer; width: 100%; transition: opacity .2s;
 }
 .cfg-a2p-form-result { margin-top: 8px; font-size: 0.78rem; text-align: center; }
 
 /* ── A2P campaign form ── */
 .cfg-a2p-campaign-box {
-    background: rgba(0,255,136,0.03); border: 1px solid rgba(0,255,136,0.10);
+    background: #0a0a0a; border: 1px solid #1a1a1a;
     border-radius: 2px; padding: 16px;
 }
 .cfg-a2p-campaign-title { font-weight: 700; font-size: 0.9rem; color: #fff; margin-bottom: 4px; }
@@ -556,10 +567,12 @@
 .cfg-a2p-campaign-fee { color: #00ff88; font-weight: 600; }
 .cfg-a2p-hint-text { color: #555; }
 .cfg-a2p-textarea {
-    width: 100%; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1);
+    width: 100%; background: #0a0a0a; border: 1px solid #1a1a1a;
     color: #fff; padding: 8px 12px; border-radius: 8px; font-size: 0.85rem; outline: none;
     resize: vertical;
+    transition: border-color 0.15s;
 }
+.cfg-a2p-textarea:focus { border-color: rgba(0,255,136,0.45); }
 .cfg-a2p-checkbox-label { font-size: 0.78rem; color: #ccc; cursor: pointer; }
 .cfg-a2p-checkbox { accent-color: #00ff88; }
 .cfg-a2p-numbers-list { max-height: 140px; overflow-y: auto; font-size: 0.78rem; }
@@ -572,10 +585,10 @@
 
 /* ── A2P status panel ── */
 .cfg-a2p-status-panel {
-    background: rgba(167,139,250,0.03); border: 1px solid rgba(167,139,250,0.08); border-radius: 10px;
+    background: #0a0a0a; border: 1px solid #1a1a1a; border-radius: 10px;
 }
 .cfg-a2p-status-title { font-weight: 700; font-size: 0.9rem; color: #fff; }
-.cfg-a2p-status-title-icon { color: #a78bfa; }
+.cfg-a2p-status-title-icon { color: var(--accent); }
 .cfg-a2p-status-content { font-size: 0.78rem; }
 
 
@@ -597,20 +610,22 @@
 
 [data-theme="light"] .cfg-sms-channel-label-icon { color: var(--lt-accent); }
 [data-theme="light"] .cfg-sms-option {
-    background: rgba(0,0,0,0.02); border-color: rgba(0,0,0,0.08);
+    background: #ffffff; border-color: #e5e7eb;
 }
+[data-theme="light"] .cfg-sms-option:hover { border-color: rgba(5,150,105,0.35); }
+[data-theme="light"] .cfg-sms-option:has(input:checked) { border-color: rgba(5,150,105,0.55); background: rgba(5,150,105,0.04); }
 [data-theme="light"] .cfg-sms-option-title { color: #111827; }
 [data-theme="light"] .cfg-sms-option-desc { color: #6b7280; }
 [data-theme="light"] .cfg-sms-default-badge {
     background: var(--lt-accent-bg); color: var(--lt-accent);
 }
-[data-theme="light"] .cfg-sms-last-used-icon { color: #7c3aed; }
+[data-theme="light"] .cfg-sms-last-used-icon { color: #059669; }
 [data-theme="light"] .cfg-sms-loading { color: #6b7280; }
 [data-theme="light"] .cfg-sms-no-numbers {
     background: rgba(0,0,0,0.02); border-color: rgba(0,0,0,0.08); color: #6b7280;
 }
 [data-theme="light"] .cfg-sms-lookup-btn {
-    background: rgba(0,0,0,0.02); border-color: rgba(0,0,0,0.12); color: #6b7280;
+    background: #ffffff; border-color: #e5e7eb; color: #6b7280;
 }
 [data-theme="light"] .cfg-sms-lookup-btn:hover {
     border-color: rgba(0,170,94,0.3); color: var(--lt-accent);
@@ -629,36 +644,40 @@
 [data-theme="light"] .cfg-agency-accent { color: var(--lt-accent); }
 
 [data-theme="light"] .cfg-numbers-icon-box {
-    background: rgba(0,120,184,0.1); border-color: rgba(0,120,184,0.25);
+    background: rgba(5,150,105,0.08); border-color: rgba(5,150,105,0.25);
 }
-[data-theme="light"] .cfg-numbers-icon { color: #0078b8; }
+[data-theme="light"] .cfg-numbers-icon { color: #059669; }
 [data-theme="light"] .cfg-numbers-title { color: #111827; }
 [data-theme="light"] .cfg-numbers-subtitle { color: #6b7280; }
 [data-theme="light"] .cfg-refresh-btn {
-    background: rgba(0,0,0,0.04); border-color: rgba(0,0,0,0.08); color: #374151;
+    background: #ffffff; border-color: #e5e7eb; color: #374151;
 }
-[data-theme="light"] .cfg-refresh-btn:hover { background: rgba(0,0,0,0.08); color: #111827; }
+[data-theme="light"] .cfg-refresh-btn:hover { border-color: rgba(5,150,105,0.40); color: #059669; }
 [data-theme="light"] .cfg-buy-btn {
-    background: linear-gradient(135deg,#00cc6a,#006699); color: #fff;
+    background: #059669; color: #fff;
 }
+[data-theme="light"] .cfg-buy-btn:hover { background: #047857; }
 
 [data-theme="light"] .cfg-buy-panel {
-    background: rgba(0,120,184,0.04); border-color: rgba(0,120,184,0.12);
+    background: #ffffff; border-color: #e5e7eb;
 }
-[data-theme="light"] .cfg-buy-heading { color: #0078b8; }
+[data-theme="light"] .cfg-buy-heading { color: #059669; }
 [data-theme="light"] .cfg-buy-pricing { color: #6b7280; }
 [data-theme="light"] .cfg-buy-pricing-accent { color: var(--lt-accent); }
 [data-theme="light"] .cfg-buy-pricing-value { color: var(--lt-accent); }
 [data-theme="light"] .cfg-buy-select {
-    background: #fff; border-color: rgba(0,0,0,0.12); color: #111827;
+    background: #fff; border-color: #e5e7eb; color: #111827;
 }
+[data-theme="light"] .cfg-buy-select:focus { border-color: rgba(5,150,105,0.40); }
 [data-theme="light"] .cfg-buy-select option { background: #fff; color: #111827; }
 [data-theme="light"] .cfg-buy-input {
-    background: rgba(0,0,0,0.03); border-color: rgba(0,0,0,0.12); color: #111827;
+    background: #fff; border-color: #e5e7eb; color: #111827;
 }
+[data-theme="light"] .cfg-buy-input:focus { border-color: rgba(5,150,105,0.40); }
 [data-theme="light"] .cfg-buy-search-btn {
-    background: linear-gradient(135deg,#00cc6a,#006699); color: #fff;
+    background: #059669; color: #fff;
 }
+[data-theme="light"] .cfg-buy-search-btn:hover { background: #047857; }
 
 [data-theme="light"] .cfg-numbers-loading { color: #6b7280; }
 [data-theme="light"] .cfg-numbers-spinner { color: #0078b8; }
@@ -720,71 +739,75 @@
 [data-theme="light"] .vnum-summary-link { color: #0078b8; }
 
 [data-theme="light"] .cfg-a2p-icon-box {
-    background: rgba(124,58,237,0.1); border-color: rgba(124,58,237,0.25);
+    background: rgba(5,150,105,0.08); border-color: rgba(5,150,105,0.25);
 }
-[data-theme="light"] .cfg-a2p-icon { color: #7c3aed; }
+[data-theme="light"] .cfg-a2p-icon { color: #059669; }
 [data-theme="light"] .cfg-a2p-title { color: #111827; }
 [data-theme="light"] .cfg-a2p-subtitle { color: #6b7280; }
 
 [data-theme="light"] .cfg-a2p-info-box {
-    background: rgba(124,58,237,0.04); border-color: rgba(124,58,237,0.12);
+    background: #ffffff; border-color: #e5e7eb;
 }
-[data-theme="light"] .cfg-a2p-info-heading { color: #7c3aed; }
+[data-theme="light"] .cfg-a2p-info-heading { color: #059669; }
 [data-theme="light"] .cfg-a2p-info-text { color: #6b7280; }
 [data-theme="light"] .cfg-a2p-info-strong { color: #374151; }
 
 [data-theme="light"] .cfg-a2p-tips-box {
-    background: var(--lt-accent-bg); border-color: rgba(0,170,94,0.15);
+    background: #ffffff; border-color: #e5e7eb;
 }
 [data-theme="light"] .cfg-a2p-tips-icon { color: var(--lt-accent); }
 [data-theme="light"] .cfg-a2p-tips-link { color: var(--lt-accent); }
 [data-theme="light"] .cfg-a2p-tips-desc { color: #6b7280; }
 
 [data-theme="light"] .cfg-a2p-pay-box {
-    background: rgba(255,165,0,0.04); border-color: rgba(255,165,0,0.15);
+    background: #ffffff; border-color: #e5e7eb;
 }
-[data-theme="light"] .cfg-a2p-pay-icon { color: #d97706; }
+[data-theme="light"] .cfg-a2p-pay-icon { color: #059669; }
 [data-theme="light"] .cfg-a2p-pay-heading { color: #111827; }
 [data-theme="light"] .cfg-a2p-pay-desc { color: #374151; }
 [data-theme="light"] .cfg-a2p-field-label { color: #374151; }
 [data-theme="light"] .cfg-a2p-select {
-    background: #fff; border-color: rgba(0,0,0,0.12); color: #111827;
+    background: #fff; border-color: #e5e7eb; color: #111827;
 }
+[data-theme="light"] .cfg-a2p-select:focus { border-color: rgba(5,150,105,0.40); }
 [data-theme="light"] .cfg-a2p-select option { background: #fff; color: #111827; }
 [data-theme="light"] .cfg-a2p-brand-info { color: #6b7280; }
 [data-theme="light"] .cfg-a2p-brand-info-label { color: #374151; }
 [data-theme="light"] .cfg-a2p-pay-btn {
-    background: linear-gradient(135deg,#d97706,#b45309); color: #fff;
+    background: #059669; color: #fff;
 }
+[data-theme="light"] .cfg-a2p-pay-btn:hover { background: #047857; }
 
 [data-theme="light"] .cfg-a2p-step-active {
-    background: rgba(124,58,237,0.08); border-color: rgba(124,58,237,0.2); color: #7c3aed;
+    background: rgba(5,150,105,0.08); border-color: rgba(5,150,105,0.35); color: #059669;
 }
 [data-theme="light"] .cfg-a2p-step-inactive {
-    background: rgba(0,0,0,0.02); border-color: rgba(0,0,0,0.06); color: #9ca3af;
+    background: #ffffff; border-color: #e5e7eb; color: #9ca3af;
 }
 
 [data-theme="light"] .cfg-a2p-brand-form {
-    background: rgba(124,58,237,0.03); border-color: rgba(124,58,237,0.10);
+    background: #ffffff; border-color: #e5e7eb;
 }
 [data-theme="light"] .cfg-a2p-form-title { color: #111827; }
 [data-theme="light"] .cfg-a2p-form-title-icon { color: #7c3aed; }
 [data-theme="light"] .cfg-a2p-form-desc { color: #6b7280; }
 [data-theme="light"] .cfg-a2p-fee-note { color: var(--lt-accent); }
 [data-theme="light"] .cfg-a2p-section-title { color: #111827; }
-[data-theme="light"] .cfg-a2p-section-icon-purple { color: #7c3aed; }
-[data-theme="light"] .cfg-a2p-section-icon-orange { color: #d97706; }
-[data-theme="light"] .cfg-a2p-section-icon-cyan { color: #0078b8; }
+[data-theme="light"] .cfg-a2p-section-icon-purple,
+[data-theme="light"] .cfg-a2p-section-icon-orange,
+[data-theme="light"] .cfg-a2p-section-icon-cyan { color: #059669; }
 [data-theme="light"] .cfg-a2p-input {
-    background: rgba(0,0,0,0.03); border-color: rgba(0,0,0,0.12); color: #111827;
+    background: #ffffff; border-color: #e5e7eb; color: #111827;
 }
+[data-theme="light"] .cfg-a2p-input:focus { border-color: rgba(5,150,105,0.40); }
 [data-theme="light"] .cfg-a2p-label { color: #374151; }
 [data-theme="light"] .cfg-a2p-submit-brand {
-    background: linear-gradient(135deg,#7c3aed,#6025c0);
+    background: #059669; color: #fff;
 }
+[data-theme="light"] .cfg-a2p-submit-brand:hover { background: #047857; }
 
 [data-theme="light"] .cfg-a2p-campaign-box {
-    background: rgba(0,120,184,0.03); border-color: rgba(0,120,184,0.10);
+    background: #ffffff; border-color: #e5e7eb;
 }
 [data-theme="light"] .cfg-a2p-campaign-title { color: #111827; }
 [data-theme="light"] .cfg-a2p-campaign-title-icon { color: #0078b8; }
@@ -792,17 +815,19 @@
 [data-theme="light"] .cfg-a2p-campaign-fee { color: var(--lt-accent); }
 [data-theme="light"] .cfg-a2p-hint-text { color: #9ca3af; }
 [data-theme="light"] .cfg-a2p-textarea {
-    background: rgba(0,0,0,0.03); border-color: rgba(0,0,0,0.12); color: #111827;
+    background: #ffffff; border-color: #e5e7eb; color: #111827;
 }
+[data-theme="light"] .cfg-a2p-textarea:focus { border-color: rgba(5,150,105,0.40); }
 [data-theme="light"] .cfg-a2p-checkbox-label { color: #374151; }
 [data-theme="light"] .cfg-a2p-checkbox { accent-color: #0078b8; }
 [data-theme="light"] .cfg-a2p-numbers-loading { color: #9ca3af; }
 [data-theme="light"] .cfg-a2p-submit-campaign {
-    background: linear-gradient(135deg,#00cc6a,#006699); color: #fff;
+    background: #059669; color: #fff;
 }
+[data-theme="light"] .cfg-a2p-submit-campaign:hover { background: #047857; }
 
 [data-theme="light"] .cfg-a2p-status-panel {
-    background: rgba(124,58,237,0.03); border-color: rgba(124,58,237,0.08);
+    background: #ffffff; border-color: #e5e7eb;
 }
 [data-theme="light"] .cfg-a2p-status-title { color: #111827; }
 [data-theme="light"] .cfg-a2p-status-title-icon { color: #7c3aed; }

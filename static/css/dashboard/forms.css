@@ -794,10 +794,17 @@ body.light-theme select {
 [data-theme="light"] .vc-textarea:focus { border-color: #059669 !important; box-shadow: 0 0 0 1px rgba(5,150,105,0.15) !important; }
 [data-theme="light"] .vc-info-strip { background: rgba(5,150,105,0.03); border-left-color: rgba(5,150,105,0.3); color: #666; }
 [data-theme="light"] .vc-info-strip i { color: #059669; }
-[data-theme="light"] .vc-info-purple { background: rgba(124,58,237,0.03); border-left-color: rgba(124,58,237,0.3); }
-[data-theme="light"] .vc-info-purple i { color: #7c3aed; }
-[data-theme="light"] .vc-btn-primary { background: #059669; color: #ffffff; }
-[data-theme="light"] .vc-btn-primary:hover { background: #047857; }
+[data-theme="light"] .vc-info-purple { background: rgba(5,150,105,0.03); border-left-color: rgba(5,150,105,0.3); }
+[data-theme="light"] .vc-info-purple i { color: #059669; }
+[data-theme="light"] .vc-btn-primary,
+body.light-theme .vc-btn-primary {
+    background: #059669 !important;
+    color: #ffffff !important;
+}
+[data-theme="light"] .vc-btn-primary:hover,
+body.light-theme .vc-btn-primary:hover { background: #047857 !important; }
+[data-theme="light"] .vc-btn-primary i,
+body.light-theme .vc-btn-primary i { color: #ffffff !important; }
 [data-theme="light"] .vc-btn-secondary { background: #f4f4f4; border-color: #d8d8d8; color: #444; }
 [data-theme="light"] .vc-btn-secondary:hover { border-color: #c0c0c0; color: #111; }
 [data-theme="light"] .vc-btn-ghost { color: #999; }
