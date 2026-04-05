@@ -2026,12 +2026,12 @@ body.light-theme .contact-email-link { color: var(--lt-accent); }
     margin-bottom: 18px;
     width: fit-content;
 }
-.article-badge--red {
-    background: #1a0408;
-    color: #ff3366;
-    border: 1px solid rgba(255, 51, 102, 0.25);
-}
-.article-badge--cyan {
+/* Article category badges — unified single accent, varies only by subtle tint */
+.article-badge--red,
+.article-badge--cyan,
+.article-badge--green,
+.article-badge--purple,
+.article-badge--orange {
     background: #0d1f14;
     color: #00ff88;
     border: 1px solid rgba(0, 255, 136, 0.22);
@@ -2072,22 +2072,7 @@ body.light-theme .contact-email-link { color: var(--lt-accent); }
     font-weight: 700;
     white-space: nowrap;
 }
-/* Additional article badge colors */
-.article-badge--green {
-    background: #0d1f14;
-    color: #00ff88;
-    border: 1px solid rgba(0, 255, 136, 0.25);
-}
-.article-badge--purple {
-    background: #13071a;
-    color: #a855f7;
-    border: 1px solid rgba(168, 85, 247, 0.25);
-}
-.article-badge--orange {
-    background: #1a1007;
-    color: #ffa500;
-    border: 1px solid rgba(255, 165, 0, 0.25);
-}
+/* Additional article badge colors (all alias to single accent above) */
 
 /* light theme */
 body.light-theme .article-card-title { color: var(--lt-text-primary); }
@@ -2097,11 +2082,15 @@ body.light-theme .article-tag {
     border-color: #ddd;
     color: var(--lt-text-muted);
 }
-body.light-theme .article-badge--green { background: #e8f7f0; color: var(--lt-accent); }
-body.light-theme .article-badge--cyan  { background: #e8f7f0; color: var(--lt-accent); }
-body.light-theme .article-badge--red   { background: #fde8ea; color: #dc2626; }
-body.light-theme .article-badge--purple { background: #f3e8ff; color: #7c3aed; }
-body.light-theme .article-badge--orange { background: #fff7e8; color: #d97706; }
+body.light-theme .article-badge--green,
+body.light-theme .article-badge--cyan,
+body.light-theme .article-badge--red,
+body.light-theme .article-badge--purple,
+body.light-theme .article-badge--orange {
+    background: #e8f7f0;
+    color: var(--lt-accent);
+    border-color: rgba(5,150,105,0.25);
+}
 body.light-theme .article-read-more { color: var(--lt-accent); }
 
 /* ── Article Full Page ─────────────────────────────────────── */
@@ -2427,23 +2416,29 @@ body.light-theme .article-feature-list li { color: var(--lt-text-secondary); }
     font-size: 0.9rem;
     transition: background 0.2s, color 0.2s, border-color 0.2s, transform 0.2s;
 }
-.connect-follow-btn--facebook {
-    background: rgba(24, 119, 242, 0.15);
-    color: #1877f2;
-    border: 1px solid rgba(24, 119, 242, 0.3);
-}
-.connect-card:hover .connect-follow-btn--facebook {
-    background: #1877f2;
-    color: #fff;
-}
+.connect-follow-btn--facebook,
 .connect-follow-btn--linkedin {
-    background: rgba(10, 102, 194, 0.15);
-    color: #0a66c2;
-    border: 1px solid rgba(10, 102, 194, 0.3);
+    background: rgba(0, 255, 136, 0.08);
+    color: var(--accent);
+    border: 1px solid rgba(0, 255, 136, 0.25);
 }
+.connect-card:hover .connect-follow-btn--facebook,
 .connect-card:hover .connect-follow-btn--linkedin {
-    background: #0a66c2;
+    background: var(--accent);
+    color: #000;
+    border-color: var(--accent);
+}
+body.light-theme .connect-follow-btn--facebook,
+body.light-theme .connect-follow-btn--linkedin {
+    background: rgba(5, 150, 105, 0.08);
+    color: #059669;
+    border-color: rgba(5, 150, 105, 0.25);
+}
+body.light-theme .connect-card:hover .connect-follow-btn--facebook,
+body.light-theme .connect-card:hover .connect-follow-btn--linkedin {
+    background: #059669;
     color: #fff;
+    border-color: #059669;
 }
 .connect-why-section {
     margin: 60px 0;

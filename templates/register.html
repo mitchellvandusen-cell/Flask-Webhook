@@ -732,21 +732,18 @@
     transform: translateY(-1px);
     text-decoration: none;
 }
-.reg-v2-crm-hs {
-    background: linear-gradient(135deg, #ff7a59, #ff9f7f);
-    color: #fff;
-}
-.reg-v2-crm-hs:hover {
-    box-shadow: 0 4px 16px rgba(255,122,89,0.35);
-    color: #fff;
-}
+.reg-v2-crm-hs,
 .reg-v2-crm-ghl {
-    background: linear-gradient(135deg, #FF6B00, #FF8533);
-    color: #fff;
+    background: #0a0a0a;
+    color: #e5e5e5;
+    border: 1px solid #1e1e1e;
 }
+.reg-v2-crm-hs:hover,
 .reg-v2-crm-ghl:hover {
-    box-shadow: 0 4px 16px rgba(255,107,0,0.3);
-    color: #fff;
+    background: #0a0a0a;
+    color: #ffffff;
+    border-color: rgba(0,255,136,0.35);
+    box-shadow: none;
 }
 .reg-v2-crm-icon-hs {
     display: inline-flex;
@@ -755,13 +752,19 @@
     width: 24px;
     height: 24px;
     border-radius: 3px;
-    background: #fff;
-    color: #ff7a59;
+    background: #1a1a1a;
+    color: #888;
     font-weight: 900;
     font-size: 0.9rem;
     flex-shrink: 0;
+    transition: color 0.18s ease, background 0.18s ease;
 }
-.reg-v2-crm-icon-ghl { font-size: 1rem; flex-shrink: 0; }
+.reg-v2-crm-hs:hover .reg-v2-crm-icon-hs {
+    color: var(--accent);
+    background: rgba(0,255,136,0.08);
+}
+.reg-v2-crm-icon-ghl { font-size: 1rem; flex-shrink: 0; color: #888; transition: color 0.18s ease; }
+.reg-v2-crm-ghl:hover .reg-v2-crm-icon-ghl { color: var(--accent); }
 .reg-v2-crm-btn-text { display: flex; flex-direction: column; gap: 1px; }
 .reg-v2-crm-btn-name { font-weight: 700; font-size: 0.9rem; }
 .reg-v2-crm-btn-sub { font-size: 0.75rem; opacity: 0.8; font-weight: 400; }

@@ -499,11 +499,17 @@ body.light-theme .agency-badge.expired {
     border-radius: 2px;
     display: inline-block;
 }
-.ak-dot-red    { background: #ef4444; }
-.ak-dot-amber  { background: #f59e0b; }
-.ak-dot-green  { background: #00ff88; }
-.ak-dot-blue   { background: #3b82f6; }
-.ak-dot-purple { background: #8b5cf6; }
+/* Duration bucket legend — unified single accent with varying opacity (was rainbow) */
+.ak-dot-red    { background: rgba(0, 255, 136, 0.28); }
+.ak-dot-amber  { background: rgba(0, 255, 136, 0.46); }
+.ak-dot-green  { background: rgba(0, 255, 136, 0.64); }
+.ak-dot-blue   { background: rgba(0, 255, 136, 0.82); }
+.ak-dot-purple { background: #00ff88; }
+body.light-theme .ak-dot-red    { background: rgba(5, 150, 105, 0.28); }
+body.light-theme .ak-dot-amber  { background: rgba(5, 150, 105, 0.46); }
+body.light-theme .ak-dot-green  { background: rgba(5, 150, 105, 0.64); }
+body.light-theme .ak-dot-blue   { background: rgba(5, 150, 105, 0.82); }
+body.light-theme .ak-dot-purple { background: #059669; }
 
 /* Bar chart wrapper */
 .ak-bar-wrap {

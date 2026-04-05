@@ -1780,11 +1780,11 @@
 .team-panel-btn-muted { color: #888; }
 
 /* --- Stat Cards --- */
-.team-stat-value { font-size: 1.6rem; font-weight: 800; }
-.team-stat-value-accent { color: var(--accent); }
-.team-stat-value-yellow { color: #facc15; }
-.team-stat-value-cyan { color: #00ff88; }
-.team-stat-value-red { color: #f87171; }
+.team-stat-value { font-size: 1.6rem; font-weight: 800; color: var(--accent); }
+.team-stat-value-accent,
+.team-stat-value-yellow,
+.team-stat-value-cyan,
+.team-stat-value-red { color: var(--accent); }
 .team-stat-label {
     font-size: 0.75rem; color: #888;
     text-transform: uppercase; letter-spacing: 1px;
@@ -1915,10 +1915,11 @@
 [data-theme="light"] .team-panel-btn-muted { color: #6b7280; }
 [data-theme="light"] .team-panel-btn.active { background: rgba(0,170,94,0.1) !important; color: var(--lt-accent) !important; }
 [data-theme="light"] .team-panel-btn:hover { color: #111827 !important; }
-[data-theme="light"] .team-stat-value-accent { color: var(--lt-accent); }
-[data-theme="light"] .team-stat-value-yellow { color: #a16207; }
-[data-theme="light"] .team-stat-value-cyan { color: #0078b8; }
-[data-theme="light"] .team-stat-value-red { color: #dc2626; }
+[data-theme="light"] .team-stat-value,
+[data-theme="light"] .team-stat-value-accent,
+[data-theme="light"] .team-stat-value-yellow,
+[data-theme="light"] .team-stat-value-cyan,
+[data-theme="light"] .team-stat-value-red { color: var(--lt-accent); }
 [data-theme="light"] .team-stat-label { color: #6b7280; }
 [data-theme="light"] .team-ghl-banner {
     background: rgba(0,120,184,0.06);
@@ -3304,9 +3305,9 @@ body.ghl-embed .main-wrapper {
     border-color: rgba(0, 255, 136, 0.2);
 }
 .integration-badge.coming-soon-badge {
-    background: rgba(255, 170, 0, 0.1);
-    color: #ffaa00;
-    border-color: rgba(255, 170, 0, 0.2);
+    background: transparent;
+    color: #888;
+    border: 1px dashed #333;
 }
 .integration-desc {
     color: #888; font-size: 0.9rem;
@@ -3423,9 +3424,9 @@ body.ghl-embed .main-wrapper {
     border-color: rgba(0, 170, 94, 0.2);
 }
 [data-theme="light"] .integration-badge.coming-soon-badge {
-    background: rgba(255, 170, 0, 0.08);
-    color: #b37700;
-    border-color: rgba(255, 170, 0, 0.2);
+    background: transparent;
+    color: #9ca3af;
+    border: 1px dashed #d0d0d0;
 }
 [data-theme="light"] .integration-desc { color: var(--lt-text-secondary); }
 [data-theme="light"] .integration-features { color: var(--lt-text-muted); }
