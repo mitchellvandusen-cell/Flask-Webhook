@@ -169,7 +169,7 @@
     .hp-hero-h1 {
         font-size: clamp(3.5rem, 7.5vw, 6.5rem);
         font-weight: 900;
-        color: #00ff88;
+        color: #ffffff;
         line-height: 1.0;
         letter-spacing: -3px;
         margin-bottom: 24px;
@@ -181,6 +181,8 @@
     .hp-hero-h1 em {
         font-style: normal;
         position: relative;
+        color: #00ff88;
+        display: inline-block;
     }
     .hp-hero-h1 em::after {
         content: '';
@@ -197,17 +199,17 @@
         to   { transform: scaleX(1); opacity: 1; }
     }
 
-    /* Ticker subline */
+    /* Ticker subline — Outfit for brand consistency (was monospace) */
     .hp-hero-ticker {
-        font-size: clamp(0.92rem, 1.8vw, 1.15rem);
-        font-weight: 500;
-        color: #999;
+        font-size: clamp(1rem, 1.9vw, 1.25rem);
+        font-weight: 400;
+        color: #a8a8a8;
         margin-bottom: 36px;
         opacity: 0;
         animation: fadeSlideUp 0.45s ease 1.2s forwards;
         line-height: 1.6;
-        font-family: 'JetBrains Mono', monospace;
-        letter-spacing: -0.3px;
+        font-family: 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;
+        letter-spacing: -0.2px;
     }
     .hp-ticker-prefix { color: #888; }
     .hp-ticker-value {
@@ -562,7 +564,8 @@
     }
 
     /* ── Hero (light theme) ── */
-    body.light-theme .hp-hero-h1 { color: #059669; }
+    body.light-theme .hp-hero-h1 { color: #0f172a; }
+    body.light-theme .hp-hero-h1 em { color: #059669; }
     body.light-theme .hp-hero-h1 em::after { background: #059669; }
     body.light-theme .hp-hero { background: #f8f9fb; }
     body.light-theme .hp-hero::before { background: radial-gradient(ellipse at 50% 100%, rgba(5,150,105,0.08) 0%, rgba(5,150,105,0.03) 40%, transparent 70%); }
@@ -734,7 +737,7 @@
             <div class="hp-hero-inner">
                 <div class="hp-hero-label">Power Dialer for Life Insurance Agents</div>
 
-                <h1 class="hp-hero-h1"><em>No More Spam Likely.</em></h1>
+                <h1 class="hp-hero-h1">No More<br><em>Spam Likely.</em></h1>
 
                 <div class="hp-hero-ticker">
                     <span class="hp-ticker-prefix">Built for agents who want </span><span class="hp-ticker-value" id="heroRotate">4 lines simultaneously.</span><span class="hp-ticker-cursor"></span>

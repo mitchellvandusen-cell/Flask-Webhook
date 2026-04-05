@@ -33,18 +33,33 @@
                     .wfb-list-subtitle { font-size: 0.78rem; color: #888; margin: 2px 0 0; }
                     .wfb-list-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 
-                    .wfb-btn { display: inline-flex; align-items: center; gap: 8px; padding: 9px 18px; border-radius: 10px; font-size: 0.82rem; font-weight: 600; border: none; cursor: pointer; transition: all 0.2s; white-space: nowrap; }
-                    .wfb-btn-accent { background: var(--accent); color: #000; }
-                    .wfb-btn-accent:hover { background: #fff; }
-                    .wfb-btn-ai { background: linear-gradient(135deg, rgba(139,92,246,0.2), rgba(59,130,246,0.2)); color: #a78bfa; border: 1px solid rgba(139,92,246,0.25); }
-                    .wfb-btn-ai:hover { background: linear-gradient(135deg, rgba(139,92,246,0.35), rgba(59,130,246,0.35)); color: #c4b5fd; }
-                    .wfb-btn-glass { background: #111111; color: #ccc; border: 1px solid #242424; }
-                    .wfb-btn-glass:hover { background: #1a1a1a; color: #fff; }
+                    .wfb-btn { display: inline-flex; align-items: center; gap: 8px; padding: 9px 18px; border-radius: 10px; font-size: 0.82rem; font-weight: 600; border: none; cursor: pointer; transition: border-color 0.2s, background 0.2s, color 0.2s; white-space: nowrap; }
+                    .wfb-btn-accent { background: var(--accent); color: #000; border: 1px solid var(--accent); }
+                    .wfb-btn-accent:hover { background: #00cc6a; border-color: #00cc6a; }
+                    /* Secondary actions (AI, Import, Glass) — unified ghost outlines, single accent on hover */
+                    .wfb-btn-ai,
+                    .wfb-btn-ghl,
+                    .wfb-btn-glass {
+                        background: #0a0a0a;
+                        color: #cccccc;
+                        border: 1px solid #1e1e1e;
+                    }
+                    .wfb-btn-ai:hover,
+                    .wfb-btn-ghl:hover,
+                    .wfb-btn-glass:hover {
+                        background: #0a0a0a;
+                        color: #ffffff;
+                        border-color: rgba(0,255,136,0.35);
+                    }
+                    .wfb-btn-ai i,
+                    .wfb-btn-ghl i,
+                    .wfb-btn-glass i { color: #888; transition: color 0.2s; }
+                    .wfb-btn-ai:hover i,
+                    .wfb-btn-ghl:hover i,
+                    .wfb-btn-glass:hover i { color: var(--accent); }
                     .wfb-btn-sm { padding: 6px 12px; font-size: 0.76rem; border-radius: 8px; }
                     .wfb-btn-danger { background: rgba(239,68,68,0.12); color: #f87171; border: 1px solid rgba(239,68,68,0.2); }
                     .wfb-btn-danger:hover { background: rgba(239,68,68,0.25); }
-                    .wfb-btn-ghl { background: rgba(255,120,50,0.1); color: #ff8c42; border: 1px solid rgba(255,120,50,0.2); }
-                    .wfb-btn-ghl:hover { background: rgba(255,120,50,0.22); color: #ffab70; }
 
                     /* GHL workflow card source badge */
                     .wfb-source-badge { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 6px; font-size: 0.65rem; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; }
@@ -292,14 +307,27 @@
                     body.light-theme .wfb-btn-accent { background: #059669; color: #fff; border: 1px solid #047857; }
                     body.light-theme .wfb-btn-accent:hover { background: #047857; }
                     body.light-theme .wfb-btn-accent i { color: #fff !important; -webkit-text-fill-color: #fff !important; }
-                    body.light-theme .wfb-btn-ai { background: rgba(109,40,217,0.08); color: #4b3080; border: 1px solid rgba(109,40,217,0.18); }
-                    body.light-theme .wfb-btn-ai:hover { background: rgba(109,40,217,0.14); color: #3b1e70; }
-                    body.light-theme .wfb-btn-ai i { color: #5b21b6 !important; -webkit-text-fill-color: #5b21b6 !important; }
-                    body.light-theme .wfb-btn-ghl { background: rgba(194,65,12,0.08); color: #7c2d12; border: 1px solid rgba(194,65,12,0.18); }
-                    body.light-theme .wfb-btn-ghl:hover { background: rgba(194,65,12,0.14); color: #6b2410; }
-                    body.light-theme .wfb-btn-ghl i { color: #7c2d12 !important; -webkit-text-fill-color: #7c2d12 !important; }
-                    body.light-theme .wfb-btn-glass { background: var(--lt-surface); color: var(--lt-text-secondary); border-color: var(--lt-border); }
-                    body.light-theme .wfb-btn-glass:hover { background: var(--lt-surface-hover); color: var(--lt-text-primary); }
+                    /* Light theme secondary actions — unified neutral ghost, single green hover */
+                    body.light-theme .wfb-btn-ai,
+                    body.light-theme .wfb-btn-ghl,
+                    body.light-theme .wfb-btn-glass {
+                        background: #ffffff;
+                        color: #374151;
+                        border: 1px solid #e5e7eb;
+                    }
+                    body.light-theme .wfb-btn-ai:hover,
+                    body.light-theme .wfb-btn-ghl:hover,
+                    body.light-theme .wfb-btn-glass:hover {
+                        background: #ffffff;
+                        color: #111827;
+                        border-color: rgba(5,150,105,0.40);
+                    }
+                    body.light-theme .wfb-btn-ai i,
+                    body.light-theme .wfb-btn-ghl i,
+                    body.light-theme .wfb-btn-glass i { color: #9ca3af !important; -webkit-text-fill-color: #9ca3af !important; }
+                    body.light-theme .wfb-btn-ai:hover i,
+                    body.light-theme .wfb-btn-ghl:hover i,
+                    body.light-theme .wfb-btn-glass:hover i { color: #059669 !important; -webkit-text-fill-color: #059669 !important; }
                     body.light-theme .wfb-btn-danger { background: rgba(239,68,68,0.06); color: #dc2626; border-color: rgba(239,68,68,0.12); }
 
                     body.light-theme .wfb-card { background: var(--lt-surface); border-color: var(--lt-border); }

@@ -44,46 +44,61 @@
 .auth-divider { display: flex; align-items: center; gap: 12px; margin: 20px 0 16px; }
 .auth-divider::before, .auth-divider::after { content: ''; flex: 1; height: 1px; background: rgba(255,255,255,0.1); }
 .auth-divider-text { font-size: 0.82rem; color: #666; flex-shrink: 0; }
-.ghl-sso-btn {
-    display: flex; align-items: center; justify-content: center; gap: 10px;
-    width: 100%; padding: 13px; border-radius: 2px;
-    background: linear-gradient(135deg, #FF6B00, #FF8533);
-    color: #fff; font-weight: 700; font-size: 0.92rem;
-    text-decoration: none; transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease; border: none; cursor: pointer;
-}
-.ghl-sso-btn:hover {
-    background: linear-gradient(135deg, #FF8533, #FF9955);
-    color: #fff; transform: translateY(-1px);
-    box-shadow: 0 4px 16px rgba(255,107,0,0.3); text-decoration: none;
-}
-.ghl-sso-btn i { font-size: 1rem; }
-/* Light theme */
-[data-theme="light"] .auth-divider::before, [data-theme="light"] .auth-divider::after { background: rgba(0,0,0,0.1); }
-[data-theme="light"] .auth-divider-text { color: #999; }
-[data-theme="light"] .ghl-sso-btn { background: linear-gradient(135deg, #FF6B00, #FF8533); color: #fff; }
-[data-theme="light"] .ghl-sso-btn:hover { box-shadow: 0 4px 16px rgba(255,107,0,0.2); }
-
-/* HubSpot SSO Button */
+/* GHL & HubSpot SSO — restrained ghost buttons (single accent brand discipline) */
+.ghl-sso-btn,
 .hs-sso-btn {
     display: flex; align-items: center; justify-content: center; gap: 10px;
     width: 100%; padding: 13px; border-radius: 2px;
-    background: linear-gradient(135deg, #ff7a59, #ff9f7f);
-    color: #fff; font-weight: 700; font-size: 0.92rem;
-    text-decoration: none; transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
-    border: none; cursor: pointer; margin-top: 10px;
+    background: #0a0a0a;
+    color: #e5e5e5; font-weight: 600; font-size: 0.92rem;
+    text-decoration: none;
+    border: 1px solid #1e1e1e;
+    transition: border-color 0.18s ease, color 0.18s ease, background 0.18s ease;
+    cursor: pointer;
 }
+.ghl-sso-btn:hover,
 .hs-sso-btn:hover {
-    background: linear-gradient(135deg, #ff9f7f, #ffb69a);
-    color: #fff; transform: translateY(-1px);
-    box-shadow: 0 4px 16px rgba(255,122,89,0.35); text-decoration: none;
+    background: #0a0a0a;
+    color: #ffffff;
+    border-color: rgba(0,255,136,0.35);
+    text-decoration: none;
 }
+.hs-sso-btn { margin-top: 10px; }
+.ghl-sso-btn i { font-size: 1rem; color: #888; transition: color 0.18s ease; }
+.ghl-sso-btn:hover i { color: var(--accent); }
 .hs-sso-icon {
     display: inline-flex; align-items: center; justify-content: center;
     width: 20px; height: 20px; border-radius: 3px;
-    background: #fff; color: #ff7a59; font-weight: 900; font-size: 0.85rem;
+    background: #1a1a1a; color: #888; font-weight: 900; font-size: 0.85rem;
+    transition: color 0.18s ease, background 0.18s ease;
 }
-[data-theme="light"] .hs-sso-btn { background: linear-gradient(135deg, #ff7a59, #ff9f7f); color: #fff; }
-[data-theme="light"] .hs-sso-btn:hover { box-shadow: 0 4px 16px rgba(255,122,89,0.25); }
+.hs-sso-btn:hover .hs-sso-icon {
+    color: var(--accent);
+    background: rgba(0,255,136,0.08);
+}
+
+/* Light theme */
+[data-theme="light"] .auth-divider::before, [data-theme="light"] .auth-divider::after { background: rgba(0,0,0,0.1); }
+[data-theme="light"] .auth-divider-text { color: #999; }
+[data-theme="light"] .ghl-sso-btn,
+[data-theme="light"] .hs-sso-btn {
+    background: #ffffff;
+    color: #374151;
+    border-color: #e5e7eb;
+}
+[data-theme="light"] .ghl-sso-btn:hover,
+[data-theme="light"] .hs-sso-btn:hover {
+    background: #ffffff;
+    color: #111827;
+    border-color: rgba(5,150,105,0.40);
+}
+[data-theme="light"] .ghl-sso-btn i { color: #9ca3af; }
+[data-theme="light"] .ghl-sso-btn:hover i { color: #059669; }
+[data-theme="light"] .hs-sso-icon { background: #f3f4f6; color: #9ca3af; }
+[data-theme="light"] .hs-sso-btn:hover .hs-sso-icon {
+    color: #059669;
+    background: rgba(5,150,105,0.10);
+}
 
 .form-label { color: #ccc; font-size: var(--fs-base); font-weight: 600; margin-left: 5px; }
 .input-group-text { background: rgba(0, 0, 0, 0.2); border: none; border-top: 1px solid rgba(0, 0, 0, 0.4); border-right: none; border-bottom: 1px solid rgba(255, 255, 255, 0.1); color: var(--text-muted); box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.3); }

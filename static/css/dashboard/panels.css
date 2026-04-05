@@ -158,9 +158,9 @@
     transition: 0.7s ease-in-out;
 }
 .billing-plan-card.selected {
-    border-top-color: var(--accent) !important;
-    border-left-color: rgba(0,255,136,0.3) !important;
-    box-shadow: 0 0 30px rgba(0,255,136,0.12), var(--glass-shadow);
+    border-color: rgba(0,255,136,0.25) !important;
+    border-top: 2px solid var(--accent) !important;
+    box-shadow: none;
 }
 
 /* Metallic price text — shimmering gradient on price amounts */
@@ -177,33 +177,12 @@
     0%, 100% { background-position: 0% 50%; }
     50% { background-position: 100% 50%; }
 }
-/* Tier-colored metallic variants */
-.metallic-price--cyan {
-    background: linear-gradient(135deg, #00ff88 0%, #a5f3fc 30%, #00ff88 50%, #059669 75%, #00ff88 100%);
-    background-size: 200% 200%;
-    background-clip: text;
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    animation: metallicShimmer 4s ease-in-out infinite;
-}
-.metallic-price--green {
-    background: linear-gradient(135deg, #00ff88 0%, #b8ffdb 30%, #00ff88 50%, #00cc6a 75%, #00ff88 100%);
-    background-size: 200% 200%;
-    background-clip: text;
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    animation: metallicShimmer 4s ease-in-out infinite;
-}
-.metallic-price--orange {
-    background: linear-gradient(135deg, #ff6b35 0%, #ffc4a3 30%, #ff6b35 50%, #ff3366 75%, #ff6b35 100%);
-    background-size: 200% 200%;
-    background-clip: text;
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    animation: metallicShimmer 4s ease-in-out infinite;
-}
+/* Tier-colored metallic variants — unified to single green accent for luxury restraint */
+.metallic-price--green,
+.metallic-price--cyan,
+.metallic-price--orange,
 .metallic-price--purple {
-    background: linear-gradient(135deg, #8b5cf6 0%, #c4b5fd 30%, #8b5cf6 50%, #6366f1 75%, #8b5cf6 100%);
+    background: linear-gradient(135deg, #00ff88 0%, #b8ffdb 30%, #00ff88 50%, #00cc6a 75%, #00ff88 100%);
     background-size: 200% 200%;
     background-clip: text;
     -webkit-background-clip: text;
@@ -915,10 +894,17 @@
 .billing-header-icon { font-size: 2.5rem; color: var(--accent); margin-bottom: 12px; }
 .billing-current-plan-text { color: #888; font-size: 0.88rem; }
 
-/* --- Plan Grid --- */
+/* --- Plan Grid — symmetric 4-column (was 3+1 asymmetric) --- */
 .billing-plan-grid {
-    display: grid; grid-template-columns: 1fr 1fr 1fr;
-    gap: 16px; max-width: 960px; margin: 0 auto 24px; padding-top: 16px;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px; max-width: 1200px; margin: 0 auto 24px; padding-top: 16px;
+}
+@media (max-width: 1100px) {
+    .billing-plan-grid { grid-template-columns: 1fr 1fr; }
+}
+@media (max-width: 560px) {
+    .billing-plan-grid { grid-template-columns: 1fr; }
 }
 
 /* --- Plan Title & Price --- */
@@ -926,35 +912,48 @@
 .billing-price-amount { font-size: 1.8rem; font-weight: 900; }
 .billing-price-period { color: #888; font-size: 0.85rem; }
 
-/* --- Feature Checkmarks --- */
-.billing-check-accent { color: var(--accent); margin-right: 6px; }
-.billing-check-cyan { color: #00ff88; margin-right: 6px; }
-.billing-check-orange { color: #ff6b35; margin-right: 6px; }
-.billing-check-purple { color: #8b5cf6; margin-right: 6px; }
+/* --- Feature Checkmarks — all unified to single accent --- */
+.billing-check-accent,
+.billing-check-cyan,
+.billing-check-orange,
+.billing-check-purple { color: var(--accent); margin-right: 6px; }
 
-/* --- Tier Badges (UPGRADE / ENTERPRISE) --- */
+/* --- Tier Badges — unified ghost treatment, single accent --- */
 .billing-tier-badge {
     position: absolute; top: -8px; left: 12px;
-    color: #fff; font-size: 0.68rem; font-weight: 700;
+    color: var(--accent);
+    background: rgba(0, 255, 136, 0.08);
+    border: 1px solid rgba(0, 255, 136, 0.35);
+    font-size: 0.68rem; font-weight: 700;
     padding: 2px 10px; border-radius: 10px; letter-spacing: 0.5px;
 }
-.billing-tier-badge--upgrade { background: linear-gradient(135deg, #ff6b35, #ff3366); }
-.billing-tier-badge--enterprise { background: linear-gradient(135deg, #8b5cf6, #6366f1); }
+.billing-tier-badge--upgrade,
+.billing-tier-badge--enterprise {
+    color: var(--accent);
+    background: rgba(0, 255, 136, 0.08);
+    border: 1px solid rgba(0, 255, 136, 0.35);
+}
 
-/* --- Current Plan Badge --- */
-.billing-badge-current {
+/* --- Current Plan Badge — unified --- */
+.billing-badge-current,
+.billing-badge-current--cyan,
+.billing-badge-current--orange,
+.billing-badge-current--purple {
     display: none; position: absolute; top: -8px; right: 12px;
     background: var(--accent); color: #000;
     font-size: 0.72rem; font-weight: 700; padding: 2px 10px; border-radius: 10px;
+    border: none;
 }
-.billing-badge-current--cyan { background: #00ff88; color: #000; }
-.billing-badge-current--orange { background: #ff6b35; color: #fff; }
-.billing-badge-current--purple { background: #8b5cf6; color: #fff; }
 
-/* --- Change Plan Button --- */
+/* --- Change Plan Button — flat green --- */
 .billing-change-plan-btn {
-    background: linear-gradient(135deg, #ff6b35, #ff3366);
-    color: #fff; font-weight: 700; border: none; border-radius: 10px;
+    background: var(--accent);
+    color: #000;
+    font-weight: 700; border: none; border-radius: 10px;
+}
+.billing-change-plan-btn:hover {
+    background: #00cc6a;
+    box-shadow: 0 4px 16px rgba(0, 255, 136, 0.25);
 }
 
 /* --- Team Seats Add-on --- */
@@ -995,18 +994,27 @@
 [data-theme="light"] .billing-current-plan-text { color: #6b7280; }
 [data-theme="light"] .billing-plan-title { color: #111827; }
 [data-theme="light"] .billing-price-period { color: #6b7280; }
-[data-theme="light"] .billing-check-accent { color: #059669; }
-[data-theme="light"] .billing-check-cyan { color: #059669; }
-[data-theme="light"] .billing-check-orange { color: #e85d2c; }
-[data-theme="light"] .billing-check-purple { color: #7c3aed; }
-[data-theme="light"] .billing-tier-badge--upgrade { background: linear-gradient(135deg, #e85d2c, #dc2654); }
-[data-theme="light"] .billing-tier-badge--enterprise { background: linear-gradient(135deg, #7c3aed, #4f46e5); }
-[data-theme="light"] .billing-badge-current { background: var(--lt-accent); color: #fff; }
-[data-theme="light"] .billing-badge-current--cyan { background: #059669; color: #fff; }
-[data-theme="light"] .billing-badge-current--orange { background: #e85d2c; }
-[data-theme="light"] .billing-badge-current--purple { background: #7c3aed; }
+[data-theme="light"] .billing-check-accent,
+[data-theme="light"] .billing-check-cyan,
+[data-theme="light"] .billing-check-orange,
+[data-theme="light"] .billing-check-purple { color: #059669; }
+[data-theme="light"] .billing-tier-badge,
+[data-theme="light"] .billing-tier-badge--upgrade,
+[data-theme="light"] .billing-tier-badge--enterprise {
+    color: #059669;
+    background: rgba(5, 150, 105, 0.08);
+    border: 1px solid rgba(5, 150, 105, 0.30);
+}
+[data-theme="light"] .billing-badge-current,
+[data-theme="light"] .billing-badge-current--cyan,
+[data-theme="light"] .billing-badge-current--orange,
+[data-theme="light"] .billing-badge-current--purple {
+    background: var(--lt-accent);
+    color: #fff;
+}
 [data-theme="light"] .billing-change-plan-btn {
-    background: linear-gradient(135deg, #e85d2c, #dc2654);
+    background: var(--lt-accent);
+    color: #fff;
 }
 [data-theme="light"] .billing-seats-wrapper { border-top-color: rgba(0, 0, 0, 0.06); }
 [data-theme="light"] .billing-seats-card {
