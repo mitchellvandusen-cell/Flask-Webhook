@@ -6018,3 +6018,72 @@ body.light-theme .ni-register-btn,
 body.light-theme .ni-register-btn:hover,
 [data-theme="light"] .ni-register-btn:hover { background: #047857 !important; }
 
+/* ════════════════════════════════════════════════════════════════════
+   LUXURY PASS FINAL OVERRIDE — flatten any lingering gradient buttons
+   to single-accent solid backgrounds. Targets Team Meeting, Google
+   Connect, Number Integrity register/remediate, AI Build, CNAM sync,
+   and any stray multi-color CTA. !important wins against cascade.
+   ════════════════════════════════════════════════════════════════════ */
+.team-meet-btn,
+.conn-google-btn,
+.wfb-ai-build-btn,
+.ni-register-btn,
+.ni-remediate-btn,
+.ni-edit-submit-btn,
+.cnam-sync-all-btn {
+    background: var(--accent) !important;
+    color: #000000 !important;
+    border: none !important;
+}
+.team-meet-btn:hover,
+.conn-google-btn:hover,
+.wfb-ai-build-btn:hover,
+.ni-register-btn:hover,
+.ni-remediate-btn:hover,
+.ni-edit-submit-btn:hover,
+.cnam-sync-all-btn:hover {
+    background: #00cc6a !important;
+}
+body.light-theme .team-meet-btn,
+body.light-theme .conn-google-btn,
+body.light-theme .wfb-ai-build-btn,
+body.light-theme .ni-register-btn,
+body.light-theme .ni-remediate-btn,
+body.light-theme .ni-edit-submit-btn,
+body.light-theme .cnam-sync-all-btn,
+[data-theme="light"] .team-meet-btn,
+[data-theme="light"] .conn-google-btn,
+[data-theme="light"] .wfb-ai-build-btn,
+[data-theme="light"] .ni-register-btn,
+[data-theme="light"] .ni-remediate-btn,
+[data-theme="light"] .ni-edit-submit-btn,
+[data-theme="light"] .cnam-sync-all-btn {
+    background: #059669 !important;
+    color: #ffffff !important;
+    border: none !important;
+}
+body.light-theme .team-meet-btn:hover,
+body.light-theme .conn-google-btn:hover,
+body.light-theme .wfb-ai-build-btn:hover,
+body.light-theme .ni-register-btn:hover,
+body.light-theme .ni-remediate-btn:hover,
+body.light-theme .ni-edit-submit-btn:hover,
+body.light-theme .cnam-sync-all-btn:hover,
+[data-theme="light"] .team-meet-btn:hover,
+[data-theme="light"] .conn-google-btn:hover,
+[data-theme="light"] .wfb-ai-build-btn:hover,
+[data-theme="light"] .ni-register-btn:hover,
+[data-theme="light"] .ni-remediate-btn:hover,
+[data-theme="light"] .ni-edit-submit-btn:hover,
+[data-theme="light"] .cnam-sync-all-btn:hover {
+    background: #047857 !important;
+}
+
+/* .wfb-ai-icon gradient text — unify to solid accent */
+.wfb-ai-icon i {
+    background: var(--accent) !important;
+    -webkit-background-clip: text !important;
+    -webkit-text-fill-color: var(--accent) !important;
+    color: var(--accent) !important;
+}
+

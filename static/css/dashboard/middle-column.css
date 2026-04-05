@@ -659,11 +659,85 @@
 }
 
 /* Kill hardcoded 1a1a2e / 1a1a1a / 0e0e0e inline select backgrounds too */
-:not([data-theme="light"]) [style*="background:#1a1a2e"] {
+:not([data-theme="light"]) [style*="background:#1a1a2e"],
+:not([data-theme="light"]) [style*="background: #1a1a2e"] {
     background: #0a0a0a !important;
 }
-[data-theme="light"] [style*="background:#1a1a2e"] {
+[data-theme="light"] [style*="background:#1a1a2e"],
+[data-theme="light"] [style*="background: #1a1a2e"] {
     background: #ffffff !important;
+    color: #111827 !important;
+}
+
+/* ── Kill inline accent drift (purple/blue/orange/yellow) — unify to green ──
+   Any element with a hardcoded off-brand color in inline style gets rewritten
+   to the brand accent. Narrow-scoped to the dashboard tab content so it does
+   not affect marketing pages where some color is intentional. */
+.dash-main [style*="color:#a78bfa"],
+.dash-main [style*="color: #a78bfa"],
+.dash-main [style*="color:#c4b5fd"],
+.dash-main [style*="color:#8b5cf6"],
+.dash-main [style*="color: #8b5cf6"],
+.dash-main [style*="color:#7c3aed"],
+.dash-main [style*="color: #7c3aed"],
+.dash-main [style*="color:#ffa500"],
+.dash-main [style*="color: #ffa500"],
+.dash-main [style*="color:#fbbf24"],
+.dash-main [style*="color: #fbbf24"],
+.dash-main [style*="color:#fb923c"],
+.dash-main [style*="color: #fb923c"],
+.dash-main [style*="color:#ff6b35"],
+.dash-main [style*="color: #ff6b35"],
+.dash-main [style*="color:#3b82f6"],
+.dash-main [style*="color: #3b82f6"],
+.dash-main [style*="color:#60a5fa"],
+.dash-main [style*="color: #60a5fa"],
+.dash-main [style*="color:#2563eb"],
+.dash-main [style*="color: #2563eb"] {
+    color: var(--accent) !important;
+    -webkit-text-fill-color: var(--accent) !important;
+}
+.dash-main[class] [style*="color:#a78bfa"],
+body.light-theme .dash-main [style*="color:#a78bfa"],
+body.light-theme .dash-main [style*="color:#8b5cf6"],
+body.light-theme .dash-main [style*="color:#7c3aed"],
+body.light-theme .dash-main [style*="color:#ffa500"],
+body.light-theme .dash-main [style*="color:#fbbf24"],
+body.light-theme .dash-main [style*="color:#fb923c"],
+body.light-theme .dash-main [style*="color:#ff6b35"],
+body.light-theme .dash-main [style*="color:#3b82f6"],
+body.light-theme .dash-main [style*="color:#60a5fa"],
+body.light-theme .dash-main [style*="color:#2563eb"] {
+    color: #059669 !important;
+    -webkit-text-fill-color: #059669 !important;
+}
+
+/* Kill inline linear-gradient buttons (orange/purple/blue) — replace with solid green */
+.dash-main [style*="linear-gradient(135deg,#ffa500"],
+.dash-main [style*="linear-gradient(135deg, #ffa500"],
+.dash-main [style*="linear-gradient(135deg,#ff6b35"],
+.dash-main [style*="linear-gradient(135deg, #ff6b35"],
+.dash-main [style*="linear-gradient(135deg,#a78bfa"],
+.dash-main [style*="linear-gradient(135deg, #a78bfa"],
+.dash-main [style*="linear-gradient(135deg,#8b5cf6"],
+.dash-main [style*="linear-gradient(135deg, #8b5cf6"],
+.dash-main [style*="linear-gradient(135deg,#3b82f6"],
+.dash-main [style*="linear-gradient(135deg, #3b82f6"] {
+    background: var(--accent) !important;
+    color: #000 !important;
+}
+body.light-theme .dash-main [style*="linear-gradient(135deg,#ffa500"],
+body.light-theme .dash-main [style*="linear-gradient(135deg, #ffa500"],
+body.light-theme .dash-main [style*="linear-gradient(135deg,#ff6b35"],
+body.light-theme .dash-main [style*="linear-gradient(135deg, #ff6b35"],
+body.light-theme .dash-main [style*="linear-gradient(135deg,#a78bfa"],
+body.light-theme .dash-main [style*="linear-gradient(135deg, #a78bfa"],
+body.light-theme .dash-main [style*="linear-gradient(135deg,#8b5cf6"],
+body.light-theme .dash-main [style*="linear-gradient(135deg, #8b5cf6"],
+body.light-theme .dash-main [style*="linear-gradient(135deg,#3b82f6"],
+body.light-theme .dash-main [style*="linear-gradient(135deg, #3b82f6"] {
+    background: #059669 !important;
+    color: #fff !important;
 }
 
 /* ── Dark mode text legibility — inline colors #444–#999 on dark bg ── */
