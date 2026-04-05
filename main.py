@@ -282,7 +282,7 @@ def handle_cors_preflight():
 
 @app.after_request
 def add_iframe_headers(response):
-    """Security headers + selective iframe/CORS for embed and GHL Custom JS routes."""
+    """Security headers + iframe/CORS for embed and GHL Custom JS routes."""
     path = request.path
 
     # Allow framing from any origin — GHL custom pages, CRM iframes, and embeds all need this.
@@ -291,9 +291,13 @@ def add_iframe_headers(response):
     response.headers.pop('X-Frame-Options', None)
     response.headers['Content-Security-Policy'] = "frame-ancestors *"
 
-    # Microphone permission for voice routes
-    if path.startswith('/voice/') or path.startswith('/embed/') or path.startswith('/dashboard'):
-        response.headers['Permissions-Policy'] = 'microphone=*, camera=*, autoplay=*'
+    # Permissions-Policy: microphone, camera, autoplay allowed on ALL responses.
+    # Applied globally (not path-gated) because GHL white-label iframes may load
+    # any path (/, /dashboard, /embed/*, etc.) and the browser computes the
+    # policy per-document — missing it on any initial navigation breaks mic
+    # access for the whole iframe session. Safe because these permissions
+    # still require the parent frame's iframe `allow` attribute to grant them.
+    response.headers['Permissions-Policy'] = 'microphone=*, camera=*, autoplay=*'
 
     # CORS for GHL Custom JS — uses JWT Bearer tokens, not cookies, so * origin is safe
     if path.startswith('/api/ghl/') or path.startswith('/voice/'):
