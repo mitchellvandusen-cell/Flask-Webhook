@@ -19,34 +19,34 @@
 {% block content %}
 <style>
     .ast-hero { padding: 150px 0 80px; position: relative; overflow: hidden; }
-    .ast-hero::before { content: ''; position: absolute; inset: 0; background: radial-gradient(ellipse at 30% 20%, rgba(0,255,136,0.08) 0%, transparent 55%), radial-gradient(ellipse at 70% 80%, rgba(139,92,246,0.06) 0%, transparent 50%); pointer-events: none; }
+    .ast-hero::before { content: ''; position: absolute; inset: 0; background: radial-gradient(ellipse at 50% 0%, rgba(0,255,136,0.06) 0%, transparent 60%); pointer-events: none; }
     .ast-tag { display: inline-block; background: rgba(0,255,136,0.08); border: 1px solid rgba(0,255,136,0.25); color: var(--accent); padding: 6px 20px; border-radius: 24px; font-size: 0.78rem; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 20px; }
     .ast-h1 { font-size: clamp(2.4rem, 4.5vw, 3.6rem); font-weight: 900; line-height: 1.08; margin-bottom: 20px; }
-    .ast-h1 span { background: linear-gradient(135deg, var(--accent), #a78bfa); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+    .ast-h1 span { color: var(--accent); }
     .ast-sub { color: #999; font-size: 1.1rem; max-width: 640px; margin: 0 auto 32px; line-height: 1.65; }
     .ast-section { padding: 80px 0; }
-    .ast-section-alt { background: rgba(255,255,255,0.01); }
+    .ast-section-alt { background: #060606; }
     .ast-section-h2 { font-size: clamp(1.8rem, 3vw, 2.4rem); font-weight: 900; margin-bottom: 12px; line-height: 1.15; }
-    .ast-section-h2 span { background: linear-gradient(135deg, var(--accent), #00ff88); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+    .ast-section-h2 span { color: var(--accent); }
     .ast-section-sub { color: #888; font-size: 1rem; max-width: 580px; line-height: 1.65; margin-bottom: 40px; }
     .ast-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 32px; align-items: center; }
     @media (max-width: 768px) { .ast-grid-2 { grid-template-columns: 1fr; } }
     .ast-convo { max-width: 380px; margin: 0 auto; }
     .ast-bubble { padding: 12px 16px; border-radius: 16px; font-size: 0.85rem; margin-bottom: 8px; max-width: 85%; line-height: 1.5; }
     .ast-bubble.user { background: rgba(0,255,136,0.1); border: 1px solid rgba(0,255,136,0.15); color: #ccc; margin-left: auto; border-bottom-right-radius: 4px; }
-    .ast-bubble.bot { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); color: #aaa; border-bottom-left-radius: 4px; }
+    .ast-bubble.bot { background: #111; border: 1px solid #1a1a1a; color: #aaa; border-bottom-left-radius: 4px; }
     .ast-bubble .highlight { color: var(--accent); font-weight: 700; }
     .ast-pain-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
     @media (max-width: 768px) { .ast-pain-grid { grid-template-columns: 1fr; } }
-    .ast-pain { background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); border-radius: 14px; padding: 28px 24px; }
+    .ast-pain { background: #0a0a0a; border: 1px solid #1a1a1a; border-radius: 14px; padding: 28px 24px; }
     .ast-pain .pain-old { color: #ef4444; font-size: 0.82rem; margin-bottom: 12px; font-weight: 600; }
     .ast-pain .pain-new { color: var(--accent); font-size: 0.82rem; font-weight: 600; }
     .ast-pain .pain-label { color: #fff; font-size: 1rem; font-weight: 800; margin-bottom: 6px; }
     .ast-pain p { color: #888; font-size: 0.82rem; line-height: 1.5; margin: 0 0 10px; }
-    .ast-agency-card { background: rgba(139,92,246,0.06); border: 1px solid rgba(139,92,246,0.15); border-radius: 16px; padding: 32px; }
+    .ast-agency-card { background: #0a0a0a; border: 1px solid #1a1a1a; border-radius: 16px; padding: 32px; }
     .ast-stat-row { display: flex; justify-content: center; gap: 40px; margin: 40px 0 0; flex-wrap: wrap; }
     .ast-stat { text-align: center; }
-    .ast-stat-val { font-size: 2.2rem; font-weight: 900; background: linear-gradient(135deg, var(--accent), #a78bfa); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    .ast-stat-val { font-size: 2.2rem; font-weight: 900; color: var(--accent); }
     .ast-stat-lbl { font-size: 0.78rem; color: #888; margin-top: 4px; }
     body.light-theme .ast-h1, body.light-theme .ast-section-h2 { color: var(--lt-text-primary); }
     body.light-theme .ast-sub, body.light-theme .ast-section-sub { color: var(--lt-text-secondary); }
@@ -55,7 +55,7 @@
     body.light-theme .ast-pain p { color: var(--lt-text-muted); }
     body.light-theme .ast-bubble.user { background: rgba(0,170,94,0.06); border-color: rgba(0,170,94,0.12); color: var(--lt-text-primary); }
     body.light-theme .ast-bubble.bot { background: rgba(0,0,0,0.02); border-color: rgba(0,0,0,0.06); color: var(--lt-text-secondary); }
-    body.light-theme .ast-agency-card { background: rgba(139,92,246,0.04); border-color: rgba(139,92,246,0.1); }
+    body.light-theme .ast-agency-card { background: #fff; border-color: #e8e8e8; }
 </style>
 
 <!-- ═══ HERO ═══ -->
@@ -201,7 +201,7 @@
                 <p>"Text Jane: I'll call tomorrow" &mdash; sent. "Blast everyone in Hot Leads" &mdash; done. No forms, no templates, no clicks.</p>
             </div>
             <div class="ast-pain" data-aos="fade-up" data-aos-delay="200">
-                <div class="pain-label"><i class="fa-solid fa-brain" style="color:#a78bfa;margin-right:6px;"></i>Intelligence</div>
+                <div class="pain-label"><i class="fa-solid fa-brain" style="color:var(--accent);margin-right:6px;"></i>Intelligence</div>
                 <p>"Who should I call first?" &mdash; shows your hottest leads ranked by AI score. "Who hasn't been contacted in a week?" &mdash; finds the gaps before they become lost deals.</p>
             </div>
         </div>
@@ -211,7 +211,7 @@
 <!-- ═══ CTA ═══ -->
 <section style="padding: 60px 0 100px;">
     <div class="container text-center">
-        <div class="glass-card p-5" data-aos="fade-up" style="max-width:680px;margin:0 auto;overflow:visible;height:auto;">
+        <div data-aos="fade-up" style="max-width:680px;margin:0 auto;background:#0a0a0a;border:1px solid #1a1a1a;border-radius:12px;padding:48px;">
             <h2 style="font-size:1.6rem;font-weight:800;margin-bottom:12px;">The first AI that doesn't just answer questions.<br>It does the work.</h2>
             <p style="color:#888;font-size:1rem;margin-bottom:24px;">80 real actions. Voice input. Instant execution. Built for the way insurance agents actually work &mdash; fast, on the phone, no time for menus.</p>
             <div class="d-flex justify-content-center gap-3 flex-wrap">

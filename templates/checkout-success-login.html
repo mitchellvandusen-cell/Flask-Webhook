@@ -4,20 +4,18 @@
 
 {% block content %}
 <div class="auth-wrapper">
-    <div class="success-ambient-glow"></div>
-
     <div class="success-card">
         <div class="success-icon">
             <i class="fa-solid fa-check"></i>
         </div>
-        
-        <h1 style="color: #fff; font-weight: 700; font-size: 2rem; margin-bottom: 10px;">Payment Confirmed</h1>
-        <p style="color: var(--text-muted); margin-bottom: 40px; font-size: 1.1rem;">
+
+        <h1 class="auth-heading">Payment Confirmed</h1>
+        <p class="auth-subtext">
             Your subscription is officially active. Welcome to the future of insurance automation.
         </p>
-        
+
         <a href="/login" class="btn btn-primary w-100 py-3">Launch Dashboard</a>
-        <a href="/onboarding-status" class="d-block text-center mt-3" style="color: var(--text-muted); font-size: 0.9rem; text-decoration: underline;">Check Setup Progress</a>
+        <a href="/onboarding-status" class="d-block text-center mt-3 auth-back-link">Check Setup Progress</a>
     </div>
 </div>
 {% endblock %}

@@ -621,9 +621,10 @@ body.light-theme select {
     gap: 6px;
 }
 .vc-label-icon {
-    color: #a78bfa;
+    color: var(--accent);
     font-size: 0.72rem;
 }
+body.light-theme .vc-label-icon { color: #059669; }
 .vc-label-row {
     display: flex;
     align-items: center;
@@ -702,10 +703,15 @@ body.light-theme select {
 }
 .vc-info-strip i { color: #00ff88; flex-shrink: 0; margin-top: 2px; }
 .vc-info-purple {
-    background: rgba(167,139,250,0.03);
-    border-left-color: rgba(167,139,250,0.4);
+    background: rgba(0,255,136,0.03);
+    border-left-color: rgba(0,255,136,0.4);
 }
-.vc-info-purple i { color: #a78bfa; }
+.vc-info-purple i { color: var(--accent); }
+body.light-theme .vc-info-purple {
+    background: rgba(5,150,105,0.04);
+    border-left-color: rgba(5,150,105,0.35);
+}
+body.light-theme .vc-info-purple i { color: #059669; }
 
 /* Buttons */
 .vc-btn-primary {

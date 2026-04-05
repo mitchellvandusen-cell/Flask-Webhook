@@ -422,7 +422,7 @@
 .sms-num-badge-na { color: #555; font-size: .75rem; }
 .sms-num-compliant { color: #4ade80; font-size: .75rem; }
 .sms-num-add-a2p { background: rgba(0,255,136,0.1); border: 1px solid rgba(0,255,136,0.25); color: #00ff88; border-radius: 5px; padding: 3px 10px; font-size: .75rem; font-weight: 600; cursor: pointer; white-space: nowrap; }
-.sms-num-reg-a2p { background: rgba(167,139,250,0.12); border: 1px solid rgba(167,139,250,0.25); color: #a78bfa; border-radius: 5px; padding: 3px 10px; font-size: .75rem; font-weight: 600; cursor: pointer; white-space: nowrap; }
+.sms-num-reg-a2p { background: rgba(0,255,136,0.08); border: 1px solid rgba(0,255,136,0.18); color: var(--accent); border-radius: 5px; padding: 3px 10px; font-size: .75rem; font-weight: 600; cursor: pointer; white-space: nowrap; }
 .sms-a2p-summary-ok { padding: 14px; background: rgba(74,222,128,0.06); border: 1px solid rgba(74,222,128,0.2); border-radius: 10px; }
 .sms-a2p-summary-ok .sms-a2p-icon { color: #4ade80; }
 .sms-a2p-summary-ok .sms-a2p-title { font-weight: 700; color: #4ade80; font-size: .88rem; }
@@ -698,7 +698,7 @@
 [data-theme="light"] .sms-num-badge-na { color: #9ca3af; }
 [data-theme="light"] .sms-num-compliant { color: #15803d; }
 [data-theme="light"] .sms-num-add-a2p { background: rgba(22,163,74,0.08); border-color: rgba(22,163,74,0.25); color: #15803d; }
-[data-theme="light"] .sms-num-reg-a2p { background: rgba(124,58,237,0.08); border-color: rgba(124,58,237,0.2); color: #7c3aed; }
+[data-theme="light"] .sms-num-reg-a2p { background: rgba(5,150,105,0.08); border-color: rgba(5,150,105,0.2); color: #059669; }
 [data-theme="light"] .sms-a2p-summary-ok { background: rgba(22,163,74,0.06); border-color: rgba(22,163,74,0.2); }
 [data-theme="light"] .sms-a2p-summary-ok .sms-a2p-icon { color: #15803d; }
 [data-theme="light"] .sms-a2p-summary-ok .sms-a2p-title { color: #15803d; }
@@ -4762,9 +4762,12 @@ body.ghl-embed .main-wrapper {
 }
 .cnam-lookup-icon {
     width: 40px; height: 40px; border-radius: 10px;
-    background: rgba(168,139,250,0.12); border: 1px solid rgba(168,139,250,0.25);
+    background: rgba(0,255,136,0.08); border: 1px solid rgba(0,255,136,0.18);
     display: flex; align-items: center; justify-content: center; flex-shrink: 0;
-    color: #a78bfa; font-size: 1rem;
+    color: var(--accent); font-size: 1rem;
+}
+body.light-theme .cnam-lookup-icon {
+    background: rgba(5,150,105,0.08); border-color: rgba(5,150,105,0.2); color: #059669;
 }
 .cnam-title { font-weight: 700; font-size: 1rem; color: #fff; }
 .cnam-subtitle { font-size: 0.78rem; color: #888; }
@@ -4842,16 +4845,20 @@ body.ghl-embed .main-wrapper {
     border: 1px solid rgba(255,255,255,0.1); color: #fff;
     padding: 10px 14px; border-radius: 8px; font-size: 0.85rem; outline: none;
 }
-.cnam-input:focus { border-color: rgba(168,139,250,0.4); box-shadow: 0 0 0 2px rgba(168,139,250,0.1); }
+.cnam-input:focus { border-color: rgba(0,255,136,0.4); box-shadow: 0 0 0 2px rgba(0,255,136,0.1); }
+body.light-theme .cnam-input { background: #fff; border-color: #d0d0d0; color: #222; }
+body.light-theme .cnam-input:focus { border-color: rgba(5,150,105,0.5); box-shadow: 0 0 0 2px rgba(5,150,105,0.1); }
 
 /* Lookup button */
 .cnam-lookup-btn {
-    background: rgba(168,139,250,0.12); border: 1px solid rgba(168,139,250,0.25);
-    color: #a78bfa; border-radius: 8px; padding: 10px 18px;
+    background: rgba(0,255,136,0.08); border: 1px solid rgba(0,255,136,0.18);
+    color: var(--accent); border-radius: 8px; padding: 10px 18px;
     font-size: 0.82rem; font-weight: 600; cursor: pointer; transition: background 0.15s, color 0.15s; white-space: nowrap;
 }
-.cnam-lookup-btn:hover { background: rgba(168,139,250,0.2); color: #c4b5fd; }
+.cnam-lookup-btn:hover { background: rgba(0,255,136,0.15); color: #33ffaa; }
 .cnam-lookup-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+body.light-theme .cnam-lookup-btn { background: rgba(5,150,105,0.08); border-color: rgba(5,150,105,0.2); color: #059669; }
+body.light-theme .cnam-lookup-btn:hover { background: rgba(5,150,105,0.15); color: #047857; }
 
 .cnam-lookup-own-btn {
     background: rgba(0,255,136,0.08); border: 1px solid rgba(0,255,136,0.15);
@@ -5488,7 +5495,7 @@ body.ghl-embed .main-wrapper {
 }
 .sm-badge-ok      { background: rgba(0,255,136,0.10); color: #00ff88; border: 1px solid rgba(0,255,136,0.20); }
 .sm-badge-warn    { background: rgba(255,165,0,0.10); color: #ffa500; border: 1px solid rgba(255,165,0,0.20); }
-.sm-badge-pending { background: rgba(168,139,250,0.10); color: #a78bfa; border: 1px solid rgba(168,139,250,0.22); }
+.sm-badge-pending { background: rgba(251,191,36,0.10); color: #fbbf24; border: 1px solid rgba(251,191,36,0.22); }
 .sm-badge-err     { background: rgba(239,68,68,0.10); color: #ef4444; border: 1px solid rgba(239,68,68,0.20); }
 
 /* Italic serif explainer blocks — "high end italicized font" per spec */
@@ -5700,7 +5707,8 @@ body.ghl-embed .main-wrapper {
 .sm-num-status { color: #999; font-size: 0.76rem; display: flex; align-items: center; gap: 6px; }
 .sm-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
 .sm-dot-ok      { background: #00ff88; box-shadow: 0 0 6px rgba(0,255,136,0.5); }
-.sm-dot-pending { background: #a78bfa; box-shadow: 0 0 6px rgba(168,139,250,0.5); }
+.sm-dot-pending { background: #fbbf24; box-shadow: 0 0 6px rgba(251,191,36,0.5); }
+body.light-theme .sm-dot-pending { background: #d97706; box-shadow: 0 0 6px rgba(217,119,6,0.4); }
 .sm-dot-off     { background: #555; }
 
 /* ── Number Health redesign — solid cards, no glass ── */
@@ -5859,7 +5867,7 @@ body.light-theme .sm-badge-ok,
 body.light-theme .sm-badge-warn,
 [data-theme="light"] .sm-badge-warn { background: rgba(200,120,0,0.08); color: #b47800; border-color: rgba(200,120,0,0.2); }
 body.light-theme .sm-badge-pending,
-[data-theme="light"] .sm-badge-pending { background: rgba(100,70,200,0.08); color: #6446c8; border-color: rgba(100,70,200,0.22); }
+[data-theme="light"] .sm-badge-pending { background: rgba(217,119,6,0.08); color: #b45309; border-color: rgba(217,119,6,0.22); }
 body.light-theme .sm-badge-err,
 [data-theme="light"] .sm-badge-err { background: rgba(220,38,38,0.08); color: #dc2626; border-color: rgba(220,38,38,0.2); }
 

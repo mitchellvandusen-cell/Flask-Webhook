@@ -2,260 +2,28 @@
 {% block title %}Setup Progress | Omnisconn{% endblock %}
 {% block content %}
 
-<style>
-    /* Ambient background */
-    .onboard-ambient {
-        position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: -1; pointer-events: none;
-        background-image:
-            radial-gradient(circle at 30% 20%, rgba(0, 255, 136, 0.08), transparent 40%),
-            radial-gradient(circle at 70% 80%, rgba(0, 100, 255, 0.04), transparent 40%);
-    }
-
-    /* Main glass container — Liquid Glass */
-    .onboard-glass {
-        background: rgba(255, 255, 255, 0.065);
-        backdrop-filter: none;
-        -webkit-backdrop-filter: none;
-        border: 1px solid rgba(255, 255, 255, 0.22);
-        border-radius: 28px;
-        padding: 50px 40px;
-        box-shadow: 0 32px 80px rgba(0,0,0,0.45), inset 0 1.5px 0 rgba(255,255,255,0.55), inset 1px 0 0 rgba(255,255,255,0.15), inset 0 -1px 0 rgba(255,255,255,0.07);
-        position: relative;
-        overflow: hidden;
-    }
-    /* Liquid glass specular dome + accent shimmer */
-    .onboard-glass::before {
-        content: '';
-        position: absolute; top: 0; left: 5%; right: 5%;
-        height: 50%;
-        background: linear-gradient(180deg, rgba(255,255,255,0.18) 0%, rgba(0,255,136,0.03) 40%, transparent 100%);
-        border-radius: 0 0 60% 60%;
-        filter: blur(10px);
-        pointer-events: none;
-        z-index: 0;
-    }
-    .onboard-glass::after {
-        content: '';
-        position: absolute; top: 0; left: 0; width: 100%; height: 1px;
-        background: linear-gradient(90deg, transparent, var(--accent), transparent);
-        pointer-events: none;
-        z-index: 2;
-    }
-
-    /* Progress ring */
-    .progress-ring-wrap {
-        width: 110px; height: 110px;
-        position: relative;
-        margin: 0 auto 25px;
-    }
-    .progress-ring-wrap svg {
-        transform: rotate(-90deg);
-        width: 110px; height: 110px;
-    }
-    .progress-ring-bg {
-        fill: none;
-        stroke: rgba(255, 255, 255, 0.06);
-        stroke-width: 6;
-    }
-    .progress-ring-fill {
-        fill: none;
-        stroke: url(#progressGrad);
-        stroke-width: 6;
-        stroke-linecap: round;
-        stroke-dasharray: 314;
-        stroke-dashoffset: {{ 314 - (completed_count / total_steps * 314)|int }};
-        transition: stroke-dashoffset 1s cubic-bezier(0.4, 0, 0.2, 1);
-        filter: drop-shadow(0 0 6px rgba(0, 255, 136, 0.4));
-    }
-    .progress-ring-label {
-        position: absolute; top: 50%; left: 50%;
-        transform: translate(-50%, -50%);
-        text-align: center;
-    }
-    .progress-ring-label .num {
-        font-size: 1.8rem; font-weight: 800; color: #fff; line-height: 1;
-    }
-    .progress-ring-label .den {
-        font-size: 0.75rem; color: var(--text-muted); font-weight: 600;
-    }
-
-    /* Step cards — shared glass base */
-    .step-glass {
-        background: rgba(255, 255, 255, 0.03);
-        backdrop-filter: none;
-        -webkit-backdrop-filter: none;
-        border: 1px solid rgba(255, 255, 255, 0.06);
-        border-radius: 16px;
-        padding: 18px 22px;
-        margin-bottom: 12px;
-        transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
-    }
-
-    /* Completed step */
-    .step-done {
-        border-color: rgba(16, 185, 129, 0.12);
-        background: rgba(16, 185, 129, 0.04);
-    }
-    .step-done .step-icon {
-        color: #10b981;
-        filter: drop-shadow(0 0 4px rgba(16, 185, 129, 0.3));
-    }
-    .step-done .step-label {
-        color: rgba(255, 255, 255, 0.4);
-        text-decoration: line-through;
-        font-weight: 600;
-    }
-
-    /* Next step — the hero card */
-    .step-next {
-        background: rgba(0, 255, 136, 0.04);
-        backdrop-filter: none;
-        -webkit-backdrop-filter: none;
-        border: 1px solid rgba(0, 255, 136, 0.2);
-        border-radius: 20px;
-        padding: 32px 28px;
-        margin: 20px 0;
-        position: relative;
-        box-shadow:
-            0 0 40px -10px rgba(0, 255, 136, 0.1),
-            inset 0 1px 0 rgba(0, 255, 136, 0.08);
-    }
-    .step-next::before {
-        content: '';
-        position: absolute; top: 0; left: 0; right: 0; height: 1px;
-        background: linear-gradient(90deg, transparent 10%, rgba(0, 255, 136, 0.4) 50%, transparent 90%);
-    }
-    .step-next-badge {
-        display: inline-block;
-        background: rgba(0, 255, 136, 0.12);
-        color: var(--accent);
-        font-size: 0.75rem;
-        font-weight: 800;
-        letter-spacing: 1.5px;
-        text-transform: uppercase;
-        padding: 4px 14px;
-        border-radius: 20px;
-        border: 1px solid rgba(0, 255, 136, 0.2);
-        margin-bottom: 16px;
-    }
-    .step-next-icon {
-        width: 52px; height: 52px;
-        border-radius: 14px;
-        background: rgba(0, 255, 136, 0.08);
-        border: 1px solid rgba(0, 255, 136, 0.15);
-        display: flex; align-items: center; justify-content: center;
-        color: var(--accent);
-        font-size: 1.3rem;
-        flex-shrink: 0;
-    }
-    .step-next .step-title {
-        font-weight: 800; font-size: 1.15rem; color: #fff; margin-bottom: 3px;
-    }
-    .step-next .step-help {
-        font-size: 0.85rem; color: rgba(255, 255, 255, 0.45); line-height: 1.4;
-    }
-    .step-next-btn {
-        display: block; width: 100%; text-align: center;
-        background: var(--accent); color: #000;
-        font-weight: 800; font-size: 1rem;
-        padding: 15px; border-radius: 12px;
-        text-decoration: none; margin-top: 18px;
-        transition: all 0.3s ease;
-        box-shadow: 0 4px 20px rgba(0, 255, 136, 0.2);
-    }
-    .step-next-btn:hover {
-        background: #fff; color: #000;
-        transform: translateY(-2px);
-        box-shadow: 0 8px 30px rgba(0, 255, 136, 0.35);
-    }
-
-    /* Future step (dimmed) */
-    .step-future {
-        opacity: 0.35;
-        border-color: rgba(255, 255, 255, 0.04);
-    }
-    .step-future .step-icon { color: #444; }
-    .step-future .step-label { color: #555; font-weight: 600; }
-    .step-future-tag {
-        font-size: 0.75rem; color: #444; font-weight: 600;
-        letter-spacing: 0.5px; text-transform: uppercase;
-    }
-
-    /* All-done state */
-    .done-icon-wrap {
-        width: 100px; height: 100px; border-radius: 50%;
-        background: rgba(16, 185, 129, 0.08);
-        border: 1px solid rgba(16, 185, 129, 0.15);
-        display: flex; align-items: center; justify-content: center;
-        margin: 0 auto 20px;
-        box-shadow: 0 0 40px rgba(16, 185, 129, 0.12);
-    }
-    .done-icon-wrap i {
-        font-size: 2.5rem; color: #10b981;
-        filter: drop-shadow(0 0 8px rgba(16, 185, 129, 0.4));
-    }
-    .done-check {
-        display: flex; align-items: center; gap: 10px;
-        color: rgba(16, 185, 129, 0.7); font-size: 0.9rem; font-weight: 500;
-    }
-    .done-check i { font-size: 0.85rem; }
-    .done-btn {
-        display: inline-block;
-        background: var(--accent); color: #000;
-        font-weight: 800; font-size: 1.05rem;
-        padding: 16px 50px; border-radius: 14px;
-        text-decoration: none;
-        transition: all 0.3s ease;
-        box-shadow: 0 4px 25px rgba(0, 255, 136, 0.2);
-    }
-    .done-btn:hover {
-        background: #fff; color: #000;
-        transform: translateY(-3px);
-        box-shadow: 0 10px 40px rgba(0, 255, 136, 0.35);
-    }
-
-    /* Support link */
-    .onboard-support {
-        font-size: 0.8rem; color: rgba(255,255,255,0.3);
-        text-decoration: none; transition: color 0.3s;
-    }
-    .onboard-support:hover { color: rgba(255,255,255,0.6); }
-
-    /* Responsive */
-    @media (max-width: 576px) {
-        .onboard-glass { padding: 35px 22px; border-radius: 20px; }
-        .step-next { padding: 24px 20px; }
-        .step-next .step-title { font-size: 1.05rem; }
-        .progress-ring-wrap { width: 90px; height: 90px; }
-        .progress-ring-wrap svg { width: 90px; height: 90px; }
-        .progress-ring-label .num { font-size: 1.5rem; }
-    }
-</style>
-
-<div class="onboard-ambient"></div>
-
-<div class="container" style="padding-top: 120px; padding-bottom: 80px; max-width: 620px;">
-    <div class="onboard-glass">
+<div class="auth-wrapper">
+    <div class="auth-card onboard-card">
 
         {% if all_done %}
         <!-- ALL DONE -->
         <div class="text-center">
-            <div class="done-icon-wrap">
+            <div class="onboard-done-icon">
                 <i class="fa-solid fa-rocket"></i>
             </div>
-            <h1 style="font-weight: 900; font-size: 2.2rem; color: #10b981; margin-bottom: 8px;">You're All Set</h1>
-            <p style="color: var(--text-muted); font-size: 1rem; margin-bottom: 30px;">Your bot is live and ready to engage leads.</p>
+            <h1 class="onboard-done-title">You're All Set</h1>
+            <p class="auth-subtext">Your bot is live and ready to engage leads.</p>
 
-            <div class="d-flex flex-column gap-2 mb-4" style="max-width: 340px; margin: 0 auto;">
+            <div class="d-flex flex-column gap-2 mb-4 onboard-done-checks">
                 {% for step in steps %}
-                <div class="done-check">
+                <div class="onboard-done-check">
                     <i class="fa-solid fa-circle-check"></i>
                     <span>{{ step.label }}</span>
                 </div>
                 {% endfor %}
             </div>
 
-            <a href="{{ next_url }}" class="done-btn">
+            <a href="{{ next_url }}" class="btn btn-primary w-100 py-3">
                 Go to Dashboard <i class="fa-solid fa-arrow-right ms-2"></i>
             </a>
         </div>
@@ -264,7 +32,7 @@
         <!-- SETUP IN PROGRESS -->
         <div class="text-center mb-3">
             <!-- Progress Ring -->
-            <div class="progress-ring-wrap">
+            <div class="onboard-ring-wrap">
                 <svg viewBox="0 0 110 110">
                     <defs>
                         <linearGradient id="progressGrad" x1="0%" y1="0%" x2="100%" y2="0%">
@@ -272,21 +40,17 @@
                             <stop offset="100%" stop-color="#00e676" />
                         </linearGradient>
                     </defs>
-                    <circle class="progress-ring-bg" cx="55" cy="55" r="50" />
-                    <circle class="progress-ring-fill" cx="55" cy="55" r="50" />
+                    <circle class="onboard-ring-bg" cx="55" cy="55" r="50" />
+                    <circle class="onboard-ring-fill" cx="55" cy="55" r="50" style="stroke-dashoffset: {{ 314 - (completed_count / total_steps * 314)|int }};" />
                 </svg>
-                <div class="progress-ring-label">
-                    <div class="num">{{ completed_count }}</div>
-                    <div class="den">of {{ total_steps }}</div>
+                <div class="onboard-ring-label">
+                    <div class="onboard-ring-num">{{ completed_count }}</div>
+                    <div class="onboard-ring-den">of {{ total_steps }}</div>
                 </div>
             </div>
 
-            <h1 style="font-weight: 900; font-size: 2rem; margin-bottom: 4px; color: #fff;">
-                Almost There
-            </h1>
-            <p style="color: var(--text-muted); font-size: 0.9rem;">
-                Complete the steps below to activate your bot.
-            </p>
+            <h1 class="auth-heading">Almost There</h1>
+            <p class="auth-subtext">Complete the steps below to activate your bot.</p>
         </div>
 
         <!-- STEPS -->
@@ -297,42 +61,42 @@
 
             {% if step.done %}
             <!-- COMPLETED -->
-            <div class="step-glass step-done d-flex align-items-center gap-3">
-                <i class="fa-solid fa-circle-check step-icon" style="font-size: 1.15rem;"></i>
-                <span class="step-label" style="font-size: 0.9rem;">{{ step.label }}</span>
+            <div class="onboard-step onboard-step--done d-flex align-items-center gap-3">
+                <i class="fa-solid fa-circle-check onboard-step-icon"></i>
+                <span class="onboard-step-label">{{ step.label }}</span>
             </div>
 
             {% elif is_next %}
             <!-- NEXT STEP -->
-            <div class="step-glass step-next">
-                <div class="step-next-badge">Next Step</div>
+            <div class="onboard-step onboard-step--next">
+                <div class="onboard-next-badge">Next Step</div>
                 <div class="d-flex align-items-center gap-3 mb-2">
-                    <div class="step-next-icon">
+                    <div class="onboard-next-icon">
                         <i class="fa-solid {{ step.icon }}"></i>
                     </div>
                     <div>
-                        <div class="step-title">{{ step.label }}</div>
-                        <div class="step-help">{{ step.help }}</div>
+                        <div class="onboard-next-title">{{ step.label }}</div>
+                        <div class="onboard-next-help">{{ step.help }}</div>
                     </div>
                 </div>
-                <a href="{{ step.url }}" class="step-next-btn">
+                <a href="{{ step.url }}" class="btn btn-primary w-100 py-3">
                     {{ step.button_text }} <i class="fa-solid fa-arrow-right ms-1"></i>
                 </a>
             </div>
 
             {% else %}
             <!-- FUTURE (dimmed) -->
-            <div class="step-glass step-future d-flex align-items-center gap-3">
-                <i class="fa-solid {{ step.icon }} step-icon" style="font-size: 1.05rem;"></i>
-                <span class="step-label" style="font-size: 0.9rem;">{{ step.label }}</span>
-                <span class="step-future-tag ms-auto">Later</span>
+            <div class="onboard-step onboard-step--future d-flex align-items-center gap-3">
+                <i class="fa-solid {{ step.icon }} onboard-step-icon"></i>
+                <span class="onboard-step-label">{{ step.label }}</span>
+                <span class="onboard-future-tag ms-auto">Later</span>
             </div>
             {% endif %}
 
         {% endfor %}
 
         <div class="text-center mt-4">
-            <a href="/support" class="onboard-support">Need help? Visit the Support Center</a>
+            <a href="/support" class="auth-back-link">Need help? Visit the Support Center</a>
         </div>
         {% endif %}
 

@@ -141,12 +141,12 @@
             transition: opacity 0.2s;
         }
         .gs-btn:hover { opacity: 0.9; color: #000; text-decoration: none; }
-        .gs-btn--cyan { background: linear-gradient(135deg, #00ff88, #0088cc); }
+        .gs-btn--cyan { background: var(--accent, #00ff88); }
         .gs-btn--green { background: var(--accent, #00ff88); }
-        .gs-btn--orange { background: linear-gradient(135deg, #ff6b35, #ff3366); color: #fff; }
-        .gs-btn--orange:hover { color: #fff; }
-        .gs-btn--purple { background: linear-gradient(135deg, #8b5cf6, #7c3aed); color: #fff; }
-        .gs-btn--purple:hover { color: #fff; }
+        .gs-btn--orange { background: var(--accent, #00ff88); }
+        .gs-btn--orange:hover { color: #000; }
+        .gs-btn--purple { background: var(--accent, #00ff88); }
+        .gs-btn--purple:hover { color: #000; }
 
         /* Footer CTA card */
         .gs-footer-card {
@@ -250,41 +250,41 @@
         </div>
 
         <!-- Pro Dialer -->
-        <div class="gs-card" style="border-color: rgba(255,107,53,0.3);">
-            <span class="gs-badge" style="background: linear-gradient(135deg, #ff6b35, #ff3366); border: none;">Power User</span>
+        <div class="gs-card" style="border-color: rgba(0,255,136,0.2);">
+            <span class="gs-badge" style="background: rgba(0,255,136,0.3); border: 1px solid #00ff88;">Power User</span>
             <h4>Pro Dialer</h4>
             <div class="gs-price">
-                <span class="gs-price-amount metallic-price--orange">$224.98</span><span class="gs-price-mo">/mo</span>
+                <span class="gs-price-amount" style="color: #00ff88;">$224.98</span><span class="gs-price-mo">/mo</span>
             </div>
-            <p class="gs-subtitle" style="color: #ff6b35;">Multi-line + predictive dialing.</p>
+            <p class="gs-subtitle" style="color: #00ff88;">Multi-line + predictive dialing.</p>
             <p class="gs-trial">7-day free trial</p>
             <ul class="gs-features">
-                <li><i class="fa-solid fa-check" style="color: #ff6b35;"></i> <strong>Multi-line dialer (up to 4 lines)</strong></li>
-                <li><i class="fa-solid fa-check" style="color: #ff6b35;"></i> <strong>Predictive auto-pacing</strong></li>
-                <li><i class="fa-solid fa-check" style="color: #ff6b35;"></i> Everything in Power Dialer</li>
-                <li><i class="fa-solid fa-check" style="color: #ff6b35;"></i> Connect rate analytics</li>
-                <li><i class="fa-solid fa-check" style="color: #ff6b35;"></i> Multi-call status dashboard</li>
-                <li><i class="fa-solid fa-check" style="color: #ff6b35;"></i> Unlimited minutes* included</li>
+                <li><i class="fa-solid fa-check" style="color: #00ff88;"></i> <strong>Multi-line dialer (up to 4 lines)</strong></li>
+                <li><i class="fa-solid fa-check" style="color: #00ff88;"></i> <strong>Predictive auto-pacing</strong></li>
+                <li><i class="fa-solid fa-check" style="color: #00ff88;"></i> Everything in Power Dialer</li>
+                <li><i class="fa-solid fa-check" style="color: #00ff88;"></i> Connect rate analytics</li>
+                <li><i class="fa-solid fa-check" style="color: #00ff88;"></i> Multi-call status dashboard</li>
+                <li><i class="fa-solid fa-check" style="color: #00ff88;"></i> Unlimited minutes* included</li>
             </ul>
             <a href="/checkout/pro-dialer" class="gs-btn gs-btn--orange">Start Free Trial <i class="fa-solid fa-arrow-right ms-1"></i></a>
         </div>
 
         <!-- Predictive Dialer -->
-        <div class="gs-card" style="border-color: rgba(139,92,246,0.35);">
-            <span class="gs-badge" style="background: linear-gradient(135deg, #8b5cf6, #00ff88); border: none; color: #000;">AI-Powered</span>
+        <div class="gs-card" style="border-color: rgba(0,255,136,0.2);">
+            <span class="gs-badge" style="background: rgba(0,255,136,0.3); border: 1px solid #00ff88; color: #fff;">AI-Powered</span>
             <h4>Predictive Dialer</h4>
             <div class="gs-price">
-                <span class="gs-price-amount" style="background: linear-gradient(135deg, #a78bfa, #c4b5fd); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">$349.98</span><span class="gs-price-mo">/mo</span>
+                <span class="gs-price-amount" style="color: #00ff88;">$349.98</span><span class="gs-price-mo">/mo</span>
             </div>
-            <p class="gs-subtitle" style="color: #a78bfa;">Erlang-C pacing + AI Overflow.</p>
+            <p class="gs-subtitle" style="color: #00ff88;">Erlang-C pacing + AI Overflow.</p>
             <p class="gs-trial">7-day free trial</p>
             <ul class="gs-features">
-                <li><i class="fa-solid fa-check" style="color: #a78bfa;"></i> <strong>Erlang-C predictive pacing</strong></li>
-                <li><i class="fa-solid fa-check" style="color: #a78bfa;"></i> <strong>AI Overflow — AI handles extra lines</strong></li>
-                <li><i class="fa-solid fa-check" style="color: #a78bfa;"></i> Everything in Pro Dialer</li>
-                <li><i class="fa-solid fa-check" style="color: #a78bfa;"></i> TCPA auto-throttle</li>
-                <li><i class="fa-solid fa-check" style="color: #a78bfa;"></i> Compliance dashboard</li>
-                <li><i class="fa-solid fa-check" style="color: #a78bfa;"></i> 2,000 AI minutes included</li>
+                <li><i class="fa-solid fa-check" style="color: #00ff88;"></i> <strong>Erlang-C predictive pacing</strong></li>
+                <li><i class="fa-solid fa-check" style="color: #00ff88;"></i> <strong>AI Overflow — AI handles extra lines</strong></li>
+                <li><i class="fa-solid fa-check" style="color: #00ff88;"></i> Everything in Pro Dialer</li>
+                <li><i class="fa-solid fa-check" style="color: #00ff88;"></i> TCPA auto-throttle</li>
+                <li><i class="fa-solid fa-check" style="color: #00ff88;"></i> Compliance dashboard</li>
+                <li><i class="fa-solid fa-check" style="color: #00ff88;"></i> 2,000 AI minutes included</li>
             </ul>
             <a href="/checkout/predictive-dialer" class="gs-btn gs-btn--purple">Start Free Trial <i class="fa-solid fa-arrow-right ms-1"></i></a>
         </div>

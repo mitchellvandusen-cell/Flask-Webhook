@@ -88,9 +88,9 @@ small.text-muted { color: #666666; }
 [data-theme="light"] .glass-panel span[style*="color:#aaa"],
 [data-theme="light"] .glass-panel label[style*="color:#aaa"] { color: #666666 !important; }
 
-/* Purple accent */
+/* Purple accent → brand green */
 [data-theme="light"] .glass-panel i[style*="color:#a78bfa"],
-[data-theme="light"] .glass-panel div[style*="color:#a78bfa"] { color: #7c3aed !important; }
+[data-theme="light"] .glass-panel div[style*="color:#a78bfa"] { color: #059669 !important; }
 
 /* Dark bg panels → light bg */
 [data-theme="light"] .glass-panel div[style*="background:rgba(255,255,255,0.02)"],
@@ -144,8 +144,8 @@ small.text-muted { color: #666666; }
 [data-theme="light"] #vstab-panel-settings h6[style*="var(--accent)"] i.fa-microphone { color: #059669 !important; }
 [data-theme="light"] div[style*="color:#00ff88"] i.fa-circle-info { color: #059669 !important; }
 [data-theme="light"] #vstab-panel-settings div[style*="background:rgba(0,255,136,0.04)"] div[style*="color:#00ff88"] { color: #059669 !important; }
-[data-theme="light"] div[style*="color:#a78bfa"] i.fa-circle-info { color: #7c3aed !important; }
-[data-theme="light"] #vstab-panel-settings div[style*="background:rgba(167,139,250,0.05)"] div[style*="color:#a78bfa"] { color: #7c3aed !important; }
+[data-theme="light"] div[style*="color:#a78bfa"] i.fa-circle-info { color: #059669 !important; }
+[data-theme="light"] #vstab-panel-settings div[style*="background:rgba(167,139,250,0.05)"] div[style*="color:#a78bfa"] { color: #059669 !important; }
 [data-theme="light"] #vstab-panel-settings .btn[onclick="saveVoiceConfig()"] { color: #000000 !important; }
 [data-theme="light"] #vstab-panel-settings .btn[onclick="saveVoiceConfig()"] i { color: #000000 !important; }
 [data-theme="light"] #vstab-panel-settings .btn[onclick="testVoiceConnection()"] { color: #059669 !important; border-color: rgba(0,120,184,0.25) !important; background: rgba(0,120,184,0.06) !important; }
@@ -163,7 +163,7 @@ small.text-muted { color: #666666; }
 [data-theme="light"] #vstab-panel-dialer button[onclick="saveVoiceConfig()"] i { color: #000000 !important; }
 [data-theme="light"] #vstab-panel-dialer div[style*="text-transform:uppercase"] i { color: #059669 !important; }
 [data-theme="light"] #vstab-panel-dialer div[style*="color:#00ff88"] i { color: #059669 !important; }
-[data-theme="light"] #vstab-panel-dialer div[style*="color:#a78bfa"] i { color: #7c3aed !important; }
+[data-theme="light"] #vstab-panel-dialer div[style*="color:#a78bfa"] i { color: #059669 !important; }
 [data-theme="light"] #vstab-panel-dialer div[style*="color:#f59e0b"] i { color: #d97706 !important; }
 
 /* ================================================================

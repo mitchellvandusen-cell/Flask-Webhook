@@ -12,12 +12,12 @@
             --accent: #00ff88;
             --cyan: #00ff88;
             --bg: #0a0a0f;
-            --card: rgba(255,255,255,0.03);
-            --border: rgba(255,255,255,0.06);
+            --card: #0a0a0a;
+            --border: #1a1a1a;
             --text: #fff;
             --text-dim: #888;
             --danger: #ef4444;
-            --warning: #ffa500;
+            --warning: #d97706;
         }
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body {
@@ -157,14 +157,14 @@
         .queue-controls { display: flex; gap: 8px; }
         .btn-start-queue {
             flex: 1; padding: 10px; border-radius: 10px; border: none;
-            background: linear-gradient(135deg, var(--accent), #00b36b);
+            background: var(--accent);
             color: #000; font-weight: 700; font-size: 0.85rem;
             cursor: pointer; transition: all 0.2s;
         }
         .btn-start-queue:hover { transform: translateY(-1px); box-shadow: 0 4px 15px rgba(0,255,136,0.2); }
         .btn-start-queue:disabled { opacity: 0.4; cursor: not-allowed; transform: none; box-shadow: none; }
         .btn-start-queue.running {
-            background: linear-gradient(135deg, var(--danger), #cc3333);
+            background: var(--danger);
             color: #fff;
         }
         .btn-clear-queue {

@@ -3,234 +3,39 @@
 {% block title %}Connect Google Calendar & Meet — Omnisconn{% endblock %}
 
 {% block content %}
-<style>
-    .gc-consent-wrap {
-        min-height: calc(100vh - 200px);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        padding: 60px 16px;
-    }
-    .gc-consent-card {
-        max-width: 520px;
-        width: 100%;
-        background: rgba(255,255,255,0.02);
-        border: 1px solid rgba(255,255,255,0.08);
-        border-radius: 20px;
-        padding: 40px 36px;
-        position: relative;
-    }
-    .gc-logo-row {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 16px;
-        margin-bottom: 28px;
-    }
-    .gc-logo-icon {
-        width: 56px;
-        height: 56px;
-        border-radius: 14px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 1.4rem;
-    }
-    .gc-arrow {
-        color: #444;
-        font-size: 1rem;
-    }
-    .gc-consent-title {
-        font-size: 1.4rem;
-        font-weight: 800;
-        color: #fff;
-        text-align: center;
-        margin-bottom: 6px;
-    }
-    .gc-consent-sub {
-        font-size: 0.88rem;
-        color: #888;
-        text-align: center;
-        margin-bottom: 28px;
-        line-height: 1.5;
-    }
-    .gc-scope-section {
-        background: rgba(255,255,255,0.03);
-        border: 1px solid rgba(255,255,255,0.06);
-        border-radius: 14px;
-        padding: 20px;
-        margin-bottom: 24px;
-    }
-    .gc-scope-header {
-        font-size: 0.75rem;
-        font-weight: 700;
-        color: #666;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-        margin-bottom: 14px;
-    }
-    .gc-scope-item {
-        display: flex;
-        align-items: flex-start;
-        gap: 12px;
-        padding: 10px 0;
-        border-bottom: 1px solid rgba(255,255,255,0.04);
-    }
-    .gc-scope-item:last-child {
-        border-bottom: none;
-        padding-bottom: 0;
-    }
-    .gc-scope-icon {
-        width: 32px;
-        height: 32px;
-        border-radius: 8px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 0.8rem;
-        flex-shrink: 0;
-        margin-top: 2px;
-    }
-    .gc-scope-name {
-        font-size: 0.88rem;
-        font-weight: 700;
-        color: #fff;
-        margin-bottom: 2px;
-    }
-    .gc-scope-desc {
-        font-size: 0.78rem;
-        color: #888;
-        line-height: 1.5;
-    }
-    .gc-scope-badge {
-        display: inline-block;
-        font-size: 0.75rem;
-        font-weight: 700;
-        padding: 2px 8px;
-        border-radius: 4px;
-        margin-left: 8px;
-    }
-    .gc-privacy-note {
-        font-size: 0.75rem;
-        color: #666;
-        line-height: 1.6;
-        margin-bottom: 24px;
-        padding: 12px 14px;
-        background: rgba(255,255,255,0.02);
-        border: 1px solid rgba(255,255,255,0.04);
-        border-radius: 10px;
-    }
-    .gc-privacy-note i {
-        color: #4285F4;
-        margin-right: 6px;
-    }
-    .gc-btn-row {
-        display: flex;
-        gap: 12px;
-    }
-    .gc-btn-connect {
-        flex: 1;
-        padding: 14px;
-        border: none;
-        border-radius: 12px;
-        background: linear-gradient(135deg, #4285F4, #1a73e8);
-        color: #fff;
-        font-weight: 700;
-        font-size: 0.92rem;
-        cursor: pointer;
-        transition: all 0.2s;
-        text-decoration: none;
-        text-align: center;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 8px;
-    }
-    .gc-btn-connect:hover {
-        background: linear-gradient(135deg, #5a9cf5, #2979e8);
-        color: #fff;
-        transform: translateY(-1px);
-        box-shadow: 0 4px 20px rgba(66,133,244,0.3);
-    }
-    .gc-btn-cancel {
-        padding: 14px 24px;
-        border: 1px solid rgba(255,255,255,0.1);
-        border-radius: 12px;
-        background: rgba(255,255,255,0.04);
-        color: #aaa;
-        font-weight: 600;
-        font-size: 0.88rem;
-        cursor: pointer;
-        transition: all 0.2s;
-        text-decoration: none;
-        text-align: center;
-    }
-    .gc-btn-cancel:hover {
-        background: rgba(255,255,255,0.08);
-        color: #fff;
-    }
-    .gc-not-shared {
-        margin-top: 20px;
-        padding-top: 16px;
-        border-top: 1px solid rgba(255,255,255,0.04);
-    }
-    .gc-not-shared-title {
-        font-size: 0.75rem;
-        font-weight: 700;
-        color: #555;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-        margin-bottom: 10px;
-    }
-    .gc-not-item {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        padding: 4px 0;
-        font-size: 0.78rem;
-        color: #666;
-    }
-    .gc-not-item i {
-        color: #FF3B30;
-        font-size: 0.75rem;
-        width: 14px;
-        text-align: center;
-    }
-</style>
-
-<section class="gc-consent-wrap">
-    <div class="gc-consent-card" data-aos="fade-up">
+<div class="auth-wrapper">
+    <div class="auth-card gc-consent-card">
         <!-- App logos -->
         <div class="gc-logo-row">
-            <div class="gc-logo-icon" style="background:rgba(0,255,136,0.1);border:1px solid rgba(0,255,136,0.2);">
-                <i class="fa-solid fa-robot" style="color:#00ff88;"></i>
+            <div class="gc-logo-icon gc-logo-icon--app">
+                <i class="fa-solid fa-robot"></i>
             </div>
             <i class="fa-solid fa-arrows-left-right gc-arrow"></i>
-            <div class="gc-logo-icon" style="background:rgba(66,133,244,0.1);border:1px solid rgba(66,133,244,0.2);">
-                <i class="fa-brands fa-google" style="color:#4285F4;"></i>
+            <div class="gc-logo-icon gc-logo-icon--google">
+                <i class="fa-brands fa-google"></i>
             </div>
         </div>
 
-        <div class="gc-consent-title">Connect Google Calendar &amp; Meet</div>
-        <div class="gc-consent-sub">
+        <h1 class="auth-heading">Connect Google Calendar &amp; Meet</h1>
+        <p class="auth-subtext">
             Omnisconn is requesting access to your Google Calendar to display your schedule and create Google Meet video calls during live calls with leads.
-        </div>
+        </p>
 
         <!-- Scopes section -->
         <div class="gc-scope-section">
             <div class="gc-scope-header">
-                <i class="fa-solid fa-shield-halved" style="margin-right:4px;"></i>
-                Permissions Requested <span style="color:#888;font-weight:500;">(2 services)</span>
+                <i class="fa-solid fa-shield-halved"></i>
+                Permissions Requested <span class="gc-scope-header-count">(2 services)</span>
             </div>
 
             <div class="gc-scope-item">
-                <div class="gc-scope-icon" style="background:rgba(66,133,244,0.1);border:1px solid rgba(66,133,244,0.15);">
-                    <i class="fa-solid fa-calendar" style="color:#4285F4;"></i>
+                <div class="gc-scope-icon gc-scope-icon--blue">
+                    <i class="fa-solid fa-calendar"></i>
                 </div>
                 <div>
                     <div class="gc-scope-name">
                         Google Calendar
-                        <span class="gc-scope-badge" style="background:rgba(0,255,136,0.12);color:#00ff88;">Read + Write</span>
+                        <span class="gc-scope-badge gc-scope-badge--accent">Read + Write</span>
                     </div>
                     <div class="gc-scope-desc">
                         View your calendar events and create new events with Google Meet links when you start a video consultation during a live call.
@@ -239,13 +44,11 @@
             </div>
 
             <div class="gc-scope-item">
-                <div class="gc-scope-icon" style="background:rgba(0,180,100,0.1);border:1px solid rgba(0,180,100,0.15);">
-                    <i class="fa-solid fa-video" style="color:#00b464;"></i>
+                <div class="gc-scope-icon gc-scope-icon--green">
+                    <i class="fa-solid fa-video"></i>
                 </div>
                 <div>
-                    <div class="gc-scope-name">
-                        Google Meet
-                    </div>
+                    <div class="gc-scope-name">Google Meet</div>
                     <div class="gc-scope-desc">
                         Generate Google Meet video call links attached to calendar events. Used when you click the Meet button during live calls to start a face-to-face consultation.
                     </div>
@@ -253,13 +56,13 @@
             </div>
 
             <div class="gc-scope-item">
-                <div class="gc-scope-icon" style="background:rgba(66,133,244,0.1);border:1px solid rgba(66,133,244,0.15);">
-                    <i class="fa-solid fa-envelope" style="color:#4285F4;"></i>
+                <div class="gc-scope-icon gc-scope-icon--blue">
+                    <i class="fa-solid fa-envelope"></i>
                 </div>
                 <div>
                     <div class="gc-scope-name">
                         Email Address
-                        <span class="gc-scope-badge" style="background:rgba(52,199,89,0.12);color:#34C759;">Read-only</span>
+                        <span class="gc-scope-badge gc-scope-badge--info">Read-only</span>
                     </div>
                     <div class="gc-scope-desc">
                         View your email address to identify your connected account.
@@ -268,7 +71,7 @@
             </div>
         </div>
 
-        <!-- What we do with the data -->
+        <!-- Privacy note -->
         <div class="gc-privacy-note">
             <i class="fa-solid fa-lock"></i>
             <strong>How your data is used:</strong> Omnisconn displays your Google Calendar events in the dialer and creates calendar events with Google Meet links when you start a video consultation. Your data stays between you and Google — it is never sent to xAI, any AI service, or any third party. You can disconnect at any time.
@@ -284,7 +87,7 @@
         </div>
 
         <!-- Action buttons -->
-        <div class="gc-btn-row" style="margin-top:24px;">
+        <div class="gc-btn-row">
             <a href="{{ url_for('dashboard.dashboard') }}" class="gc-btn-cancel">Cancel</a>
             <a href="{{ authorize_url }}" class="gc-btn-connect">
                 <i class="fa-brands fa-google"></i>
@@ -292,11 +95,11 @@
             </a>
         </div>
 
-        <div style="text-align:center;margin-top:16px;">
-            <a href="/privacy" style="font-size:0.75rem;color:#555;text-decoration:none;">Privacy Policy</a>
-            <span style="color:#333;margin:0 8px;">|</span>
-            <a href="/terms" style="font-size:0.75rem;color:#555;text-decoration:none;">Terms of Service</a>
+        <div class="gc-footer-links">
+            <a href="/privacy">Privacy Policy</a>
+            <span class="gc-footer-sep">|</span>
+            <a href="/terms">Terms of Service</a>
         </div>
     </div>
-</section>
+</div>
 {% endblock %}

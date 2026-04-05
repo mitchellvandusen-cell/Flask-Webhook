@@ -13,7 +13,7 @@
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
                 {% for category, message in messages %}
-                    <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert" style="font-size: 0.9rem;">
+                    <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
                         {{ message }}
                         <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                     </div>
@@ -21,12 +21,12 @@
             {% endif %}
         {% endwith %}
 
-        <div class="text-center" style="margin-bottom: 24px;">
-            <div style="width: 60px; height: 60px; border-radius: 50%; background: rgba(0,255,136,0.1); border: 2px solid rgba(0,255,136,0.3); display: flex; align-items: center; justify-content: center; margin: 0 auto 16px;">
-                <i class="fa-solid fa-shield-halved" style="font-size: 1.5rem; color: var(--accent);"></i>
+        <div class="text-center mb-4">
+            <div class="twofa-shield-icon">
+                <i class="fa-solid fa-shield-halved"></i>
             </div>
-            <p style="color: #aaa; font-size: 0.95rem;">
-                We sent a 6-digit code to <strong style="color: #fff;">{{ masked_phone }}</strong>
+            <p class="twofa-prompt">
+                We sent a 6-digit code to <strong class="twofa-phone">{{ masked_phone }}</strong>
             </p>
         </div>
 
@@ -35,29 +35,28 @@
                 <label class="form-label">Verification Code</label>
                 <div class="input-group">
                     <span class="input-group-text"><i class="fa-solid fa-lock"></i></span>
-                    <input type="text" name="code" class="form-control"
+                    <input type="text" name="code" class="form-control twofa-code-input"
                            placeholder="000000" maxlength="6" pattern="\d{6}"
                            inputmode="numeric" autocomplete="one-time-code"
-                           autofocus required
-                           style="font-size: 1.3rem; letter-spacing: 8px; text-align: center; font-weight: 700;">
+                           autofocus required>
                 </div>
             </div>
 
-            <button type="submit" class="btn btn-accent w-100 mb-3">
+            <button type="submit" class="btn btn-primary w-100 mb-3">
                 <i class="fa-solid fa-check me-2"></i>Verify
             </button>
         </form>
 
         <div class="text-center">
-            <form method="post" action="{{ url_for('auth.resend_2fa') }}" style="display: inline;">
-                <button type="submit" class="btn btn-link" style="color: var(--accent); font-size: 0.9rem; text-decoration: none;">
+            <form method="post" action="{{ url_for('auth.resend_2fa') }}" class="d-inline">
+                <button type="submit" class="btn btn-link twofa-resend-link">
                     Didn't get it? Resend code
                 </button>
             </form>
         </div>
 
-        <div class="text-center" style="margin-top: 16px;">
-            <a href="{{ url_for('auth.login') }}" style="color: #666; font-size: 0.85rem; text-decoration: none;">
+        <div class="auth-footer">
+            <a href="{{ url_for('auth.login') }}" class="auth-back-link">
                 <i class="fa-solid fa-arrow-left me-1"></i>Back to login
             </a>
         </div>

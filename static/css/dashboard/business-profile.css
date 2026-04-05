@@ -94,10 +94,12 @@ body.light-theme .biz-prof-section-title {
     color: #1a1a1a;
 }
 
-/* Section icon accent colors */
-.biz-prof-icon-purple { color: #a78bfa; }
-.biz-prof-icon-orange { color: #ffa500; }
+/* Section icon accent colors — single brand accent */
+.biz-prof-icon-purple { color: var(--accent); }
+.biz-prof-icon-orange { color: var(--accent); }
 .biz-prof-icon-green  { color: #00ff88; }
+body.light-theme .biz-prof-icon-purple,
+body.light-theme .biz-prof-icon-orange,
 body.light-theme .biz-prof-icon-green { color: #059669; }
 
 /* ── Field labels ── */
@@ -249,9 +251,8 @@ body.light-theme .biz-prof-ein-btn-no:hover { border-color: #aaa; color: #333; }
     line-height: 1.65;
 }
 body.light-theme .biz-prof-no-ein-card { color: #555; }
-.biz-prof-icon-orange { color: #ffa500; }
-.biz-prof-link-orange { color: #ffa500; text-decoration: underline; }
-body.light-theme .biz-prof-link-orange { color: #d97706; }
+.biz-prof-link-orange { color: var(--accent); text-decoration: underline; }
+body.light-theme .biz-prof-link-orange { color: #059669; }
 
 /* ── Submit button ── */
 .biz-prof-submit-btn {

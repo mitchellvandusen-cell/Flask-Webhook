@@ -41,6 +41,25 @@
 
 ---
 
+## 2026-04-05 — Luxury Brand Discipline Sweep (5 Phases)
+
+### Visual
+- **Single-accent discipline enforced site-wide** — green is a signal, not decoration. Killed rainbow accent drift across Billing (4-color plan cards), Login (gradient SSO buttons), Home hero (100% green headline), Workflows (3-color action buttons), Register (gradient CRM buttons), Articles (6-color category badges), Connect (Facebook/LinkedIn blue buttons), Team (4-color zero-state stats), God Mode (gold Super Admins stat), Agency Statistics (5-color audio player + duration bucket rainbow)
+- **Glassmorphism root cause found and fixed** — auth.css .form-control with !important loaded after forms.css, glassing every dashboard form. Flattened to solid #0a0a0a
+- **Global attribute-selector override** — middle-column.css backstop catches 72+ inline translucent backgrounds + off-brand color drift across dashboard tabs
+- **Home hero** — "No More Spam Likely" split to white "No More" + green "Spam Likely" two-beat pattern; Courier mono subhead replaced with Outfit sans
+- **All CTA gradients flattened** — no more linear-gradient fills on buttons anywhere
+- **Light-theme SMS Config contrast** — Save Configuration button forced to white-on-green via !important
+- **Embed pages cleaned** — embed_base.html glass gradient replaced with solid #0a0a0a, call_panel.html translucent card/border vars solidified, gradient buttons flattened
+- **AI Assistant page** — killed purple #a78bfa gradient text, purple agency card, glass-card CTA section, translucent bubbles/pain cards all replaced with solid backgrounds
+
+### Documentation
+- Brand skill (.claude/skills/brand/SKILL.md) rewritten for Omnisconn + single-accent luxury discipline
+- CLAUDE.md updated with new ⛔ ACCENT AS SIGNAL mandatory rule, rainbow-drift violations table, guard rails documentation
+- Product name updated: InsuranceGrokBot → Omnisconn (legacy retained for internal code)
+
+---
+
 ## 2026-03-24 (Fix: Never abort webhook on token failure — always try Twilio fallback)
 
 **Root cause**: When `get_valid_token_with_status()` returned `(None, error)` with any error other than `'no_credentials'` (e.g., `'no_tokens'`, `'auth_error'`, `'all_creds_exhausted'`), `process_webhook_task()` hard-aborted the entire webhook pipeline with `return {"status": "error"}`. This silently dropped incoming messages even when the subscriber had Twilio sub-account credentials that could have delivered the SMS. Only the `'no_credentials'` case continued to Twilio fallback — all other token failures were dead ends.

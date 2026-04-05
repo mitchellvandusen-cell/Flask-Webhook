@@ -1,26 +1,28 @@
 {% extends "base.html" %}
 {% block title %}Unsubscribe — Omnisconn{% endblock %}
 {% block content %}
-<section class="ios-snap-section auto-height" style="min-height: 60vh; display: flex; align-items: center; justify-content: center;">
-    <div class="container" style="max-width: 520px; text-align: center;">
-        {% if success %}
-        <div class="glass-card" style="padding: 48px 32px;">
-            <i class="fa-solid fa-envelope-circle-check" style="font-size: 3rem; color: var(--accent); margin-bottom: 20px;"></i>
-            <h2 class="text-white" style="margin-bottom: 12px;">You've been unsubscribed</h2>
-            <p style="color: #999; font-size: 0.95rem; line-height: 1.6;">
-                You will no longer receive marketing or onboarding emails from Omnisconn.
-                Transactional emails (password resets, billing receipts) will still be sent as needed.
-            </p>
-            <a href="/" class="btn btn-primary mt-4">Back to Home</a>
+<div class="auth-wrapper">
+    {% if success %}
+    <div class="auth-card text-center">
+        <div class="auth-status-icon auth-status-icon--success">
+            <i class="fa-solid fa-envelope-circle-check"></i>
         </div>
-        {% else %}
-        <div class="glass-card" style="padding: 48px 32px;">
-            <i class="fa-solid fa-circle-exclamation" style="font-size: 3rem; color: #ff6b6b; margin-bottom: 20px;"></i>
-            <h2 class="text-white" style="margin-bottom: 12px;">Unsubscribe Failed</h2>
-            <p style="color: #999; font-size: 0.95rem;">{{ error }}</p>
-            <a href="/" class="btn btn-primary mt-4">Back to Home</a>
-        </div>
-        {% endif %}
+        <h2 class="auth-heading">You've been unsubscribed</h2>
+        <p class="auth-subtext">
+            You will no longer receive marketing or onboarding emails from Omnisconn.
+            Transactional emails (password resets, billing receipts) will still be sent as needed.
+        </p>
+        <a href="/" class="btn btn-primary w-100 py-3 mt-4">Back to Home</a>
     </div>
-</section>
+    {% else %}
+    <div class="auth-card text-center">
+        <div class="auth-status-icon auth-status-icon--error">
+            <i class="fa-solid fa-circle-exclamation"></i>
+        </div>
+        <h2 class="auth-heading">Unsubscribe Failed</h2>
+        <p class="auth-subtext">{{ error }}</p>
+        <a href="/" class="btn btn-primary w-100 py-3 mt-4">Back to Home</a>
+    </div>
+    {% endif %}
+</div>
 {% endblock %}
