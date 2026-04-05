@@ -589,14 +589,23 @@
                                 <i class="fa-solid fa-chevron-down sm-accordion-chevron"></i>
                             </button>
                             <div class="sm-accordion-body">
-                                <div id="spNumbersList" class="p-3" style="background:rgba(0,255,136,0.03);border:1px solid rgba(0,255,136,0.08);border-radius:10px;">
-                                    <div class="d-flex align-items-center justify-content-end mb-2">
-                                        <button onclick="loadSpamProtectionStatus()" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);color:#aaa;border-radius:6px;padding:4px 10px;font-size:0.75rem;cursor:pointer;">
+                                <div class="sm-explainer">
+                                    <p class="sm-explainer-lead">A phone number is considered <em>fully protected</em> when three layers of trust are in place with the carriers:</p>
+                                    <ol class="sm-explainer-list">
+                                        <li><strong>STIR/SHAKEN attestation</strong> — an A-level cryptographic signature that tells carriers the call is legitimate. Activates automatically once your Business Profile is approved.</li>
+                                        <li><strong>CNAM registration</strong> — your caller ID name as shown on the recipient's phone. Propagates to carrier databases within 48–72 hours after submission.</li>
+                                        <li><strong>Voice Integrity</strong> — a direct trust relationship with AT&amp;T, T-Mobile, and Verizon analytics engines (Hiya, First Orion, TNS) that remediates spam labels within 24–48 hours.</li>
+                                    </ol>
+                                    <p class="sm-explainer-note"><em>Complete each step below. Protection appears automatically once all three are live.</em></p>
+                                </div>
+                                <div class="sm-numbers-panel">
+                                    <div class="sm-panel-toolbar">
+                                        <button onclick="loadSpamProtectionStatus()" class="sm-btn sm-btn-ghost">
                                             <i class="fa-solid fa-arrows-rotate me-1"></i>Refresh
                                         </button>
                                     </div>
-                                    <div id="spNumbersContent" style="font-size:0.78rem;">
-                                        <div style="text-align:center;padding:12px;color:#555;"><i class="fa-solid fa-spinner fa-spin me-1" style="color:#00ff88;"></i>Loading...</div>
+                                    <div id="spNumbersContent" class="sm-numbers-content">
+                                        <div class="sm-loading"><i class="fa-solid fa-spinner fa-spin me-1"></i>Loading...</div>
                                     </div>
                                 </div>
                             </div>
@@ -613,41 +622,53 @@
                                 <i class="fa-solid fa-chevron-down sm-accordion-chevron"></i>
                             </button>
                             <div class="sm-accordion-body">
-                                <div class="cnam-header-card mb-3 p-3">
-                                    <div id="cnamSummaryBanner" class="cnam-summary-banner mb-3 p-2">
-                                        <div class="cnam-summary-loading"><i class="fa-solid fa-spinner fa-spin me-1"></i>Loading CNAM status...</div>
-                                    </div>
-                                    <div class="d-flex align-items-center gap-2 mb-3">
-                                        <button id="cnamSyncAllBtn" onclick="cnamSyncAll()" class="cnam-sync-all-btn">
-                                            <i class="fa-solid fa-arrows-rotate me-1"></i>Sync All to Business Name
+                                <div class="sm-explainer">
+                                    <p class="sm-explainer-lead">CNAM is the name recipients see on their phone when you call. It is registered with the <strong>CNAM authoritative carrier database</strong> via Twilio's Trust Hub and propagates to AT&amp;T, T-Mobile, Verizon, and regional carriers within 48–72 hours.</p>
+                                    <p class="sm-explainer-note"><em>You are not required to use your legal business name. Carriers permit personal names (e.g. "Mitch Van Dusen") as long as your Business Profile is registered. Choose whichever name your leads are most likely to recognize and answer.</em></p>
+                                </div>
+
+                                <!-- Single carrier-registered display name (one per account) -->
+                                <div class="sm-card" id="cnamDisplayNameCard">
+                                    <div class="sm-card-title">Carrier Display Name</div>
+                                    <div class="sm-card-sub">What recipients see when you call. Applies to all numbers on your account.</div>
+                                    <div class="sm-field-row">
+                                        <input type="text" id="cnamDisplayNameInput" maxlength="15" placeholder="e.g. Mitch Van Dusen" class="sm-input" autocomplete="off">
+                                        <button id="cnamUpdateNameBtn" onclick="cnamUpdateDisplayName()" class="sm-btn sm-btn-primary">
+                                            <i class="fa-solid fa-paper-plane me-1"></i>Update Carrier CNAM
                                         </button>
-                                        <button onclick="loadCnamMonitor()" class="cnam-refresh-btn">
+                                    </div>
+                                    <div class="sm-field-hint"><span id="cnamCharCount">0</span> / 15 characters · letters, numbers, periods, commas, spaces</div>
+                                    <div id="cnamUpdateResult" class="sm-inline-result"></div>
+                                </div>
+
+                                <!-- Numbers assigned to this CNAM registration -->
+                                <div class="sm-card" id="cnamNumbersCard">
+                                    <div class="sm-card-title-row">
+                                        <div class="sm-card-title">Numbers Using This Caller ID</div>
+                                        <button onclick="loadCnamMonitor()" class="sm-btn sm-btn-ghost sm-btn-sm">
                                             <i class="fa-solid fa-arrows-rotate me-1"></i>Refresh
                                         </button>
                                     </div>
-                                    <div id="cnamNumbersList" class="cnam-numbers-list">
-                                        <div class="cnam-loading"><i class="fa-solid fa-spinner fa-spin me-1"></i>Loading numbers...</div>
+                                    <div id="cnamNumbersList" class="sm-numbers-content">
+                                        <div class="sm-loading"><i class="fa-solid fa-spinner fa-spin me-1"></i>Loading numbers...</div>
                                     </div>
                                 </div>
-                                <div class="cnam-header-card p-3">
-                                    <div style="font-weight:600;font-size:0.85rem;color:#fff;margin-bottom:10px;"><i class="fa-solid fa-magnifying-glass me-2" style="color:#00ff88;"></i>CNAM Lookup</div>
-                                    <div class="row g-2 mb-2">
-                                        <div class="col">
-                                            <input type="tel" id="cnamLookupPhone" placeholder="(555) 123-4567 or +15551234567" class="cnam-input">
-                                        </div>
-                                        <div class="col-auto">
-                                            <button id="cnamLookupBtn" onclick="cnamLookup()" class="cnam-lookup-btn">
-                                                <i class="fa-solid fa-magnifying-glass me-1"></i>Lookup
-                                            </button>
-                                        </div>
-                                    </div>
-                                    <div id="cnamLookupResult" class="cnam-lookup-result"></div>
-                                    <div class="mt-3">
-                                        <button id="cnamLookupOwnBtn" onclick="cnamLookupOwn()" class="cnam-lookup-own-btn">
-                                            <i class="fa-solid fa-list-check me-1"></i>Check All My Numbers Against Carrier Database
+
+                                <!-- Lookup tool (optional verification) -->
+                                <div class="sm-card">
+                                    <div class="sm-card-title">CNAM Lookup <span class="sm-card-title-aux">(verification tool)</span></div>
+                                    <div class="sm-card-sub">Query any phone number to see what carriers currently return as its CNAM. Use this to verify propagation after an update.</div>
+                                    <div class="sm-field-row">
+                                        <input type="tel" id="cnamLookupPhone" placeholder="(555) 123-4567 or +15551234567" class="sm-input">
+                                        <button id="cnamLookupBtn" onclick="cnamLookup()" class="sm-btn sm-btn-secondary">
+                                            <i class="fa-solid fa-magnifying-glass me-1"></i>Lookup
                                         </button>
-                                        <div id="cnamLookupOwnResult" class="mt-2"></div>
                                     </div>
+                                    <div id="cnamLookupResult" class="sm-inline-result"></div>
+                                    <button id="cnamLookupOwnBtn" onclick="cnamLookupOwn()" class="sm-btn sm-btn-ghost sm-btn-block">
+                                        <i class="fa-solid fa-list-check me-1"></i>Check All My Numbers Against Carrier Database
+                                    </button>
+                                    <div id="cnamLookupOwnResult" class="sm-inline-result"></div>
                                 </div>
                             </div>
                         </div>

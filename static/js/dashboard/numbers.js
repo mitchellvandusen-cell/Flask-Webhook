@@ -575,180 +575,155 @@
 
         async function loadCnamMonitor() {
             var listEl = document.getElementById('cnamNumbersList');
-            var bannerEl = document.getElementById('cnamSummaryBanner');
-            if (listEl) listEl.innerHTML = '<div class="cnam-loading"><i class="fa-solid fa-spinner fa-spin me-1"></i>Loading numbers...</div>';
+            var nameInput = document.getElementById('cnamDisplayNameInput');
+            if (listEl) listEl.innerHTML = '<div class="sm-loading"><i class="fa-solid fa-spinner fa-spin me-1"></i>Loading numbers...</div>';
 
             try {
                 var r = await fetch('/voice/cnam/monitor');
                 if (!r.ok) {
                     var d = {};
                     try { d = await r.json(); } catch(_) {}
-                    if (listEl) listEl.innerHTML = '<div class="cnam-error"><i class="fa-solid fa-triangle-exclamation me-1"></i>' + _esc(d.error || 'Failed to load') + '</div>';
+                    if (listEl) listEl.innerHTML = '<div class="sm-error"><i class="fa-solid fa-triangle-exclamation me-1"></i>' + _esc(d.error || 'Failed to load') + '</div>';
                     return;
                 }
                 var d = await r.json();
+                var total = d.total || 0;
+                var compliant = d.cnam_compliant || 0;
+                var displayName = d.cnam_display_name || '';
+                var allGood = compliant === total && total > 0;
 
-                // Summary banner
-                if (bannerEl) {
-                    var total = d.total || 0;
-                    var cnamSet = d.cnam_set || 0;
-                    var compliant = d.cnam_compliant || 0;
-                    var displayName = d.cnam_display_name || '';
-                    var allGood = compliant === total && total > 0;
-
-                    bannerEl.innerHTML =
-                        '<div class="d-flex align-items-center gap-2 flex-wrap">' +
-                            '<div class="cnam-stat-pill ' + (allGood ? 'cnam-stat-good' : 'cnam-stat-warn') + '">' +
-                                '<i class="fa-solid ' + (allGood ? 'fa-circle-check' : 'fa-triangle-exclamation') + ' me-1"></i>' +
-                                compliant + '/' + total + ' CNAM registered' +
-                            '</div>' +
-                            (displayName ?
-                                '<div class="cnam-stat-pill cnam-stat-info">' +
-                                    '<i class="fa-solid fa-id-card me-1"></i>Display Name: <strong>' + _esc(displayName) + '</strong>' +
-                                '</div>' : '') +
-                            (total - compliant > 0 && total > 0 ?
-                                '<div class="cnam-stat-pill cnam-stat-warn">' +
-                                    '<i class="fa-solid fa-exclamation me-1"></i>' + (total - compliant) + ' not registered' +
-                                '</div>' : '') +
-                        '</div>';
-                    // Update accordion badge
-                    var cBadge = document.getElementById('smBadgeCnam');
-                    if (cBadge) {
-                        cBadge.textContent = compliant + '/' + total + ' registered';
-                        cBadge.style.cssText = 'display:inline-block;background:' + (allGood ? 'rgba(0,255,136,0.12);color:#00ff88' : 'rgba(255,165,0,0.12);color:#ffa500') + ';font-size:0.7rem;font-weight:600;padding:2px 8px;border-radius:10px;';
-                    }
+                // Populate the single display-name input with the current carrier-registered name.
+                // Only fill it if the user hasn't typed anything yet (avoid clobbering edits).
+                if (nameInput && !nameInput.dataset.userEdited) {
+                    nameInput.value = displayName;
+                    _cnamUpdateCharCount();
                 }
 
-                // Numbers list
+                // Accordion badge
+                var cBadge = document.getElementById('smBadgeCnam');
+                if (cBadge) {
+                    if (!displayName) {
+                        cBadge.textContent = 'Not registered';
+                        cBadge.className = 'sm-accordion-badge sm-badge-warn';
+                    } else if (allGood) {
+                        cBadge.textContent = 'Live — ' + _esc(displayName);
+                        cBadge.className = 'sm-accordion-badge sm-badge-ok';
+                    } else {
+                        cBadge.textContent = 'Propagating';
+                        cBadge.className = 'sm-accordion-badge sm-badge-pending';
+                    }
+                    cBadge.style.display = 'inline-block';
+                }
+
+                // Numbers list — read-only view. All numbers share one carrier display name.
                 if (listEl) {
                     var nums = d.numbers || [];
                     if (!nums.length) {
-                        listEl.innerHTML = '<div class="cnam-empty">No numbers found. Buy a number in the Numbers tab first.</div>';
+                        listEl.innerHTML = '<div class="sm-empty">No numbers found. Buy a number in the Numbers tab first.</div>';
                         return;
                     }
 
-                    var html = '<div class="cnam-table-header">' +
-                        '<div class="cnam-col-phone">Phone</div>' +
-                        '<div class="cnam-col-name">CNAM Name</div>' +
-                        '<div class="cnam-col-status">Status</div>' +
-                        '<div class="cnam-col-actions">Actions</div>' +
-                    '</div>';
-
+                    var html = '<ul class="sm-numbers-list">';
                     nums.forEach(function(n) {
-                        var compliant = n.cnam_compliant;
-                        var statusIcon, statusLabel, statusClass;
-
-                        if (compliant) {
-                            statusIcon = 'fa-circle-check';
-                            statusLabel = 'Registered';
-                            statusClass = 'cnam-status-ok';
+                        var isCompliant = n.cnam_compliant;
+                        var statusLabel, statusClass;
+                        if (isCompliant) {
+                            statusLabel = 'Live at carrier'; statusClass = 'sm-dot-ok';
                         } else if (n.assigned_to_trust_product) {
-                            statusIcon = 'fa-clock';
-                            statusLabel = 'Pending Review';
-                            statusClass = 'cnam-status-warn';
+                            statusLabel = 'Propagating (48–72h)'; statusClass = 'sm-dot-pending';
                         } else {
-                            statusIcon = 'fa-circle-minus';
-                            statusLabel = 'Not Registered';
-                            statusClass = 'cnam-status-off';
+                            statusLabel = 'Not registered'; statusClass = 'sm-dot-off';
                         }
-
-                        html += '<div class="cnam-row">' +
-                            '<div class="cnam-col-phone">' + _esc(_fmtPhone(n.phone)) + '</div>' +
-                            '<div class="cnam-col-name">' +
-                                '<span class="cnam-name-display" id="cnam-name-' + n.sid + '">' + _esc(n.cnam_name || '—') + '</span>' +
-                            '</div>' +
-                            '<div class="cnam-col-status">' +
-                                '<span class="cnam-status-badge ' + statusClass + '">' +
-                                    '<i class="fa-solid ' + statusIcon + ' me-1"></i>' + statusLabel +
-                                '</span>' +
-                            '</div>' +
-                            '<div class="cnam-col-actions">' +
-                                '<button onclick="cnamEditInline(\'' + n.sid + '\', \'' + _esc(n.cnam_name || '') + '\')" class="cnam-action-btn" title="Edit CNAM">' +
-                                    '<i class="fa-solid fa-pen"></i>' +
-                                '</button>' +
-                                (!n.cnam_name ?
-                                    '<button onclick="cnamQuickSet(\'' + n.sid + '\')" class="cnam-action-btn cnam-action-set" title="Set caller ID name">' +
-                                        '<i class="fa-solid fa-bolt"></i>' +
-                                    '</button>' : '') +
-                            '</div>' +
-                        '</div>';
+                        html += '<li class="sm-numbers-row">' +
+                            '<span class="sm-num-phone">' + _esc(_fmtPhone(n.phone)) + '</span>' +
+                            '<span class="sm-num-name">' + _esc(displayName || n.cnam_name || '—') + '</span>' +
+                            '<span class="sm-num-status"><span class="sm-dot ' + statusClass + '"></span>' + statusLabel + '</span>' +
+                        '</li>';
                     });
-
+                    html += '</ul>';
                     listEl.innerHTML = html;
                 }
             } catch(e) {
                 console.error('[CNAM Monitor]', e);
-                if (listEl) listEl.innerHTML = '<div class="cnam-error">Network error</div>';
+                if (listEl) listEl.innerHTML = '<div class="sm-error">Network error</div>';
             }
         }
 
-        async function cnamEditInline(sid, currentName) {
-            var el = document.getElementById('cnam-name-' + sid);
-            if (!el) return;
-            var newName = prompt('Enter CNAM name (max 15 characters):', currentName);
-            if (newName === null) return;
-            newName = newName.trim().substring(0, 15);
+        // Character counter + user-edit tracking for the display-name input
+        function _cnamUpdateCharCount() {
+            var inp = document.getElementById('cnamDisplayNameInput');
+            var cc = document.getElementById('cnamCharCount');
+            if (inp && cc) cc.textContent = inp.value.length;
+        }
+        (function() {
+            if (typeof document === 'undefined') return;
+            document.addEventListener('input', function(e) {
+                if (e.target && e.target.id === 'cnamDisplayNameInput') {
+                    e.target.dataset.userEdited = '1';
+                    _cnamUpdateCharCount();
+                }
+            });
+        })();
 
-            el.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+        // Update the carrier-registered CNAM display name.
+        // Hits /voice/cnam/update-name which calls update_cnam_display_name()
+        // on the Trust Product EndUser — this is the REAL carrier-visible name,
+        // not the Twilio internal friendly_name label.
+        async function cnamUpdateDisplayName() {
+            var inp = document.getElementById('cnamDisplayNameInput');
+            var btn = document.getElementById('cnamUpdateNameBtn');
+            var resultEl = document.getElementById('cnamUpdateResult');
+            if (!inp) return;
+            var name = (inp.value || '').trim();
+            if (resultEl) resultEl.innerHTML = '';
+
+            if (!name) {
+                if (resultEl) resultEl.innerHTML = '<div class="sm-error">Enter a display name.</div>';
+                return;
+            }
+            if (name.length > 15) {
+                if (resultEl) resultEl.innerHTML = '<div class="sm-error">Max 15 characters.</div>';
+                return;
+            }
+            if (!/^[A-Za-z]/.test(name)) {
+                if (resultEl) resultEl.innerHTML = '<div class="sm-error">Must start with a letter.</div>';
+                return;
+            }
+            if (!/^[A-Za-z0-9., ]+$/.test(name)) {
+                if (resultEl) resultEl.innerHTML = '<div class="sm-error">Only letters, numbers, periods, commas, and spaces are allowed.</div>';
+                return;
+            }
+
+            if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-1"></i>Submitting to carriers...'; }
             try {
-                var r = await fetch('/voice/cnam/update', {
+                var r = await fetch('/voice/cnam/update-name', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ number_sid: sid, cnam_name: newName }),
+                    body: JSON.stringify({ display_name: name }),
                 });
                 var d = await r.json();
                 if (r.ok && d.status === 'ok') {
-                    if (typeof _showDashToast === 'function') _showDashToast(true, 'CNAM updated');
+                    if (resultEl) {
+                        resultEl.innerHTML = '<div class="sm-success"><i class="fa-solid fa-circle-check me-1"></i>Submitted to carrier database. Propagation takes <strong>48–72 hours</strong>. New name: <strong>' + _esc(d.cnam_display_name || name) + '</strong></div>';
+                    }
+                    inp.dataset.userEdited = '';
+                    if (typeof _showDashToast === 'function') _showDashToast(true, 'CNAM submitted to carriers');
                     loadCnamMonitor();
                 } else {
-                    alert(d.error || 'Update failed');
-                    el.textContent = currentName || '—';
+                    var msg = d.error || 'Update failed';
+                    if (resultEl) resultEl.innerHTML = '<div class="sm-error"><i class="fa-solid fa-triangle-exclamation me-1"></i>' + _esc(msg) + '</div>';
                 }
             } catch(e) {
-                alert('Network error');
-                el.textContent = currentName || '—';
+                if (resultEl) resultEl.innerHTML = '<div class="sm-error">Network error</div>';
+            } finally {
+                if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-paper-plane me-1"></i>Update Carrier CNAM'; }
             }
         }
 
-        async function cnamQuickSet(sid) {
-            var el = document.getElementById('cnam-name-' + sid);
-            if (el) el.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
-            try {
-                var r = await fetch('/voice/cnam/update', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ number_sid: sid, cnam_name: '' }), // empty = use business name
-                });
-                if (r.ok) {
-                    if (typeof _showDashToast === 'function') _showDashToast(true, 'CNAM set');
-                    loadCnamMonitor();
-                } else {
-                    var d = await r.json();
-                    alert(d.error || 'Failed');
-                }
-            } catch(e) { alert('Network error'); }
-        }
-
-        async function cnamSyncAll() {
-            var btn = document.getElementById('cnamSyncAllBtn');
-            if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-1"></i>Syncing...'; }
-            try {
-                var r = await fetch('/voice/cnam/update-all', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                });
-                var d = await r.json();
-                if (r.ok) {
-                    if (typeof _showDashToast === 'function') {
-                        _showDashToast(true, d.updated + ' updated, ' + d.already_set + ' already set' + (d.failed > 0 ? ', ' + d.failed + ' failed' : ''));
-                    }
-                    loadCnamMonitor();
-                } else {
-                    alert(d.error || 'Sync failed');
-                }
-            } catch(e) { alert('Network error'); }
-            if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-arrows-rotate me-1"></i>Sync All to Business Name'; }
-        }
+        // Legacy per-number CNAM editing removed: CNAM is ONE carrier-registered
+        // display name per account (via the Trust Product EndUser), not per number.
+        // Editing is now handled by cnamUpdateDisplayName() above, which hits the
+        // correct /voice/cnam/update-name endpoint.
 
         async function cnamLookup() {
             var phone = (document.getElementById('cnamLookupPhone') || {}).value || '';
@@ -1410,18 +1385,30 @@
                 return;
             }
 
-            // ── Strategy selector ──
-            html += '<div style="display:flex;gap:6px;margin-bottom:14px;">';
+            // ── Strategy explainer + selector ──
             var strategies = [
-                { key: 'weighted_health', label: 'Weighted Health', icon: 'fa-scale-balanced', desc: 'Higher health = more calls' },
-                { key: 'round_robin', label: 'Round Robin', icon: 'fa-arrows-spin', desc: 'Even distribution' },
-                { key: 'highest_health', label: 'Top Health', icon: 'fa-trophy', desc: 'Always use healthiest' },
+                {
+                    key: 'weighted_health',
+                    label: 'Weighted Health',
+                    short: 'Smart distribution — healthier numbers get more calls. Recommended for most accounts.',
+                },
+                {
+                    key: 'round_robin',
+                    label: 'Round Robin',
+                    short: 'Even rotation across every active number. Prevents any single number from being overused and flagged by carriers on high-volume days.',
+                },
+                {
+                    key: 'highest_health',
+                    label: 'Top Health Only',
+                    short: 'Always dials from the single healthiest number. Use during critical outreach when you need the best-performing caller ID.',
+                },
             ];
+            var activeStrategy = strategies.find(function(s) { return s.key === strategy; }) || strategies[0];
+            html += '<div class="nh-strategy-explainer"><em>' + _esc(activeStrategy.label) + ':</em> ' + _esc(activeStrategy.short) + '</div>';
+            html += '<div class="nh-strategy-row">';
             strategies.forEach(function(s) {
                 var active = strategy === s.key;
-                html += '<button class="nh-strategy-btn' + (active ? ' nh-strategy-active' : '') + '" onclick="nhSetStrategy(\'' + s.key + '\')" title="' + _esc(s.desc) + '" style="flex:1;padding:6px 8px;border-radius:6px;font-size:.75rem;font-weight:600;cursor:pointer;border:1px solid ' + (active ? 'rgba(0,255,136,0.3)' : 'rgba(255,255,255,0.06)') + ';background:' + (active ? 'rgba(0,255,136,0.08)' : 'rgba(255,255,255,0.02)') + ';color:' + (active ? '#00ff88' : '#888') + ';">';
-                html += '<i class="fa-solid ' + s.icon + ' me-1"></i>' + s.label;
-                html += '</button>';
+                html += '<button class="nh-strategy-btn' + (active ? ' nh-strategy-active' : '') + '" onclick="nhSetStrategy(\'' + s.key + '\')">' + _esc(s.label) + '</button>';
             });
             html += '</div>';
 
@@ -1450,10 +1437,10 @@
             }
 
             // ── States Licensed In ──
-            html += '<div style="margin-top:16px;">';
-            html += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">';
-            html += '<h6 style="margin:0;font-weight:700;color:#fff;font-size:.82rem;"><i class="fa-solid fa-id-card me-2" style="color:#a78bfa;"></i>States Licensed In</h6>';
-            html += '<button onclick="nhOpenStatePicker()" style="background:rgba(167,139,250,0.08);border:1px solid rgba(167,139,250,0.2);color:#a78bfa;border-radius:6px;padding:4px 12px;font-size:.75rem;font-weight:600;cursor:pointer;"><i class="fa-solid fa-pen me-1"></i>Edit States</button>';
+            html += '<div class="nh-states-section">';
+            html += '<div class="nh-states-header">';
+            html += '<h6 class="nh-states-title">States Licensed In</h6>';
+            html += '<button onclick="nhOpenStatePicker()" class="nh-states-edit-btn"><i class="fa-solid fa-pen me-1"></i>Edit States</button>';
             html += '</div>';
 
             var licensedStates = d.licensed_states || [];
@@ -1563,7 +1550,7 @@
             html += '</div>';
             if (n.state) html += '<span style="background:rgba(0,255,136,0.08);color:#00ff88;padding:1px 5px;border-radius:3px;font-size:.75rem;font-weight:700;letter-spacing:.3px;">' + _esc(n.state) + '</span>';
             if (n.nickname) html += '<span style="color:#666;font-size:.75rem;">(' + _esc(n.nickname) + ')</span>';
-            if (_nhData && _nhData.spam_protected) html += '<span title="A2P Registered — STIR/SHAKEN verified" style="background:rgba(0,255,136,0.08);color:#00ff88;padding:1px 5px;border-radius:3px;font-size:.75rem;font-weight:700;cursor:help;"><i class="fa-solid fa-shield-halved" style="font-size:.75rem;margin-right:2px;"></i>Protected</span>';
+            if (_nhData && _nhData.spam_protected) html += '<span title="A2P Registered — STIR/SHAKEN verified" class="nh-protected-tag">Protected</span>';
             html += '</div>';
 
             // Health score badge
