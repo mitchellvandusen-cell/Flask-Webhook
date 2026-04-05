@@ -562,12 +562,12 @@ body.light-theme .footer-bottom p { color: #888; }
     overflow: hidden;
     box-shadow: 0 8px 32px rgba(0,0,0,0.3);
 }
-/* Ambient color bleed + sweep shine on hover */
+/* Ambient accent bleed — single accent, purple contamination removed */
 .glass-card::before {
     content: '';
     position: absolute;
     inset: 0;
-    background: linear-gradient(145deg, rgba(0,255,136,0.03) 0%, transparent 55%, rgba(110,70,255,0.025) 100%);
+    background: linear-gradient(145deg, rgba(0,255,136,0.025) 0%, transparent 70%);
     border-radius: inherit;
     pointer-events: none;
     z-index: 0;
@@ -597,10 +597,7 @@ body.light-theme .footer-bottom p { color: #888; }
 .feature-icon {
     font-size: 3rem;
     margin-bottom: 20px;
-    background: linear-gradient(135deg, var(--accent), #fff);
-    background-clip: text;
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
+    color: var(--accent);
     display: inline-block;
 }
 .feature-card h4 { font-size: 1.4rem; font-weight: 700; margin-bottom: 15px; color: #fff; }

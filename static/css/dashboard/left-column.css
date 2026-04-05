@@ -684,13 +684,13 @@
     padding: 7px 10px;
     border-radius: 6px;
     font-size: 0.78rem;
-    color: #555;
+    color: #a0a0a0;
     text-decoration: none;
     transition: background 0.15s, color 0.15s;
 }
 .sb-footer-link:hover {
-    background: rgba(255,255,255,0.05);
-    color: #999;
+    background: rgba(0,255,136,0.04);
+    color: var(--accent);
 }
 .sb-footer-link i {
     width: 16px;
@@ -708,8 +708,8 @@
     background: rgba(0,0,0,0.04);
     color: #111111;
 }
-[data-theme="light"] .sb-footer-link { color: #999; }
-[data-theme="light"] .sb-footer-link:hover { background: rgba(0,0,0,0.04); color: #444; }
+[data-theme="light"] .sb-footer-link { color: #4b5563; }
+[data-theme="light"] .sb-footer-link:hover { background: rgba(5,150,105,0.06); color: #059669; }
 
 /* ================================================================
    SIDEBAR PARAMS CARD

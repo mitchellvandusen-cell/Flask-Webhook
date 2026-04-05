@@ -902,18 +902,29 @@ body.light-theme .agency-rec-dur { color: #6b7280; }
     color: #aaa;
 }
 .audio-btn:hover { transform: scale(1.08); }
-.audio-play-btn  { background: rgba(0,255,136,0.12); color: #00ff88; border-color: rgba(0,255,136,0.28); }
-.audio-play-btn:hover  { background: rgba(0,255,136,0.22); box-shadow: 0 3px 10px rgba(0,255,136,0.18); }
-.audio-pause-btn { background: rgba(251,191,36,0.12); color: #fbbf24; border-color: rgba(251,191,36,0.28); }
-.audio-pause-btn:hover { background: rgba(251,191,36,0.22); box-shadow: 0 3px 10px rgba(251,191,36,0.18); }
-.audio-stop-btn  { background: rgba(255,255,255,0.05); color: #888; border-color: rgba(255,255,255,0.1); }
-.audio-stop-btn:hover  { background: rgba(255,255,255,0.1); color: #ccc; }
-.audio-download-btn { background: rgba(59,130,246,0.12); color: #60a5fa; border-color: rgba(59,130,246,0.28); border-radius: 8px; width: auto; padding: 0 10px; }
-.audio-download-btn:hover { background: rgba(59,130,246,0.22); box-shadow: 0 3px 10px rgba(59,130,246,0.18); }
-.audio-transcribe-btn { background: rgba(251,146,60,0.12); color: #fb923c; border-color: rgba(251,146,60,0.28); border-radius: 8px; width: auto; padding: 0 10px; }
-.audio-transcribe-btn:hover { background: rgba(251,146,60,0.22); box-shadow: 0 3px 10px rgba(251,146,60,0.18); }
-.audio-transcript-btn { background: rgba(168,85,247,0.12); color: #c084fc; border-color: rgba(168,85,247,0.28); border-radius: 8px; width: auto; padding: 0 10px; }
-.audio-transcript-btn:hover { background: rgba(168,85,247,0.22); }
+/* Audio player buttons — unified single accent (was green/yellow/blue/orange/purple) */
+.audio-play-btn,
+.audio-pause-btn,
+.audio-download-btn,
+.audio-transcribe-btn,
+.audio-transcript-btn {
+    background: rgba(0,255,136,0.08);
+    color: var(--accent);
+    border-color: rgba(0,255,136,0.25);
+}
+.audio-play-btn:hover,
+.audio-pause-btn:hover,
+.audio-download-btn:hover,
+.audio-transcribe-btn:hover,
+.audio-transcript-btn:hover {
+    background: rgba(0,255,136,0.15);
+    border-color: rgba(0,255,136,0.40);
+}
+.audio-download-btn,
+.audio-transcribe-btn,
+.audio-transcript-btn { border-radius: 8px; width: auto; padding: 0 10px; }
+.audio-stop-btn  { background: #0a0a0a; color: #888; border-color: #1e1e1e; }
+.audio-stop-btn:hover  { background: #0a0a0a; color: #ccc; border-color: rgba(0,255,136,0.25); }
 .audio-scrubber {
     -webkit-appearance: none;
     appearance: none;
@@ -946,13 +957,26 @@ body.light-theme .agency-rec-dur { color: #6b7280; }
 .audio-duration     { font-size: 0.68rem; color: #444; font-family: 'JetBrains Mono', monospace; white-space: nowrap; }
 /* Light theme */
 body.light-theme .audio-controls { background: rgba(0,0,0,0.02); border-color: rgba(0,0,0,0.07); }
-body.light-theme .audio-play-btn  { background: rgba(5,150,105,0.1);  color: #059669; border-color: rgba(5,150,105,0.25); }
-body.light-theme .audio-play-btn:hover  { box-shadow: 0 3px 10px rgba(5,150,105,0.18); }
-body.light-theme .audio-pause-btn { background: rgba(217,119,6,0.1);  color: #d97706; border-color: rgba(217,119,6,0.25); }
-body.light-theme .audio-stop-btn  { background: rgba(0,0,0,0.04); color: #9ca3af; border-color: rgba(0,0,0,0.1); }
-body.light-theme .audio-download-btn  { background: rgba(37,99,235,0.1);  color: #2563eb; border-color: rgba(37,99,235,0.25); }
-body.light-theme .audio-transcribe-btn { background: rgba(234,88,12,0.1); color: #ea580c; border-color: rgba(234,88,12,0.25); }
-body.light-theme .audio-transcript-btn { background: rgba(124,58,237,0.1); color: #7c3aed; border-color: rgba(124,58,237,0.25); }
+/* Audio player buttons — light theme unified single accent */
+body.light-theme .audio-play-btn,
+body.light-theme .audio-pause-btn,
+body.light-theme .audio-download-btn,
+body.light-theme .audio-transcribe-btn,
+body.light-theme .audio-transcript-btn {
+    background: rgba(5,150,105,0.08);
+    color: #059669;
+    border-color: rgba(5,150,105,0.25);
+}
+body.light-theme .audio-play-btn:hover,
+body.light-theme .audio-pause-btn:hover,
+body.light-theme .audio-download-btn:hover,
+body.light-theme .audio-transcribe-btn:hover,
+body.light-theme .audio-transcript-btn:hover {
+    background: rgba(5,150,105,0.14);
+    border-color: rgba(5,150,105,0.40);
+}
+body.light-theme .audio-stop-btn  { background: #ffffff; color: #9ca3af; border-color: #e5e7eb; }
+body.light-theme .audio-stop-btn:hover { border-color: rgba(5,150,105,0.35); }
 body.light-theme .audio-scrubber { background: rgba(0,0,0,0.1); }
 body.light-theme .audio-scrubber::-webkit-slider-thumb { background: #059669; box-shadow: 0 0 0 2px rgba(5,150,105,0.2); }
 body.light-theme .audio-scrubber::-moz-range-thumb { background: #059669; }
