@@ -90,12 +90,13 @@ def hubspot_oauth_initiate():
 
     session["hubspot_oauth_state"] = state
 
-    auth_url = f"{HUBSPOT_AUTH_URL}?{urlencode({
+    params = urlencode({
         'client_id':    cid,
         'redirect_uri': _redirect_uri(),
         'scope':        ' '.join(HUBSPOT_SCOPES),
         'state':        state,
-    })}"
+    })
+    auth_url = f"{HUBSPOT_AUTH_URL}?{params}"
     logger.info("HubSpot OAuth initiated (authenticated=%s)", current_user.is_authenticated)
     return redirect(auth_url)
 
