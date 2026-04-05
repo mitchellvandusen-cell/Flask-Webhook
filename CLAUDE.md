@@ -1,8 +1,10 @@
-# CLAUDE.md — InsuranceGrokBot (Updated Apr 2026)
+# CLAUDE.md — Omnisconn (Updated Apr 2026)
 
 ## CLAUDE OPERATING RULES (Enforced for EVERY Task)
 
-You are the senior staff engineer for **InsuranceGrokBot** (multi-tenant white-label AI SMS/voice SaaS for insurance agents). These rules take absolute precedence. The app is hybrid: Flask/Gunicorn main (webhooks + blueprints) + standalone async FastAPI voice server.
+You are the senior staff engineer for **Omnisconn** (multi-tenant white-label AI SMS/voice SaaS for insurance agents; legacy internal name: InsuranceGrokBot — still appears in code paths, DB columns, and this file's architecture sections). These rules take absolute precedence. The app is hybrid: Flask/Gunicorn main (webhooks + blueprints) + standalone async FastAPI voice server.
+
+**Current brand + design system:** See `.claude/skills/brand/SKILL.md` for the single source of truth on visual discipline (single-accent luxury, no glassmorphism, no gradients on CTAs, attribute-selector override backstop, load-order gotchas). That skill auto-activates for any UI/CSS/template work and must be followed.
 
 ### 1. Plan Mode Default
 - Enter plan mode for ANY non-trivial task (3+ steps or architectural decisions) — especially webhook processing, CRM extensions (crm_providers/), Twilio sub-account ops, voice FastAPI WebSocket bridge, RQ changes, Alembic migrations, agency dashboard updates, or multi-tenant isolation.
@@ -61,13 +63,13 @@ When editing **ANY** logic, prompts, responses, sanitizers, workflows, or intell
 - **LLM & Voice**: Always llm_caller.py. Voice never direct xAI client.
 - Output format: Start with `<plan>` block, then diffs, verification (test names + voice_server + agency-dashboard.html logs), results.
 
-**You have read these rules. Enforce ruthlessly. This is the exact current InsuranceGrokBot codebase (Flask main + async FastAPI voice + Alembic + legacy DB + dedicated agency dashboard with own login + KPI stats).**
+**You have read these rules. Enforce ruthlessly. This is the exact current Omnisconn codebase (Flask main + async FastAPI voice + Alembic + legacy DB + dedicated agency dashboard with own login + KPI stats). Brand visual discipline lives in `.claude/skills/brand/SKILL.md` — auto-invoked for any UI work; single-accent luxury, no glassmorphism, no rainbow drift, load-order gotchas documented there.**
 
 ---
 
 ## What This App Is
 
-**InsuranceGrokBot** is a white-label AI-powered SMS and voice bot platform for insurance agents. Multi-tenant SaaS: each agency gets isolated bot with own Twilio sub-account, phone numbers, CRM (GHL primary + HubSpot/etc.), prompts, and history. **Agency owners manage multiple sub-accounts from a dedicated dashboard** (blueprints/dashboard.py + agency.py, templates/agency-dashboard.html with KPI stats + own login via agency-login.html).
+**Omnisconn** (legacy: InsuranceGrokBot) is a white-label AI-powered SMS and voice bot platform for insurance agents. Multi-tenant SaaS: each agency gets isolated bot with own Twilio sub-account, phone numbers, CRM (GHL primary + HubSpot/etc.), prompts, and history. **Agency owners manage multiple sub-accounts from a dedicated dashboard** (blueprints/dashboard.py + agency.py, templates/agency-dashboard.html with KPI stats + own login via agency-login.html). The brand is **Omnisconn** across all marketing pages and dashboard chrome; `InsuranceGrokBot` still appears in some internal templates, DB columns, and admin surfaces — migrate user-visible strings to `Omnisconn` when touching them.
 
 **Current Hybrid Architecture (Mar 2026)**:
 - Main: Flask (main.py + 16 blueprints including dashboard.py/agency.py) + Gunicorn
@@ -2096,17 +2098,26 @@ The glass aesthetic could not be made to work consistently across the product. I
 
 ### The New Design Language: Sharp, Bold, Solid, Authoritative
 
-InsuranceGrokBot's visual identity is **sharp, bold, and solid** — the aesthetic of a professional tool that insurance agents trust with their business. Not a consumer app. Not a startup landing page. A serious platform.
+Omnisconn's visual identity is **sharp, bold, solid, and authoritative** — the aesthetic of a professional tool insurance agents trust with their business. Not a consumer app. Not a startup landing page. Think Linear / Stripe / Vercel in aesthetic register — restrained, single-accent, typographically confident.
 
 **Core principles:**
-- **Solid backgrounds** — `#000`, `#050505`, `#080808`, `#0a0a0a`, `#111`, `#1a1a1a`. Never translucent.
-- **Hard edges** — borders are `1px solid` with a single color (e.g. `rgba(255,255,255,0.08)` or `#1a1a1a`). No asymmetric lighting tricks.
-- **Flat depth** — use `box-shadow` for elevation if needed, but no `inset` shimmer or glass-edge simulation.
+- **Solid backgrounds** — `#050505`, `#0a0a0a`, `#111`, `#1a1a1a`. Never translucent.
+- **Hard edges** — borders are `1px solid #1a1a1a` (dark) or `#e5e7eb` (light). No asymmetric lighting tricks, no chromatic bevels.
+- **Flat depth** — subtle `box-shadow` only. No `inset` shimmer, no glass-edge simulation, no radial glows behind cards.
 - **No `backdrop-filter`** — ever. Not for cards, modals, dropdowns, or nav.
-- **Strong type** — large, heavy Outfit headlines (900 weight). Typography carries the authority.
-- **Accent as signal** — `#00ff88` used precisely: active states, CTAs, key numbers, icons. Not decorative glow everywhere.
+- **Strong type** — Outfit 900 headlines carry the hierarchy. Don't rely on color or effects to create importance.
+- **Accent as signal** — `#00ff88` used precisely for selected states, primary CTAs, one headline accent word, and semantic icons inside cards. Nothing else.
 
-### Canonical Card Pattern
+### Phase 2 Root Cause Finding (keep this in mind when debugging glass regressions)
+
+The SMS Config form inputs were rendering glassy because of **CSS @import load order**:
+- `static/css/style.css` imports `dashboard/forms.css` at line 28 (solid `.form-control` rules)
+- Same file imports `auth/auth.css` at line 66 (legacy glass `.form-control` with `!important`)
+- Auth.css wins because it loads later → every dashboard form was glassing
+
+If you ever see translucent form inputs again, check whether a later-loaded CSS file has a `.form-control` rule with `!important` that overrides `forms.css`. The `.form-control` definition in `auth/auth.css:107-155` was flattened in Phase 2 (commit `e5d63eb`) and must stay solid.
+
+### Canonical Solid Card Pattern
 
 ```css
 .my-card {
@@ -2116,52 +2127,94 @@ InsuranceGrokBot's visual identity is **sharp, bold, and solid** — the aesthet
     transition: border-color 0.18s ease;
 }
 .my-card:hover {
-    border-color: rgba(0,255,136,0.20);
+    border-color: rgba(0,255,136,0.25);
 }
-```
-
-For marketing feature cards, use a top accent border on hover:
-```css
-.my-feature-card:hover {
-    border-top-color: rgba(0,255,136,0.45);
-    box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+.my-card.selected {
+    border-color: rgba(0,255,136,0.45);
+    background: rgba(0,255,136,0.03);
 }
-```
-
-### Light Theme Pattern
-
-Light theme uses solid whites and soft grays — no frosted glass:
-```css
 body.light-theme .my-card {
     background: #ffffff;
-    border-color: #e8e8e8;
+    border-color: #e5e7eb;
 }
 body.light-theme .my-card:hover {
-    border-color: rgba(5,150,105,0.25);
+    border-color: rgba(5,150,105,0.35);
+}
+body.light-theme .my-card.selected {
+    border-color: rgba(5,150,105,0.55);
+    background: rgba(5,150,105,0.04);
 }
 ```
 
-### Key CSS Variables (Retained)
+### Canonical Ghost Button Pattern (secondary actions)
 
-These variables remain valid and should be used:
+```css
+.my-ghost-btn {
+    background: #0a0a0a;
+    color: #cccccc;
+    border: 1px solid #1e1e1e;
+    transition: border-color 0.18s, color 0.18s, background 0.18s;
+}
+.my-ghost-btn:hover {
+    color: #ffffff;
+    border-color: rgba(0,255,136,0.35);
+}
+.my-ghost-btn i { color: #888; transition: color 0.18s; }
+.my-ghost-btn:hover i { color: var(--accent); }
+body.light-theme .my-ghost-btn {
+    background: #ffffff;
+    color: #374151;
+    border-color: #e5e7eb;
+}
+body.light-theme .my-ghost-btn:hover {
+    border-color: rgba(5,150,105,0.40);
+    color: #111827;
+}
+```
+
+### Canonical Primary CTA (flat, single color — no gradients)
+
+```css
+.my-primary-btn {
+    background: var(--accent);
+    color: #000;
+    border: 1px solid var(--accent);
+    font-weight: 800;
+}
+.my-primary-btn:hover {
+    background: #00cc6a;
+    border-color: #00cc6a;
+}
+body.light-theme .my-primary-btn {
+    background: #059669;
+    color: #ffffff;
+    border-color: #059669;
+}
+body.light-theme .my-primary-btn:hover {
+    background: #047857;
+}
+```
+
+### Key CSS Variables (use these, not hardcoded hex)
+
 ```css
 --accent:       #00ff88;   /* neon green — dark mode */
 --accent-dim:   rgba(0,255,136,0.12);
+--accent-ring:  rgba(0,255,136,0.35);
 --lt-accent:    #059669;   /* darker green — light mode */
 --lt-accent-bg: rgba(5,150,105,0.08);
---lt-bg:        #f4f6fa;
+--lt-bg:        #ffffff;
 --lt-surface:   #ffffff;
---lt-border:    rgba(0,0,0,0.08);
+--lt-border:    #e5e7eb;
 ```
 
-The `--glass-*` variables still exist in `style.css` for backward compatibility with old dashboard components that haven't been migrated yet. Do not add new uses of them. Migrate existing uses to solid backgrounds when touching those components.
+The `--glass-*` variables still exist in `base/variables.css` for backward compatibility but are all aliased to solid hex values (`--glass-blur: none`, `--glass-bg: #111`, `--glass-border: #242424`). Do not add new uses. Migrate on touch.
 
 ### What To Do With Existing Glass Code
 
 - **New components**: Always solid. Never glass.
-- **Editing existing glass components**: Convert to solid while you're in there. Don't leave glass behind.
-- **Dashboard**: The `style.css` still has glass variables and some glass classes. These are legacy. Migrate them to solid patterns as components are touched.
-- **Marketing CSS**: `marketing.css` still has `.glass-card`, `.mkt-glass-card`, `.glass-banner` etc. These are being phased out. Any new marketing component uses the solid card pattern above.
+- **Editing existing components**: If you see `rgba(255,255,255,0.0x)` backgrounds, `backdrop-filter` anywhere active, or `linear-gradient` fills on CTAs — flatten them while you're in there.
+- **Rainbow drift in utility classes**: If you see a class with hardcoded purple/orange/blue/cyan/yellow (e.g. `.ic-purple`, `.audio-pause-btn` yellow, `.trn-tip-title-purple`), alias it to `var(--accent)`. Phases 3–5 did this across `panels.css`, `agency.css`, `marketing.css`, and `power-dialer.css` — keep it that way.
 
 ---
 
@@ -2171,7 +2224,7 @@ The `--glass-*` variables still exist in `style.css` for backward compatibility 
 
 ### Why This Matters
 
-Inline `style=""` attributes bypass the CSS variable system entirely. They cannot respond to `body.light-theme` toggling, causing elements to stay dark-colored in light mode. The extensive `[style*="background:#1a1a2e"]`-type attribute selectors currently in `style.css` are band-aid workarounds for exactly this problem — they prove that inline styles break theming.
+Inline `style=""` attributes bypass the CSS variable system entirely. They cannot respond to `body.light-theme` toggling, causing elements to stay dark-colored in light mode. Beyond that, they produce the rainbow-drift effect: templates reach for inline `color:#a78bfa` or `background:rgba(255,255,255,0.04)` because adding a new class felt heavier, and the cumulative effect is a multi-color UI that kills the luxury aesthetic.
 
 ### The Rule
 
@@ -2179,8 +2232,8 @@ Inline `style=""` attributes bypass the CSS variable system entirely. They canno
 
 Instead:
 1. Add a semantic CSS class to the element (e.g. `class="stat-card"`)
-2. Define the visual properties for that class in `static/css/style.css`
-3. Add the light-theme override inside `body.light-theme { }` in the same CSS file
+2. Define the visual properties for that class in the appropriate CSS file (never `style.css` directly — pick the namespace: `forms.css`, `panels.css`, `left-column.css`, `agency.css`, etc.)
+3. Add a matching `body.light-theme` (and/or `[data-theme="light"]`) override
 
 ### Allowed Exceptions
 
@@ -2195,15 +2248,147 @@ el.style.width = score + '%';  // JS sets it dynamically
 
 **Everything else must use CSS classes.** If you find yourself writing `style="color:#888"` in a template, stop — add a class instead.
 
+### The Attribute-Selector Override Backstop
+
+Because there are ~1,200 pre-existing inline styles across legacy templates that can't all be rewritten at once, `static/css/dashboard/middle-column.css` ships a backstop — a set of `[style*="..."]` attribute selectors that catch the most common drift patterns and rewrite them:
+
+```css
+/* Catches inline translucent-white backgrounds (72 instances across voice.html,
+   dialer.html, agency_kpis.html) and flattens them to solid hex */
+:not([data-theme="light"]) [style*="background:rgba(255,255,255,0.04)"],
+:not([data-theme="light"]) [style*="background:rgba(255,255,255,0.03)"],
+:not([data-theme="light"]) [style*="background:rgba(255,255,255,0.06)"],
+:not([data-theme="light"]) [style*="background:rgba(255,255,255,0.05)"] {
+    background: #0a0a0a !important;
+    border-color: #1a1a1a !important;
+}
+
+/* Catches off-brand text colors (purple, orange, blue, yellow) inside dashboard
+   and rewrites them to the brand accent */
+.dash-main [style*="color:#a78bfa"],
+.dash-main [style*="color:#8b5cf6"],
+.dash-main [style*="color:#7c3aed"],
+.dash-main [style*="color:#ffa500"],
+.dash-main [style*="color:#fbbf24"],
+.dash-main [style*="color:#ff6b35"],
+.dash-main [style*="color:#3b82f6"],
+.dash-main [style*="color:#60a5fa"],
+.dash-main [style*="color:#2563eb"] {
+    color: var(--accent) !important;
+}
+
+/* Catches inline linear-gradient buttons and flattens to solid green */
+.dash-main [style*="linear-gradient(135deg,#ffa500"],
+.dash-main [style*="linear-gradient(135deg,#ff6b35"],
+.dash-main [style*="linear-gradient(135deg,#a78bfa"],
+.dash-main [style*="linear-gradient(135deg,#8b5cf6"],
+.dash-main [style*="linear-gradient(135deg,#3b82f6"] {
+    background: var(--accent) !important;
+    color: #000 !important;
+}
+```
+
+**This is a backstop, not a license.** Continue to write new templates without inline styles. When editing an existing template, migrate its inline styles to classes. Every class you add makes one more attribute-selector fallback unnecessary. Do NOT delete the backstop rules in `middle-column.css` — they protect against regression.
+
 ### Migrating Existing Inline Styles
 
 When editing a template that has inline styles:
-1. Extract the inline properties into a new class in `static/css/style.css`
+1. Extract the inline properties into a new class in the appropriate namespace CSS file
 2. Replace `style="..."` with `class="..."`
 3. Add corresponding `body.light-theme .your-class` overrides
-4. Remove the corresponding `[style*="..."]` band-aid selectors from `style.css`
+4. Verify both themes visually before committing
 
-This progressively eliminates the `[style*]` hacks and reduces CSS file size.
+---
+
+## ⛔ ACCENT AS SIGNAL — Mandatory Rule
+
+**Green is a signal, not decoration.** This is the single biggest brand rule after the Phase 1–5 luxury sweep. It is what took the product from feeling "tactical/startup" to "high-end/professional."
+
+### The Rule
+
+Green (`var(--accent)` = `#00ff88` dark / `#059669` light) appears on **exactly four things**:
+
+1. **Active / selected state** — the currently-selected tab, radio card, filter pill, plan card border, sidebar nav item
+2. **Primary CTA** — the one button a user is expected to click on the current screen
+3. **The one accent word in a headline** — "No More **Spam Likely**", "Pick Your Plan. **Start Closing**", "Your Leads Text Back. **You Never Miss One**"
+4. **Semantic icons and micro-accents inside dark cards** — feature checkmarks, success pills, status dots, section header icons
+
+**Nothing else is green.** No decorative glow, no "just for variety," no "to make it pop."
+
+### The Rainbow-Drift Violations That Are Prohibited
+
+These are specific failure modes caught and fixed in Phases 1–5 (commits `464e5ce`, `e5d63eb`, `ece8aa2`, `f16bb3d`, `a303eb7`). They must never return:
+
+| Violation | Where it was | Why prohibited |
+|---|---|---|
+| **4 accent colors on plan cards** | Billing tab: green + orange + purple + red tier cards | Kills trust at the moment of payment |
+| **3-color action button rows** | Workflows: orange Import + purple Build-AI + green New Workflow | Three accents fighting in 300px |
+| **4-color zero-state stat tiles** | Team tab: green 0 ACTIVE / orange 0 PENDING / red 0 VOICE / gray 0 INACTIVE | Color for color's sake |
+| **Gradient social-login buttons** | `/login`: orange LeadConnector + coral HubSpot, dominating Sign In | Inverts CTA hierarchy |
+| **Orange/coral CRM install buttons** | `/register`: coral HubSpot gradient + orange LeadConnector gradient | Same problem as /login |
+| **5-color audio player rainbow** | Agency Statistics: play green / pause yellow / download blue / transcribe orange / transcript purple | Same action family = same color |
+| **5-dot duration bucket legend** | Agency Statistics call quality: red/orange/yellow/blue/purple dots | Rainbow charts are retired; use opacity progression instead |
+| **Multi-color article category badges** | `/articles`: 6 different colored pills | Unified to single accent, kept meaningful with text |
+| **Facebook/LinkedIn brand blue buttons** | `/connect`: Facebook blue + LinkedIn blue CTAs | Platform CTAs follow Omnisconn brand, not platform brand |
+| **Purple/blue gradient tri-color AI button** | `.wfb-ai-build-btn`: purple → blue → accent gradient | Flat green, no gradients on CTAs |
+| **Orange "Coming Soon" + gold "Super Admin" badges** | Integrations + God Mode | Admin surfaces stay restrained |
+| **Blue "Team Meeting" Google Meet button** | Team tab next to green Add Seat | Solid green ghost outline |
+| **Hardcoded `#a78bfa`, `#ffa500`, `#3b82f6` in inline styles** | Dashboard tabs | Attribute-selector backstop catches these |
+| **Mono font on marketing subheads** | Home hero: JetBrains Mono "Built for agents who want..." | Mono is for code/data only |
+
+### Semantic Colors ARE Allowed
+
+Red/amber/blue are legal for meaningful state:
+
+```css
+--status-success: #00ff88;  /* = var(--accent) */
+--status-error:   #ef4444;  /* red — errors, cancelled members, DNC contacts */
+--status-warning: #f59e0b;  /* amber — warnings, pending verification */
+--status-info:    #3b82f6;  /* blue — info banners, INFO log badges */
+```
+
+And Lead Temperature colors on AI Smart Filters ONLY:
+
+```css
+--temp-hot:  #ef4444;  /* red — actively buying */
+--temp-warm: #f59e0b;  /* amber — engaged */
+--temp-cool: #3b82f6;  /* blue — went quiet */
+--temp-cold: #6b7280;  /* gray — cold/dead */
+```
+
+**The test:** If the tile/badge/icon is communicating an error, a warning, an info message, or a lead temperature, non-green is OK. Otherwise it must be green.
+
+### Reference Surfaces That Get This Right
+
+When building a new surface, copy the discipline from these:
+- **`/sms` marketing page** — white "Your Leads Text Back." + green "You Never Miss One." headline pattern
+- **`/#pricing` section** — 4 symmetric plan cards, all green, featured card with green top border + filled green CTA
+- **Dashboard SMS Config tab** — solid `.vc-input`s + `.cfg-sms-option` radio cards with `:has(input:checked)` green border
+- **Dashboard Billing tab** — 4 plan cards unified single accent, flat depth, symmetric 4-column grid
+- **Dashboard White Label Branding tab** — clean form with live preview, single accent, color picker
+- **Agency login** (`/agency-login`) — crosshair grid + single "Initialize System" CTA, no social clutter
+
+### Guard Rails Already In Place (Do Not Remove)
+
+Rainbow drift is prevented by explicit `!important` overrides at the end of `static/css/dashboard/panels.css`:
+
+```css
+.team-meet-btn, .conn-google-btn, .wfb-ai-build-btn,
+.ni-register-btn, .ni-remediate-btn, .ni-edit-submit-btn,
+.cnam-sync-all-btn { background: var(--accent) !important; }
+```
+
+Plus attribute-selector backstops in `middle-column.css` (see NO INLINE STYLING section above). If you find yourself wanting to delete one of these rules because "it's weird" or "it shouldn't be necessary" — don't. They exist because legacy templates keep trying to reintroduce rainbow drift through inline styles. The rules are backstops against regression.
+
+### Test Loop Before Committing
+
+1. Is every new color in this commit `var(--accent)` or a semantic state color?
+2. Does every dark-mode rule I added have a matching light-mode rule?
+3. Did I use a solid hex background, not rgba translucent?
+4. Did I use a class instead of inline style?
+5. Is the CTA the single primary green button on the screen, or are there competing accents?
+
+All five must answer yes.
 
 ---
 
