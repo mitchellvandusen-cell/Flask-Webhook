@@ -179,6 +179,49 @@
         document.getElementById('domainDetailsForm').scrollIntoView({ behavior: 'smooth', block: 'start' });
     };
 
+    // ── Promo Code ──
+    window.domainApplyPromo = function () {
+        const input = document.getElementById('domainPromoCode');
+        const status = document.getElementById('domainPromoStatus');
+        const btn = document.getElementById('domainPromoApplyBtn');
+        const code = (input ? input.value : '').trim();
+        if (!code) {
+            if (status) { status.textContent = 'Enter a code'; status.className = 'domain-promo-status error'; }
+            return;
+        }
+        if (btn) { btn.disabled = true; btn.textContent = '...'; }
+        fetch('/api/domain/validate-promo', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ code: code }),
+        })
+            .then(r => r.json())
+            .then(d => {
+                if (btn) { btn.disabled = false; btn.textContent = 'Apply'; }
+                if (d.valid) {
+                    if (status) {
+                        status.innerHTML = '<i class="fa-solid fa-circle-check"></i> ' + (d.discount || 'Discount applied');
+                        status.className = 'domain-promo-status success';
+                    }
+                    // Update purchase button to reflect discount
+                    var purchaseBtn = document.getElementById('domainPurchaseBtn');
+                    if (purchaseBtn) {
+                        var priceText = (d.price_after || '$0') + ' first month, then $10/mo';
+                        purchaseBtn.innerHTML = '<i class="fa-solid fa-rocket"></i> Get My Domain — ' + priceText;
+                    }
+                } else {
+                    if (status) {
+                        status.textContent = d.error || 'Invalid code';
+                        status.className = 'domain-promo-status error';
+                    }
+                }
+            })
+            .catch(() => {
+                if (btn) { btn.disabled = false; btn.textContent = 'Apply'; }
+                if (status) { status.textContent = 'Could not validate'; status.className = 'domain-promo-status error'; }
+            });
+    };
+
     // ── Purchase Domain ──
     window.domainPurchase = function () {
         if (!_selectedDomain) {
@@ -219,6 +262,8 @@
 
         const licensedStates = states ? states.split(',').map(s => s.trim().toUpperCase()).filter(s => s.length === 2) : [];
 
+        const promoCode = (document.getElementById('domainPromoCode') || {}).value || '';
+
         fetch('/api/domain/checkout', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -236,6 +281,7 @@
                 state: stateReg,
                 zip: zip,
                 disclaimer_accepted: true,
+                promo_code: promoCode.trim(),
             }),
         })
             .then(r => r.json())

@@ -19,6 +19,7 @@
 
     /* ── Wizard state ── */
     var hasLlc = null;         // true/false/null
+    var hasDba = null;         // true/false/null (sole prop DBA question)
     var hasEin = null;         // true/false/null
     var einIsNew = null;       // true/false/null (sole prop 30-day question)
     var hasWebsite = null;     // true/false/null
@@ -136,6 +137,14 @@
         var lbl = document.getElementById('onbStepNum');
         if (lbl) lbl.textContent = step;
 
+        // Auto-fill contact name from Step 1 legal name (don't overwrite if already typed)
+        if (step === 4) {
+            var contactInput = document.getElementById('onbContactName');
+            if (contactInput && !contactInput.value.trim()) {
+                contactInput.value = valOf('onbSolePropName') || valOf('onbBizName') || '';
+            }
+        }
+
         // Pre-fill review step when arriving at step 5
         if (step === 5) prefillReview();
     };
@@ -156,10 +165,29 @@
 
     window.onbSetLlc = function (val) {
         hasLlc = val;
+        hasDba = null; // reset DBA when toggling LLC
         toggle('onbLlcYes', val === true);
         toggle('onbLlcNo', val === false);
+        // Clear DBA card visual state so stale selection doesn't show
+        toggle('onbDbaYes', false);
+        toggle('onbDbaNo', false);
+        showIf('onbDbaFields', false);
+        showIf('onbNoDbaMsg', false);
         showIf('onbLlcFields', val === true);
         showIf('onbSolePropMsg', val === false);
+        // LLC: enable immediately. Sole prop: wait for DBA answer.
+        enableBtn('onbStep1Btn', val === true);
+    };
+
+    /* ── DBA sub-question (sole prop only) ── */
+
+    window.onbSetDba = function (val) {
+        hasDba = val;
+        toggle('onbDbaYes', val === true);
+        toggle('onbDbaNo', val === false);
+        showIf('onbDbaFields', val === true);
+        showIf('onbNoDbaMsg', val === false);
+        // Now that DBA is answered, enable Continue
         enableBtn('onbStep1Btn', true);
     };
 
@@ -256,11 +284,23 @@
 
     window.onbSetHasWeb = function (val) {
         hasWebsite = val;
+        selectedDomain = '';
         toggle('onbWebYes', val === true);
         toggle('onbWebNo', val === false);
         showIf('onbWebHave', val === true);
         showIf('onbWebNeed', val === false);
-        enableBtn('onbStep3Btn', true);
+        showIf('onbDomainConfirm', false);
+        // Has website: enable once URL is entered (checked by onbCheckWebUrl)
+        // Needs website: enable once domain is selected (checked by domain click)
+        enableBtn('onbStep3Btn', false);
+        if (val === true) onbCheckWebUrl(); // re-check in case URL already typed
+    };
+
+    // Enable Continue only when a real URL is entered
+    window.onbCheckWebUrl = function () {
+        if (!hasWebsite) return;
+        var url = valOf('onbWebsite');
+        enableBtn('onbStep3Btn', url.length > 5 && url.indexOf('.') > 0);
     };
 
     window.onbSearchDomain = function () {
@@ -269,6 +309,8 @@
 
         var resultsDiv = document.getElementById('onbDomainResults');
         resultsDiv.innerHTML = '<div class="onb-loading-state"><i class="fa-solid fa-spinner fa-spin"></i> Searching...</div>';
+        showIf('onbDomainConfirm', false);
+        enableBtn('onbStep3Btn', false);
 
         fetch('/api/domain/search', {
             method: 'POST',
@@ -302,6 +344,13 @@
                     document.getElementById('onbSelectedDomain').value = selectedDomain;
                     resultsDiv.querySelectorAll('.onb-domain-option').forEach(function (o) { o.classList.remove('selected'); });
                     el.classList.add('selected');
+                    // Show confirmation with generated website + email
+                    var urlSpan = document.getElementById('onbConfirmUrl');
+                    var emailSpan = document.getElementById('onbConfirmEmail');
+                    if (urlSpan) urlSpan.textContent = 'https://' + selectedDomain;
+                    if (emailSpan) emailSpan.textContent = 'you@' + selectedDomain;
+                    showIf('onbDomainConfirm', true);
+                    enableBtn('onbStep3Btn', true);
                 });
             });
         })
@@ -310,25 +359,31 @@
         });
     };
 
-    window.onbSkipDomain = function () {
-        selectedDomain = '';
-        if (document.getElementById('onbSelectedDomain')) document.getElementById('onbSelectedDomain').value = '';
-        goToStep(4);
-    };
-
     /* ════════════════════════════════════════════════════════════════
        STEP 5: REVIEW & SUBMIT
        ════════════════════════════════════════════════════════════════ */
 
     function prefillReview() {
-        var bizName = hasLlc ? valOf('onbBizName') : valOf('onbSolePropName');
+        var bizName = hasLlc ? valOf('onbBizName') : (hasDba ? valOf('onbDbaName') : valOf('onbSolePropName'));
         var bizType = hasLlc ? valOf('onbBizType') : 'Sole Proprietorship';
         var ein = valOf('onbEIN');
-        var web = hasWebsite ? valOf('onbWebsite') : (selectedDomain ? selectedDomain : '');
+        var web = hasWebsite ? valOf('onbWebsite') : (selectedDomain ? ('https://' + selectedDomain) : '');
 
         setText('onbRevBizName', bizName || '—');
         setText('onbRevBizType', bizType || '—');
         setText('onbRevEin', ein || '—');
+
+        // For sole prop + DBA: show both names so they can verify the split
+        var bizNameLabel = document.getElementById('onbRevBizNameLabel');
+        var legalNameWrap = document.getElementById('onbRevLegalNameWrap');
+        if (!hasLlc && hasDba) {
+            if (bizNameLabel) bizNameLabel.textContent = 'Business Name (DBA)';
+            setText('onbRevLegalName', valOf('onbSolePropName') || '—');
+            if (legalNameWrap) legalNameWrap.style.display = '';
+        } else {
+            if (bizNameLabel) bizNameLabel.textContent = hasLlc ? 'Legal Business Name' : 'Business Name';
+            if (legalNameWrap) legalNameWrap.style.display = 'none';
+        }
 
         // EIN document
         if (einFileData) {
@@ -338,8 +393,17 @@
             showIf('onbRevDocWrap', false);
         }
 
-        // Website
-        setText('onbRevWebsite', web || 'Not set — can be added later');
+        // Website (required — either their own or our domain)
+        setText('onbRevWebsite', web || '—');
+
+        // Show business email if they picked our domain service
+        var emailDomainWrap = document.getElementById('onbRevEmailDomainWrap');
+        if (!hasWebsite && selectedDomain) {
+            setText('onbRevEmailDomain', 'you@' + selectedDomain);
+            if (emailDomainWrap) emailDomainWrap.style.display = '';
+        } else {
+            if (emailDomainWrap) emailDomainWrap.style.display = 'none';
+        }
 
         // Address
         var street = valOf('onbStreet');
@@ -480,6 +544,10 @@
                 markError('onbSolePropName', 'Your legal name is required');
                 return false;
             }
+            if (!hasLlc && hasDba && !valOf('onbDbaName')) {
+                markError('onbDbaName', 'DBA name is required');
+                return false;
+            }
             return true;
         }
 
@@ -499,7 +567,16 @@
 
         if (step === 3) {
             if (hasWebsite === null) return false;
-            if (hasWebsite && !valOf('onbWebsite')) { markError('onbWebsite', 'Enter your website URL'); return false; }
+            if (hasWebsite) {
+                var url = valOf('onbWebsite');
+                if (!url) { markError('onbWebsite', 'Enter your website URL'); return false; }
+                if (url.indexOf('.') < 0) { markError('onbWebsite', 'Enter a valid website URL (e.g. https://yourbusiness.com)'); return false; }
+            } else {
+                if (!selectedDomain) {
+                    if (typeof _showDashToast === 'function') _showDashToast(false, 'Please search and select a domain before continuing.');
+                    return false;
+                }
+            }
             return true;
         }
 
@@ -532,7 +609,8 @@
         saving = true;
         setBtnLoading('onbSubmitBtn', true);
 
-        var bizName = hasLlc ? valOf('onbBizName') : valOf('onbSolePropName');
+        // For sole prop + DBA: business_name = DBA name, legal name stays as contact_name
+        var bizName = hasLlc ? valOf('onbBizName') : (hasDba ? valOf('onbDbaName') : valOf('onbSolePropName'));
         var bizType = hasLlc ? valOf('onbBizType') : 'Sole Proprietorship';
         var website = '';
         if (hasWebsite) {
@@ -546,6 +624,9 @@
             business_type:  bizType,
             ein:            valOf('onbEIN'),
             has_llc:        hasLlc,
+            has_dba:        !!(hasDba),
+            dba_name:       hasDba ? valOf('onbDbaName') : '',
+            legal_name:     valOf('onbSolePropName'),
             ein_is_new:     !!(einIsNew),
             street:         valOf('onbStreet'),
             city:           valOf('onbCity'),
@@ -625,6 +706,62 @@
             }, 1000);
         }, 3200);
     }
+
+    /* ════════════════════════════════════════════════════════════════
+       INFO TOOLTIPS — tap/click to toggle, input focus to show
+       ════════════════════════════════════════════════════════════════ */
+
+    function dismissAllTips() {
+        document.querySelectorAll('.onb-info-tip.active').forEach(function (t) {
+            t.classList.remove('active');
+        });
+    }
+
+    function showTip(tipEl) {
+        dismissAllTips();
+        if (!tipEl) return;
+        tipEl.classList.add('active');
+        // Check if tooltip would overflow left edge and anchor differently
+        var rect = tipEl.getBoundingClientRect();
+        if (rect.left < 140) {
+            tipEl.classList.add('anchor-left');
+        } else {
+            tipEl.classList.remove('anchor-left');
+        }
+    }
+
+    // Tap/click on the circle-i icon itself
+    document.addEventListener('click', function (e) {
+        var tip = e.target.closest('.onb-info-tip');
+        if (tip) {
+            e.preventDefault();
+            e.stopPropagation();
+            if (tip.classList.contains('active')) {
+                tip.classList.remove('active');
+            } else {
+                showTip(tip);
+            }
+            return;
+        }
+        // Click anywhere else → dismiss
+        dismissAllTips();
+    });
+
+    // Input focus → show the tooltip for that field's label
+    document.addEventListener('focusin', function (e) {
+        var input = e.target;
+        if (!input.matches || !input.matches('.onb-input, .onb-select')) return;
+        var group = input.closest('.onb-field-group');
+        if (!group) return;
+        var tip = group.querySelector('.onb-info-tip');
+        if (tip) showTip(tip);
+    });
+
+    // Input blur → dismiss after short delay (lets click-on-tip work)
+    document.addEventListener('focusout', function (e) {
+        if (!e.target.matches || !e.target.matches('.onb-input, .onb-select')) return;
+        setTimeout(dismissAllTips, 200);
+    });
 
     /* ════════════════════════════════════════════════════════════════
        HELPERS

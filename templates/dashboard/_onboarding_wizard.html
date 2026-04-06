@@ -58,12 +58,17 @@
                     <!-- LLC fields (shown when Yes) -->
                     <div id="onbLlcFields" class="onb-conditional">
                         <div class="onb-field-group">
-                            <label class="onb-label">Legal Business Name</label>
+                            <label class="onb-label">
+                                Legal Business Name
+                                <span class="onb-info-tip" data-tooltip="The exact name on your LLC or incorporation paperwork. Must match your state filing — this is what phone carriers check."><i class="fa-solid fa-circle-info"></i></span>
+                            </label>
                             <input type="text" id="onbBizName" class="onb-input" placeholder="ACME Insurance LLC" autocomplete="organization">
-                            <span class="onb-field-hint">Your registered LLC name — exactly as it appears on your formation documents.</span>
                         </div>
                         <div class="onb-field-group">
-                            <label class="onb-label">Entity Type</label>
+                            <label class="onb-label">
+                                Entity Type
+                                <span class="onb-info-tip" data-tooltip="What type of business did you register with your state? Most insurance agents have an LLC. Check your formation documents if you're not sure."><i class="fa-solid fa-circle-info"></i></span>
+                            </label>
                             <select id="onbBizType" class="onb-select">
                                 <option value="">Select type...</option>
                                 <option value="Corporation">Corporation</option>
@@ -80,13 +85,54 @@
                         <div class="onb-info">
                             <i class="fa-solid fa-circle-check onb-info-icon"></i>
                             <div class="onb-info-text">
-                                No problem — you'll register as a <strong>Sole Proprietorship</strong>. Your legal name will be used for carrier verification.
+                                No problem — you'll register as a <strong>Sole Proprietorship</strong>.
                             </div>
                         </div>
                         <div class="onb-field-group">
-                            <label class="onb-label">Your Legal Name</label>
+                            <label class="onb-label">
+                                Your Legal Name
+                                <span class="onb-info-tip" data-tooltip="Your full name exactly as it appears on your driver's license or government ID. This is used to verify you're a real person — not your business name."><i class="fa-solid fa-circle-info"></i></span>
+                            </label>
                             <input type="text" id="onbSolePropName" class="onb-input" placeholder="John Doe" value="{{ current_user.full_name or '' }}" autocomplete="name">
-                            <span class="onb-field-hint">Your full legal name — this is used for business verification.</span>
+                        </div>
+
+                        <!-- DBA question -->
+                        <p class="onb-question onb-question-sub">Do you operate under a DBA (doing business as)? <span class="onb-info-tip" data-tooltip="A DBA is a trade name you registered with your county or state. For example, instead of just 'John Smith' you do business as 'John Smith Insurance.' If you filed a DBA, select Yes."><i class="fa-solid fa-circle-info"></i></span></p>
+                        <div class="onb-yesno onb-yesno-sm">
+                            <div class="onb-yesno-card" data-answer="yes" id="onbDbaYes" onclick="onbSetDba(true)">
+                                <span class="onb-yesno-label">Yes</span>
+                            </div>
+                            <div class="onb-yesno-card" data-answer="no" id="onbDbaNo" onclick="onbSetDba(false)">
+                                <span class="onb-yesno-label">No</span>
+                            </div>
+                        </div>
+
+                        <!-- DBA fields (shown when Yes) -->
+                        <div id="onbDbaFields" class="onb-conditional">
+                            <div class="onb-field-group">
+                                <label class="onb-label">
+                                    DBA / Business Name
+                                    <span class="onb-info-tip" data-tooltip="This is the trade name you registered — for example, 'John Smith Insurance.' This becomes your business name for caller ID and carrier verification. Your personal name goes under Authorized Representative in the next step."><i class="fa-solid fa-circle-info"></i></span>
+                                </label>
+                                <input type="text" id="onbDbaName" class="onb-input" placeholder="John Smith Insurance">
+                                <span class="onb-field-hint">Your registered trade name — this will be your caller ID and business name.</span>
+                            </div>
+                            <div class="onb-info onb-info-sm">
+                                <i class="fa-solid fa-circle-info onb-info-icon"></i>
+                                <div class="onb-info-text">
+                                    <strong>Which name goes where?</strong> Your DBA goes here as the business name — that's what shows on caller ID. Your personal name (above) goes under Authorized Representative on the next step. Your EIN stays the same — it's tied to you, the DBA just operates under it.
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- No DBA info (shown when No) -->
+                        <div id="onbNoDbaMsg" class="onb-conditional">
+                            <div class="onb-info onb-info-sm">
+                                <i class="fa-solid fa-circle-info onb-info-icon"></i>
+                                <div class="onb-info-text">
+                                    Your legal name will be used as your business name for carrier verification and caller ID.
+                                </div>
+                            </div>
                         </div>
                     </div>
 
@@ -120,13 +166,16 @@
                     <!-- EIN input fields (shown when Yes) -->
                     <div id="onbEinFields" class="onb-conditional">
                         <div class="onb-field-group">
-                            <label class="onb-label">EIN (Employer Identification Number)</label>
+                            <label class="onb-label">
+                                EIN (Employer Identification Number)
+                                <span class="onb-info-tip" data-tooltip="Your EIN is your 9-digit federal tax ID from the IRS (format: XX-XXXXXXX). If you have a DBA, use the same EIN — it's tied to you as the sole proprietor, not to the DBA name."><i class="fa-solid fa-circle-info"></i></span>
+                            </label>
                             <input type="text" id="onbEIN" class="onb-input" placeholder="XX-XXXXXXX" maxlength="10" autocomplete="off">
                         </div>
 
                         <!-- 30-day question (sole prop only) -->
                         <div id="onbEinAgeQuestion" class="onb-conditional">
-                            <p class="onb-question onb-question-sub">Did you get your EIN within the last 30 days?</p>
+                            <p class="onb-question onb-question-sub">Did you get your EIN within the last 30 days? <span class="onb-info-tip" data-tooltip="Brand-new EINs can take up to 30 days to appear in the IRS database. If yours is that new, we'll ask you to upload your confirmation letter so carriers can still verify you right away."><i class="fa-solid fa-circle-info"></i></span></p>
                             <div class="onb-yesno onb-yesno-sm">
                                 <div class="onb-yesno-card" data-answer="yes" id="onbEinNewYes" onclick="onbSetEinNew(true)">
                                     <span class="onb-yesno-label">Yes</span>
@@ -142,8 +191,8 @@
                             <div class="onb-upload-area" id="onbUploadArea" onclick="document.getElementById('onbEinFile').click()">
                                 <i class="fa-solid fa-cloud-arrow-up onb-upload-icon"></i>
                                 <div class="onb-upload-text">Upload your EIN confirmation letter</div>
-                                <div class="onb-upload-hint">IRS letter CP 575 or 147C — image or PDF, max 5 MB</div>
-                                <div class="onb-upload-hint">Phone carriers can't verify brand-new EINs yet — this document lets us fast-track your verification if needed.</div>
+                                <div class="onb-upload-hint">The letter the IRS gave you when you got your EIN — screenshot, photo, or PDF, max 5 MB</div>
+                                <div class="onb-upload-hint">Brand-new EINs aren't in the system yet. This letter lets us verify you right away instead of waiting.</div>
                             </div>
                             <input type="file" id="onbEinFile" accept="image/*,application/pdf" class="onb-file-input" onchange="onbFileSelected(this)">
                             <div id="onbFilePreview" class="onb-file-preview onb-conditional">
@@ -196,47 +245,49 @@
             <div class="onb-slide" data-step="3">
                 <div class="onb-card">
                     <h2 class="onb-title">Your Business Website</h2>
-                    <p class="onb-subtitle">Carrier networks verify your business identity through your online presence. This keeps your calls trusted and your caller ID displaying correctly.</p>
+                    <p class="onb-subtitle">Phone carriers require a business website to verify your identity. Without one, your registration will be rejected.</p>
 
-                    <p class="onb-question">Do you have a business website with your own domain?</p>
+                    <p class="onb-question">Do you already have a business website?</p>
 
                     <div class="onb-yesno">
                         <div class="onb-yesno-card" data-answer="yes" id="onbWebYes" onclick="onbSetHasWeb(true)">
                             <span class="onb-yesno-icon"><i class="fa-solid fa-globe"></i></span>
                             <span class="onb-yesno-label">Yes</span>
-                            <span class="onb-yesno-sub">I have a website</span>
+                            <span class="onb-yesno-sub">I have my own website</span>
                         </div>
                         <div class="onb-yesno-card" data-answer="no" id="onbWebNo" onclick="onbSetHasWeb(false)">
                             <span class="onb-yesno-icon"><i class="fa-solid fa-wand-magic-sparkles"></i></span>
                             <span class="onb-yesno-label">No</span>
-                            <span class="onb-yesno-sub">I need a website</span>
+                            <span class="onb-yesno-sub">Set one up for me</span>
                         </div>
                     </div>
 
                     <!-- Has website -->
                     <div id="onbWebHave" class="onb-conditional">
                         <div class="onb-field-group">
-                            <label class="onb-label">Website URL</label>
-                            <input type="url" id="onbWebsite" class="onb-input" placeholder="https://www.yourbusiness.com">
+                            <label class="onb-label">
+                                Website URL
+                                <span class="onb-info-tip" data-tooltip="Your business website on your own domain — not a Facebook page or LinkedIn profile. Carriers need a real website to approve your registration."><i class="fa-solid fa-circle-info"></i></span>
+                            </label>
+                            <input type="url" id="onbWebsite" class="onb-input" placeholder="https://www.yourbusiness.com" oninput="onbCheckWebUrl()">
                         </div>
                     </div>
 
-                    <!-- Needs website -->
+                    <!-- Needs website — our domain service -->
                     <div id="onbWebNeed" class="onb-conditional">
                         <div class="onb-info">
-                            <i class="fa-solid fa-sparkles onb-info-icon"></i>
+                            <i class="fa-solid fa-circle-check onb-info-icon"></i>
                             <div class="onb-info-text">
-                                Get a professional business website with your own domain, landing page, and business email — all set up automatically.
+                                We'll set up everything for you. No code, no design work, nothing to configure. Pick a domain below and it's done.
                             </div>
                         </div>
 
-                        <ul class="onb-domain-features">
-                            <li>Professional landing page with your name, bio, and contact form</li>
-                            <li>Your own domain (yourbusiness.com)</li>
-                            <li>Business email (you@yourbusiness.com)</li>
-                            <li>Carrier-verified online presence for trusted caller ID</li>
-                            <li>Set up in under 2 minutes</li>
-                        </ul>
+                        <div class="onb-domain-whats-included">
+                            <div class="onb-domain-item"><i class="fa-solid fa-check"></i> Professional website — live and ready instantly</div>
+                            <div class="onb-domain-item"><i class="fa-solid fa-check"></i> Your own domain (yourbusiness.com)</div>
+                            <div class="onb-domain-item"><i class="fa-solid fa-check"></i> Business email (you@yourbusiness.com)</div>
+                            <div class="onb-domain-item"><i class="fa-solid fa-check"></i> Passes carrier verification automatically</div>
+                        </div>
 
                         <div class="onb-domain-price">$10<span class="onb-domain-price-period">/month</span></div>
 
@@ -250,7 +301,16 @@
                         <div id="onbDomainResults" class="onb-domain-results"></div>
                         <input type="hidden" id="onbSelectedDomain" value="">
 
-                        <span class="onb-skip-link" onclick="onbSkipDomain()">Skip for now — I'll set this up later</span>
+                        <!-- Selected domain confirmation -->
+                        <div id="onbDomainConfirm" class="onb-conditional">
+                            <div class="onb-info">
+                                <i class="fa-solid fa-circle-check onb-info-icon"></i>
+                                <div class="onb-info-text">
+                                    <strong>Your website:</strong> <span id="onbConfirmUrl"></span><br>
+                                    <strong>Your email:</strong> <span id="onbConfirmEmail"></span>
+                                </div>
+                            </div>
+                        </div>
                     </div>
 
                     <div class="onb-nav-row">
@@ -267,7 +327,10 @@
                     <p class="onb-subtitle">This must match your IRS registration. Used for carrier verification of your business identity.</p>
 
                     <div class="onb-field-group">
-                        <label class="onb-label">Street Address</label>
+                        <label class="onb-label">
+                            Street Address
+                            <span class="onb-info-tip" data-tooltip="The address you used when you registered your business or applied for your EIN. Must match your IRS records exactly — carriers cross-check this."><i class="fa-solid fa-circle-info"></i></span>
+                        </label>
                         <input type="text" id="onbStreet" class="onb-input" placeholder="123 Main Street, Suite 100" autocomplete="street-address">
                     </div>
 
@@ -307,11 +370,17 @@
 
                     <div class="onb-row">
                         <div class="onb-field-group">
-                            <label class="onb-label">Your Name</label>
+                            <label class="onb-label">
+                                Your Name
+                                <span class="onb-info-tip" data-tooltip="The person responsible for this account. This is the 'authorized representative' — the person carriers contact if they need to verify something. Usually that's you."><i class="fa-solid fa-circle-info"></i></span>
+                            </label>
                             <input type="text" id="onbContactName" class="onb-input" placeholder="John Doe" autocomplete="name">
                         </div>
                         <div class="onb-field-group onb-field-role">
-                            <label class="onb-label">Role</label>
+                            <label class="onb-label">
+                                Role
+                                <span class="onb-info-tip" data-tooltip="Your title at the business. If you own it, pick Owner. If you're not sure, Owner works for most independent agents."><i class="fa-solid fa-circle-info"></i></span>
+                            </label>
                             <select id="onbContactRole" class="onb-select">
                                 <option value="Owner">Owner</option>
                                 <option value="CEO">CEO</option>
@@ -328,11 +397,17 @@
 
                     <div class="onb-row">
                         <div class="onb-field-group">
-                            <label class="onb-label">Email</label>
+                            <label class="onb-label">
+                                Email
+                                <span class="onb-info-tip" data-tooltip="Where carriers can reach you if they need to verify something about your registration. We pre-filled your account email."><i class="fa-solid fa-circle-info"></i></span>
+                            </label>
                             <input type="email" id="onbContactEmail" class="onb-input" value="{{ current_user.email }}" autocomplete="email">
                         </div>
                         <div class="onb-field-group">
-                            <label class="onb-label">Phone</label>
+                            <label class="onb-label">
+                                Phone
+                                <span class="onb-info-tip" data-tooltip="A number where you can be reached for verification. This is NOT the number your leads see — it's just for carrier records."><i class="fa-solid fa-circle-info"></i></span>
+                            </label>
                             <input type="tel" id="onbContactPhone" class="onb-input" placeholder="(555) 123-4567" autocomplete="tel">
                         </div>
                     </div>
@@ -363,12 +438,16 @@
                         </div>
                         <div class="onb-review-grid">
                             <div class="onb-review-field">
-                                <span class="onb-review-label">Legal Business Name</span>
+                                <span class="onb-review-label" id="onbRevBizNameLabel">Business Name</span>
                                 <span class="onb-review-value" id="onbRevBizName">—</span>
                             </div>
                             <div class="onb-review-field">
                                 <span class="onb-review-label">Entity Type</span>
                                 <span class="onb-review-value" id="onbRevBizType">—</span>
+                            </div>
+                            <div class="onb-review-field" id="onbRevLegalNameWrap" style="display:none;">
+                                <span class="onb-review-label">Your Legal Name</span>
+                                <span class="onb-review-value" id="onbRevLegalName">—</span>
                             </div>
                         </div>
                     </div>
@@ -411,6 +490,10 @@
                             <div class="onb-review-field onb-review-field-full">
                                 <span class="onb-review-label">Website</span>
                                 <span class="onb-review-value" id="onbRevWebsite">—</span>
+                            </div>
+                            <div class="onb-review-field" id="onbRevEmailDomainWrap" style="display:none;">
+                                <span class="onb-review-label">Business Email</span>
+                                <span class="onb-review-value" id="onbRevEmailDomain">—</span>
                             </div>
                         </div>
                     </div>
@@ -474,7 +557,11 @@
 
                     <div id="onbNumbersReady">
                         <div class="onb-area-code-row">
-                            <input type="text" id="onbAreaCode" class="onb-input" placeholder="Enter area code (e.g. 214)" maxlength="3" inputmode="numeric">
+                            <div class="onb-field-group" style="flex:1; margin-bottom:0;">
+                                <label class="onb-label" style="display:none;">Area Code</label>
+                                <input type="text" id="onbAreaCode" class="onb-input" placeholder="Enter area code (e.g. 214)" maxlength="3" inputmode="numeric">
+                            </div>
+                            <span class="onb-info-tip" data-tooltip="Use the area code where most of your clients live. Your leads will see a local number from their area, which means more answered calls."><i class="fa-solid fa-circle-info"></i></span>
                             <button class="onb-domain-search-btn" onclick="onbSearchNumbers()">
                                 <i class="fa-solid fa-magnifying-glass"></i> Search
                             </button>

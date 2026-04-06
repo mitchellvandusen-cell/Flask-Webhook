@@ -475,6 +475,57 @@ def domain_search():
     return jsonify({'suggestions': results})
 
 
+@domain_bp.route('/api/domain/validate-promo', methods=['POST'])
+@login_required
+def validate_domain_promo():
+    """Validate a promotion code and return discount details."""
+    import stripe
+    data = request.json or {}
+    code = (data.get('code') or '').strip()
+    if not code:
+        return jsonify({'valid': False, 'error': 'Enter a promo code'}), 400
+
+    try:
+        promos = stripe.PromotionCode.list(code=code, active=True, limit=1)
+        if not promos.data:
+            return jsonify({'valid': False, 'error': 'Invalid or expired code'})
+
+        promo = promos.data[0]
+        coupon = promo.coupon
+        discount_text = ''
+        if coupon.percent_off:
+            discount_text = f'{int(coupon.percent_off)}% off'
+        elif coupon.amount_off:
+            discount_text = f'${coupon.amount_off / 100:.0f} off'
+        if coupon.duration == 'once':
+            discount_text += ' (first month)'
+        elif coupon.duration == 'repeating' and coupon.duration_in_months:
+            discount_text += f' (first {coupon.duration_in_months} months)'
+        elif coupon.duration == 'forever':
+            discount_text += ' (forever)'
+
+        # Calculate price after discount (base = $10/mo = 1000 cents)
+        base_cents = 1000
+        if coupon.percent_off:
+            after_cents = int(base_cents * (1 - coupon.percent_off / 100))
+        elif coupon.amount_off:
+            after_cents = max(0, base_cents - coupon.amount_off)
+        else:
+            after_cents = base_cents
+        price_dollar = after_cents / 100
+        price_after = '$0' if after_cents == 0 else (f'${price_dollar:.0f}' if price_dollar == int(price_dollar) else f'${price_dollar:.2f}')
+
+        return jsonify({
+            'valid': True,
+            'discount': discount_text,
+            'coupon_name': coupon.name or code,
+            'price_after': price_after,
+        })
+    except Exception as e:
+        logger.warning(f"[Domain] Promo validation error: {e}")
+        return jsonify({'valid': False, 'error': 'Could not validate code'}), 500
+
+
 @domain_bp.route('/api/domain/checkout', methods=['POST'])
 @login_required
 def domain_checkout():
@@ -652,11 +703,54 @@ def domain_checkout():
             # Domain is live but billing not set up — still mark as active
             web_presence['billing_note'] = 'Stripe price not configured — domain active without billing'
         else:
-            subscription = stripe.Subscription.create(
-                customer=customer_id,
-                items=[{'price': stripe_price_id}],
-                metadata={'type': 'domain', 'domain': domain, 'location_id': location_id},
-            )
+            sub_kwargs = {
+                'customer': customer_id,
+                'items': [{'price': stripe_price_id}],
+                'metadata': {'type': 'domain', 'domain': domain, 'location_id': location_id},
+            }
+
+            # Resolve promotion code → coupon for discount
+            promo_code = (data.get('promo_code') or '').strip()
+            if promo_code:
+                try:
+                    promos = stripe.PromotionCode.list(code=promo_code, active=True, limit=1)
+                    if promos.data:
+                        sub_kwargs['promotion_code'] = promos.data[0].id
+                        web_presence['promo_code_applied'] = promo_code
+                        logger.info(f"[Domain] Applied promo code '{promo_code}' → {promos.data[0].id}")
+                    else:
+                        # Invalid code — do NOT charge full price silently.
+                        # Domain is provisioned but billing deferred until valid code.
+                        web_presence['promo_code_error'] = f'Invalid or expired code: {promo_code}'
+                        web_presence['status'] = 'active'
+                        web_presence['billing_note'] = 'Promo code invalid — billing deferred'
+                        web_presence['provisioning_log'] = provisioning_log
+                        _save_web_presence(location_id, web_presence)
+                        logger.warning(f"[Domain] Promo code not found: {promo_code} — billing skipped")
+                        return jsonify({
+                            'status': 'promo_invalid',
+                            'error': f'Promo code "{promo_code}" is invalid or expired. Your domain is live but you were not charged. Fix the code and try again.',
+                            'domain': domain,
+                            'email': agent_email,
+                            'website': f'https://{domain}',
+                        }), 400
+                except Exception as promo_err:
+                    logger.warning(f"[Domain] Promo code lookup failed: {promo_err}")
+                    web_presence['promo_code_error'] = str(promo_err)
+                    # Lookup failure — still don't charge without the discount
+                    web_presence['status'] = 'active'
+                    web_presence['billing_note'] = 'Promo code lookup failed — billing deferred'
+                    web_presence['provisioning_log'] = provisioning_log
+                    _save_web_presence(location_id, web_presence)
+                    return jsonify({
+                        'status': 'promo_invalid',
+                        'error': 'Could not validate your promo code. Your domain is live but you were not charged. Try again or remove the code.',
+                        'domain': domain,
+                        'email': agent_email,
+                        'website': f'https://{domain}',
+                    }), 400
+
+            subscription = stripe.Subscription.create(**sub_kwargs)
             web_presence['stripe_subscription_id'] = subscription.id
             provisioning_log.append('stripe_subscription_created')
     except Exception as e:

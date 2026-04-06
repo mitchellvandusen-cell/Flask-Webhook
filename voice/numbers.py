@@ -1157,9 +1157,14 @@ def save_trust_hub():
             trust_hub[field] = (data[field] or '').strip()
 
     # Boolean/metadata fields from onboarding wizard
-    for bool_field in ('has_llc', 'ein_is_new'):
+    for bool_field in ('has_llc', 'ein_is_new', 'has_dba'):
         if bool_field in data:
             trust_hub[bool_field] = bool(data[bool_field])
+
+    # DBA and legal name (sole prop with DBA)
+    for str_field in ('dba_name', 'legal_name'):
+        if str_field in data:
+            trust_hub[str_field] = (data[str_field] or '').strip()
 
     # EIN document (base64-encoded, sole prop with new EIN only)
     if data.get('ein_document_data'):
@@ -1178,8 +1183,9 @@ def save_trust_hub():
     _save_voice_config(current_user.email, vc)
 
     # Mark business profile as submitted (onboarding gate)
+    # Website is required — profiles without one are rejected by carriers.
     has_required = all(trust_hub.get(f, '').strip() for f in
-                       ('business_name', 'ein', 'street', 'city', 'state', 'zip',
+                       ('business_name', 'ein', 'website', 'street', 'city', 'state', 'zip',
                         'contact_name', 'contact_email'))
     if has_required:
         conn = get_db_connection()

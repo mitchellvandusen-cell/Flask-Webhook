@@ -223,6 +223,21 @@
           </label>
         </div>
 
+        <!-- Promo Code (hidden until toggled) -->
+        <div class="domain-promo-code-row">
+          <span class="domain-promo-toggle" onclick="document.getElementById('domainPromoFields').style.display='';this.style.display='none';">Have a promo code?</span>
+          <div id="domainPromoFields" style="display:none;">
+            <div class="domain-form-group">
+              <label>Promo Code</label>
+              <div class="domain-promo-input-row">
+                <input type="text" id="domainPromoCode" placeholder="Enter code">
+                <button type="button" onclick="domainApplyPromo()" class="domain-promo-apply-btn" id="domainPromoApplyBtn">Apply</button>
+              </div>
+              <span id="domainPromoStatus" class="domain-promo-status"></span>
+            </div>
+          </div>
+        </div>
+
         <button onclick="domainPurchase()" class="domain-purchase-btn" id="domainPurchaseBtn">
           <i class="fa-solid fa-rocket"></i> Get My Domain — $10/month
         </button>

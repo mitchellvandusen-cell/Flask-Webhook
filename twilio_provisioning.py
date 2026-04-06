@@ -880,9 +880,15 @@ def register_business_profile(sub_account_sid: str, business_name: str,
                 business_type, business_type or "Corporation"
             )
 
-            # Sole proprietors use SSN, not EIN — and identity is "direct_customer"
+            # Registration identifier: use EIN when the user provided one,
+            # SSN only for sole props who explicitly don't have an EIN.
+            # Our onboarding wizard requires an EIN for ALL users, so this
+            # should always be "EIN" in practice.  The old code forced "SSN"
+            # for every sole prop, which caused evaluation to fail when the
+            # number was actually an EIN (wrong identifier → noncompliant).
             is_sole_prop = resolved_biz_type == "Sole Proprietorship"
-            reg_identifier = "SSN" if is_sole_prop else "EIN"
+            ein_looks_valid = bool(ein and len(ein.replace("-", "")) == 9)
+            reg_identifier = "EIN" if ein_looks_valid else ("SSN" if is_sole_prop else "EIN")
 
             # business_identity: sub-account customers are "direct_customer"
             # (the platform/ISV is "isv_reseller_or_partner" — but that's the
