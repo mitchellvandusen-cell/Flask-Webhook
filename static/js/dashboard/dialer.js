@@ -10066,6 +10066,7 @@
             // Lives inside the VoIP status area. Shows "Voice runs in a pop-out
             // window — Open Dialer" with live call status once the popup is up.
             let bannerEl = null;
+            let bannerMinimized = false;
             mod.showPopoutBanner = function () {
                 if (mod._bannerShown) return;
                 mod._bannerShown = true;
@@ -10074,29 +10075,68 @@
                 bannerEl.setAttribute('role', 'region');
                 bannerEl.setAttribute('aria-label', 'Pop-out dialer');
                 bannerEl.style.cssText = [
-                    'position:fixed', 'top:14px', 'right:14px', 'z-index:9999',
+                    'position:fixed', 'bottom:18px', 'left:50%', 'transform:translateX(-50%)',
+                    'z-index:9999',
                     'background:#000', 'border:1px solid #00ff88', 'color:#f5f5f5',
-                    'padding:12px 14px', 'font-family:Inter,system-ui,sans-serif',
+                    'padding:10px 14px', 'font-family:Inter,system-ui,sans-serif',
                     'font-size:0.82rem', 'display:flex', 'align-items:center',
                     'gap:12px', 'box-shadow:0 16px 40px rgba(0,0,0,0.6)',
-                    'max-width:360px',
+                    'max-width:400px', 'border-radius:8px',
+                    'transition:all 0.2s ease',
                 ].join(';');
                 bannerEl.innerHTML = `
-                    <div style="display:flex;align-items:center;gap:10px;flex:1;min-width:0">
+                    <div id="omcPopoutBannerBody" style="display:flex;align-items:center;gap:10px;flex:1;min-width:0">
                         <span id="omcPopoutBannerDot" style="width:10px;height:10px;border-radius:50%;background:#f59e0b;box-shadow:0 0 10px rgba(245,158,11,0.6);flex-shrink:0"></span>
-                        <div style="display:flex;flex-direction:column;min-width:0">
+                        <div id="omcPopoutBannerText" style="display:flex;flex-direction:column;min-width:0">
                             <div id="omcPopoutBannerTitle" style="font-weight:700;letter-spacing:0.04em">Voice runs in a pop-out window</div>
                             <div id="omcPopoutBannerSub" style="font-size:0.72rem;color:#8a8a8a;margin-top:2px">Mic is blocked in this GHL frame. Click to open the dialer.</div>
                         </div>
                     </div>
-                    <button type="button" id="omcPopoutBannerBtn" style="background:#00ff88;border:none;color:#000;font-family:Outfit,sans-serif;font-weight:800;font-size:0.72rem;letter-spacing:0.14em;text-transform:uppercase;padding:10px 14px;cursor:pointer;white-space:nowrap">
+                    <button type="button" id="omcPopoutBannerBtn" style="background:#00ff88;border:none;color:#000;font-family:Outfit,sans-serif;font-weight:800;font-size:0.72rem;letter-spacing:0.14em;text-transform:uppercase;padding:10px 14px;cursor:pointer;white-space:nowrap;border-radius:4px">
                         <i class="fa-solid fa-up-right-from-square" style="margin-right:6px"></i>OPEN DIALER
+                    </button>
+                    <button type="button" id="omcPopoutBannerMin" title="Minimize" style="background:none;border:none;color:#8a8a8a;cursor:pointer;padding:4px 6px;font-size:0.85rem;line-height:1;flex-shrink:0">
+                        <i class="fa-solid fa-chevron-down"></i>
                     </button>
                 `;
                 document.body.appendChild(bannerEl);
                 const btn = document.getElementById('omcPopoutBannerBtn');
                 if (btn) btn.addEventListener('click', openPopup);
+                const minBtn = document.getElementById('omcPopoutBannerMin');
+                if (minBtn) minBtn.addEventListener('click', toggleBannerMinimize);
             };
+
+            function toggleBannerMinimize() {
+                if (!bannerEl) return;
+                bannerMinimized = !bannerMinimized;
+                const text = document.getElementById('omcPopoutBannerText');
+                const btn = document.getElementById('omcPopoutBannerBtn');
+                const minBtn = document.getElementById('omcPopoutBannerMin');
+                const minIcon = minBtn ? minBtn.querySelector('i') : null;
+                if (bannerMinimized) {
+                    if (text) text.style.display = 'none';
+                    if (btn) btn.style.display = 'none';
+                    if (minIcon) { minIcon.className = 'fa-solid fa-chevron-up'; }
+                    if (minBtn) minBtn.title = 'Expand';
+                    bannerEl.style.padding = '8px 12px';
+                    bannerEl.style.gap = '8px';
+                    bannerEl.style.cursor = 'pointer';
+                    bannerEl._expandClick = () => toggleBannerMinimize();
+                    bannerEl.addEventListener('click', bannerEl._expandClick);
+                } else {
+                    if (text) text.style.display = 'flex';
+                    if (btn) btn.style.display = '';
+                    if (minIcon) { minIcon.className = 'fa-solid fa-chevron-down'; }
+                    if (minBtn) minBtn.title = 'Minimize';
+                    bannerEl.style.padding = '10px 14px';
+                    bannerEl.style.gap = '12px';
+                    bannerEl.style.cursor = '';
+                    if (bannerEl._expandClick) {
+                        bannerEl.removeEventListener('click', bannerEl._expandClick);
+                        bannerEl._expandClick = null;
+                    }
+                }
+            }
 
             function updateBannerState(phase) {
                 if (!bannerEl) return;
