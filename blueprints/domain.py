@@ -576,7 +576,10 @@ def domain_checkout():
         cur.close()
         if not row:
             return jsonify({'error': 'Subscriber not found'}), 404
-        location_id, vc, subscriber_email, customer_id = row[0], row[1] or {}, row[2], row[3] or ''
+        location_id = row['location_id']
+        vc = row['voice_config'] or {}
+        subscriber_email = row['email']
+        customer_id = row['stripe_customer_id'] or ''
     finally:
         return_db_connection(conn)
 
@@ -821,7 +824,7 @@ def domain_status():
         cur.close()
         if not row:
             return jsonify({'error': 'Not found'}), 404
-        vc = row[0] or {}
+        vc = row['voice_config'] or {}
         wp = vc.get('web_presence', {})
         if not wp:
             return jsonify({'has_domain': False})
@@ -857,7 +860,8 @@ def domain_update_page():
         row = cur.fetchone()
         if not row:
             return jsonify({'error': 'Not found'}), 404
-        location_id, vc = row[0], row[1] or {}
+        location_id = row['location_id']
+        vc = row['voice_config'] or {}
         wp = vc.get('web_presence', {})
         if not wp.get('domain'):
             return jsonify({'error': 'No domain registered'}), 400
