@@ -14,18 +14,18 @@
     --igb-border-right: #222222;
     --igb-border: #1e1e1e;
     --igb-border-bright: #2a2a2a;
-    --igb-glass-shadow: 0 8px 24px rgba(0,0,0,0.4);
-    --igb-glass-shadow-hover: 0 12px 32px rgba(0,0,0,0.5);
-    --igb-glass-shadow-sm: 0 4px 16px rgba(0,0,0,0.3);
+    --igb-glass-shadow: 0 0.5rem 1.5rem rgba(0,0,0,0.4);
+    --igb-glass-shadow-hover: 0 0.75rem 2rem rgba(0,0,0,0.5);
+    --igb-glass-shadow-sm: 0 0.25rem 1rem rgba(0,0,0,0.3);
     --igb-surface: #0d0d0d;
     --igb-surface-hover: rgba(255,255,255,0.10);
     --igb-surface-active: rgba(255,255,255,0.14);
     --igb-text: #fff;
     --igb-text-sec: rgba(255,255,255,0.82);
     --igb-text-muted: rgba(255,255,255,0.48);
-    --igb-radius: 14px;
-    --igb-radius-sm: 10px;
-    --igb-radius-xs: 6px;
+    --igb-radius: 0.875rem;
+    --igb-radius-sm: 0.625rem;
+    --igb-radius-xs: 0.375rem;
 }
 
 .igb-glass {
@@ -67,20 +67,20 @@
 
 .igb-floating-chips {
     position: fixed;
-    top: 8px;
-    right: 120px;
+    top: 0.5rem;
+    right: 7.5rem;
     z-index: 99990;
     display: flex;
-    gap: 8px;
+    gap: 0.5rem;
     align-items: center;
 }
 
 .igb-chip {
     display: inline-flex;
     align-items: center;
-    gap: 5px;
-    padding: 5px 12px;
-    border-radius: 20px;
+    gap: 0.3125rem;
+    padding: 0.3125rem 0.75rem;
+    border-radius: 1.25rem;
     font-size: 0.78rem;
     font-weight: 600;
     cursor: pointer;
@@ -113,8 +113,8 @@
 .igb-dropdown-panel {
     position: fixed;
     z-index: 99995;
-    width: 340px;
-    max-height: 480px;
+    width: 21.25rem;
+    max-height: 30rem;
     overflow-y: auto;
     background: var(--igb-glass-bg-solid);
     backdrop-filter: var(--igb-glass-blur);
@@ -129,7 +129,7 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 12px 16px;
+    padding: 0.75rem 1rem;
     border-bottom: 1px solid rgba(255,255,255,0.08);
     font-size: 0.88rem;
     font-weight: 700;
@@ -143,18 +143,18 @@
     color: var(--igb-text-muted);
     font-size: 1.1rem;
     cursor: pointer;
-    padding: 2px 6px;
-    border-radius: 6px;
+    padding: 2px 0.375rem;
+    border-radius: 0.375rem;
     transition: all 0.15s;
 }
 .igb-panel-close:hover { color: var(--igb-text); background: rgba(255,255,255,0.08); }
-.igb-panel-body { padding: 14px 16px; }
+.igb-panel-body { padding: 0.875rem 1rem; }
 
-.igb-minutes-stats { margin-bottom: 14px; }
+.igb-minutes-stats { margin-bottom: 0.875rem; }
 .igb-stat-row {
     display: flex;
     justify-content: space-between;
-    padding: 5px 0;
+    padding: 0.3125rem 0;
     font-size: 0.82rem;
     color: var(--igb-text-sec);
 }
@@ -165,24 +165,24 @@
     color: var(--igb-text-muted);
     text-transform: uppercase;
     letter-spacing: 0.06em;
-    margin: 14px 0 8px;
-    padding-bottom: 5px;
+    margin: 0.875rem 0 0.5rem;
+    padding-bottom: 0.3125rem;
     border-bottom: 1px solid rgba(255,255,255,0.06);
 }
 .igb-text-muted { color: var(--igb-text-muted); font-size: 0.8rem; }
 
 .igb-progress-bar {
-    height: 5px;
+    height: 0.3125rem;
     background: rgba(255,255,255,0.06);
-    border-radius: 3px;
-    margin: 10px 0;
+    border-radius: 0.1875rem;
+    margin: 0.625rem 0;
     overflow: hidden;
     box-shadow: inset 0 1px 2px rgba(0,0,0,0.3);
 }
 .igb-progress-fill {
     height: 100%;
     background: linear-gradient(90deg, var(--igb-accent), rgba(0,255,136,0.6));
-    border-radius: 3px;
+    border-radius: 0.1875rem;
     transition: width 0.3s ease;
     box-shadow: 0 0 8px rgba(0,255,136,0.3);
 }
@@ -190,10 +190,10 @@
 .igb-packages-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 10px;
+    gap: 0.625rem;
 }
 .igb-package-card {
-    padding: 12px;
+    padding: 0.75rem;
     border-radius: var(--igb-radius-sm);
     background: var(--igb-glass-bg);
     backdrop-filter: none;
@@ -211,8 +211,8 @@
     transform: translateY(-2px);
 }
 .igb-package-minutes { font-size: 1rem; font-weight: 700; margin-bottom: 2px; color: var(--igb-accent); }
-.igb-package-label { font-size: 0.72rem; color: var(--igb-text-muted); margin-bottom: 4px; }
-.igb-package-price { font-size: 0.85rem; font-weight: 600; color: var(--igb-text); margin-bottom: 8px; }
+.igb-package-label { font-size: 0.72rem; color: var(--igb-text-muted); margin-bottom: 0.25rem; }
+.igb-package-price { font-size: 0.85rem; font-weight: 600; color: var(--igb-text); margin-bottom: 0.5rem; }
 
 .igb-pkg-green .igb-package-minutes { color: #00ff88; }
 .igb-pkg-green { border-color: rgba(0,255,136,0.30) rgba(0,255,136,0.10) rgba(0,255,136,0.05) rgba(0,255,136,0.20); }
@@ -226,8 +226,8 @@
 .igb-btn {
     display: inline-flex;
     align-items: center;
-    gap: 5px;
-    padding: 8px 16px;
+    gap: 0.3125rem;
+    padding: 0.5rem 1rem;
     border-width: 1px;
     border-style: solid;
     border-color: var(--igb-border-top) var(--igb-border-right) var(--igb-border-bottom) var(--igb-border-left);
@@ -252,7 +252,7 @@
     box-shadow: 0 2px 6px rgba(0,0,0,0.3), inset 0 2px 4px rgba(0,0,0,0.2);
 }
 .igb-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
-.igb-btn-sm { padding: 5px 10px; font-size: 0.75rem; }
+.igb-btn-sm { padding: 0.3125rem 0.625rem; font-size: 0.75rem; }
 .igb-btn-primary {
     background: linear-gradient(135deg, rgba(0,255,136,0.15) 0%, rgba(0,255,136,0.05) 100%);
     color: var(--igb-accent);
@@ -290,20 +290,20 @@
 
 #igb-toast-container {
     position: fixed;
-    bottom: 16px;
-    right: 16px;
+    bottom: 1rem;
+    right: 1rem;
     z-index: 99999;
     display: flex;
     flex-direction: column-reverse;
-    gap: 10px;
-    max-width: 370px;
+    gap: 0.625rem;
+    max-width: 23.125rem;
 }
 .igb-toast {
     display: flex;
     align-items: center;
-    gap: 10px;
-    padding: 12px 16px;
-    padding-right: 36px;
+    gap: 0.625rem;
+    padding: 0.75rem 1rem;
+    padding-right: 2.25rem;
     position: relative;
     animation: igbToastIn 0.25s ease;
     background: var(--igb-glass-bg-solid);
@@ -317,14 +317,14 @@
     font-size: 0.82rem;
     color: var(--igb-text);
 }
-.igb-toast-success { border-left: 3px solid #00ff88; }
-.igb-toast-error { border-left: 3px solid #ff4444; }
-.igb-toast-info { border-left: 3px solid #0099ff; }
+.igb-toast-success { border-left: 0.1875rem solid #00ff88; }
+.igb-toast-error { border-left: 0.1875rem solid #ff4444; }
+.igb-toast-info { border-left: 0.1875rem solid #0099ff; }
 .igb-toast-fade { opacity: 0; transition: opacity 0.3s; }
 .igb-toast-close {
     position: absolute;
-    top: 8px;
-    right: 10px;
+    top: 0.5rem;
+    right: 0.625rem;
     background: none;
     border: none;
     color: var(--igb-text-muted);
@@ -343,34 +343,34 @@
     text-align: center;
     color: var(--igb-text-muted);
     font-size: 0.82rem;
-    padding: 20px 0;
+    padding: 1.25rem 0;
 }
 
 /* ── Upgrade / Subscription Banner ─────────────────────────────────────────── */
 
 .igb-upgrade-banner {
     position: fixed;
-    bottom: 24px;
-    right: 24px;
+    bottom: 1.5rem;
+    right: 1.5rem;
     z-index: 999999;
     background: linear-gradient(135deg, #0a0a0f 0%, #12121e 100%);
     border: 1px solid rgba(0,255,136,0.35);
-    border-radius: 14px;
-    padding: 18px 22px;
-    max-width: 320px;
+    border-radius: 0.875rem;
+    padding: 1.125rem 1.375rem;
+    max-width: 20rem;
     box-shadow: 0 8px 32px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.06);
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 .igb-upgrade-logo {
-    font-size: 14px;
-    margin-bottom: 10px;
+    font-size: 0.875rem;
+    margin-bottom: 0.625rem;
     color: #fff;
 }
 .igb-upgrade-logo strong { color: var(--igb-accent); }
 .igb-upgrade-msg {
-    font-size: 13px;
+    font-size: 0.8125rem;
     color: #9ca3af;
-    margin: 0 0 14px;
+    margin: 0 0 0.875rem;
     line-height: 1.5;
 }
 .igb-upgrade-btn {
@@ -378,9 +378,9 @@
     background: var(--igb-accent);
     color: #000;
     font-weight: 700;
-    font-size: 13px;
-    padding: 8px 18px;
-    border-radius: 8px;
+    font-size: 0.8125rem;
+    padding: 0.5rem 1.125rem;
+    border-radius: 0.5rem;
     text-decoration: none;
     transition: background 0.15s, transform 0.1s;
 }
@@ -393,11 +393,11 @@
 
 .igb-dialer-footer {
     border-top: 1px solid var(--igb-border);
-    padding: 10px 16px;
+    padding: 0.625rem 1rem;
     text-align: center;
 }
 .igb-dialer-footer-link {
-    font-size: 11px;
+    font-size: 0.6875rem;
     color: var(--igb-text-muted);
     text-decoration: none;
     transition: color 0.15s;

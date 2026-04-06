@@ -12,7 +12,7 @@
     z-index: 9500;
     align-items: center;
     justify-content: center;
-    padding: 16px;
+    padding: 1rem;
 }
 .ci-modal.ci-modal-open {
     display: flex;
@@ -22,9 +22,9 @@
 .ci-modal-content {
     background: #0a0a0a;
     border: 1px solid #1e1e1e;
-    border-radius: 16px;
+    border-radius: 1rem;
     width: 100%;
-    max-width: 680px;
+    max-width: 42.5rem;
     max-height: 90vh;
     display: flex;
     flex-direction: column;
@@ -37,19 +37,19 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 20px 24px 18px;
+    padding: 1.25rem 1.5rem 1.125rem;
     border-bottom: 1px solid #1a1a1a;
     flex-shrink: 0;
 }
 .ci-header-left {
     display: flex;
     align-items: center;
-    gap: 14px;
+    gap: 0.875rem;
 }
 .ci-header-icon {
-    width: 44px;
-    height: 44px;
-    border-radius: 10px;
+    width: 2.75rem;
+    height: 2.75rem;
+    border-radius: 0.625rem;
     background: rgba(0, 255, 136, 0.1);
     border: 1px solid rgba(0, 255, 136, 0.2);
     display: flex;
@@ -77,8 +77,8 @@
     color: #444;
     font-size: 1.1rem;
     cursor: pointer;
-    padding: 6px;
-    border-radius: 6px;
+    padding: 0.375rem;
+    border-radius: 0.375rem;
     transition: color 0.15s, background 0.15s;
     line-height: 1;
 }
@@ -88,7 +88,7 @@
 .ci-steps-bar {
     display: flex;
     align-items: center;
-    padding: 16px 24px 14px;
+    padding: 1rem 1.5rem 0.875rem;
     border-bottom: 1px solid #141414;
     flex-shrink: 0;
     gap: 0;
@@ -96,7 +96,7 @@
 .ci-step-dot {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 0.375rem;
     font-size: 0.72rem;
     font-weight: 600;
     color: #444;
@@ -105,8 +105,8 @@
     cursor: default;
 }
 .ci-step-dot span {
-    width: 22px;
-    height: 22px;
+    width: 1.375rem;
+    height: 1.375rem;
     border-radius: 50%;
     background: #1a1a1a;
     border: 1px solid #2a2a2a;
@@ -138,15 +138,15 @@
     flex: 1;
     height: 1px;
     background: #1e1e1e;
-    margin: 0 8px;
-    min-width: 16px;
+    margin: 0 0.5rem;
+    min-width: 1rem;
 }
 
 /* ── Step Content ── */
 .ci-step-content {
     flex: 1;
     overflow-y: auto;
-    padding: 24px;
+    padding: 1.5rem;
     min-height: 0;
 }
 .ci-hidden { display: none !important; }
@@ -155,8 +155,8 @@
 /* ── Drop Zone (Step 1) ── */
 .ci-drop-zone {
     border: 2px dashed #222;
-    border-radius: 12px;
-    padding: 40px 24px;
+    border-radius: 0.75rem;
+    padding: 2.5rem 1.5rem;
     text-align: center;
     cursor: pointer;
     transition: border-color 0.2s, background 0.2s;
@@ -171,7 +171,7 @@
 .ci-drop-icon {
     font-size: 2.2rem;
     color: #333;
-    margin-bottom: 14px;
+    margin-bottom: 0.875rem;
     transition: color 0.2s;
 }
 .ci-drop-zone:hover .ci-drop-icon,
@@ -179,13 +179,13 @@
     color: #00ff88;
 }
 .ci-drop-title {
-    margin: 0 0 4px;
+    margin: 0 0 0.25rem;
     font-size: 1rem;
     font-weight: 700;
     color: #ccc;
 }
 .ci-drop-hint {
-    margin: 0 0 8px;
+    margin: 0 0 0.5rem;
     font-size: 0.82rem;
     color: #555;
 }
@@ -210,12 +210,12 @@
 .ci-file-info {
     display: flex;
     align-items: center;
-    gap: 10px;
-    padding: 12px 16px;
+    gap: 0.625rem;
+    padding: 0.75rem 1rem;
     background: rgba(0, 255, 136, 0.05);
     border: 1px solid rgba(0, 255, 136, 0.15);
-    border-radius: 10px;
-    margin-top: 12px;
+    border-radius: 0.625rem;
+    margin-top: 0.75rem;
     color: #ccc;
     font-size: 0.85rem;
 }
@@ -224,23 +224,23 @@
 
 /* ── History Section ── */
 .ci-history-section {
-    margin-top: 20px;
-    padding-top: 16px;
+    margin-top: 1.25rem;
+    padding-top: 1rem;
     border-top: 1px solid #141414;
 }
 .ci-history-row {
     display: flex;
     align-items: center;
-    gap: 10px;
-    padding: 8px 0;
+    gap: 0.625rem;
+    padding: 0.5rem 0;
     border-bottom: 1px solid #111;
     font-size: 0.8rem;
 }
 .ci-history-row:last-child { border-bottom: none; }
 .ci-history-status {
     display: inline-block;
-    padding: 2px 8px;
-    border-radius: 4px;
+    padding: 2px 0.5rem;
+    border-radius: 0.25rem;
     font-size: 0.68rem;
     font-weight: 700;
     text-transform: uppercase;
@@ -257,12 +257,12 @@
 .ci-map-hint {
     font-size: 0.82rem;
     color: #666;
-    margin: 0 0 16px;
+    margin: 0 0 1rem;
 }
 .ci-mapping-table-wrap {
     overflow-x: auto;
     border: 1px solid #1a1a1a;
-    border-radius: 10px;
+    border-radius: 0.625rem;
 }
 .ci-mapping-table {
     width: 100%;
@@ -270,7 +270,7 @@
     font-size: 0.82rem;
 }
 .ci-mapping-table thead th {
-    padding: 10px 14px;
+    padding: 0.625rem 0.875rem;
     text-align: left;
     font-size: 0.7rem;
     font-weight: 700;
@@ -286,7 +286,7 @@
 .ci-mapping-table tbody tr:last-child { border-bottom: none; }
 .ci-mapping-table tbody tr:hover { background: rgba(255,255,255,0.015); }
 .ci-mapping-table td {
-    padding: 10px 14px;
+    padding: 0.625rem 0.875rem;
     vertical-align: middle;
 }
 .ci-col-name {
@@ -296,29 +296,29 @@
 .ci-col-sample {
     color: #555;
     font-size: 0.78rem;
-    max-width: 140px;
+    max-width: 8.75rem;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
 }
 .ci-map-select {
     width: 100%;
-    padding: 6px 10px;
+    padding: 0.375rem 0.625rem;
     background: #111;
     border: 1px solid #222;
-    border-radius: 6px;
+    border-radius: 0.375rem;
     color: #ccc;
     font-size: 0.8rem;
     cursor: pointer;
     transition: border-color 0.15s;
-    min-width: 160px;
+    min-width: 10rem;
 }
 .ci-map-select:focus { outline: none; border-color: rgba(0,255,136,0.4); }
 .ci-map-select option { background: #111; color: #ccc; }
 
 /* ── Options (Step 3) ── */
 .ci-option-group {
-    margin-bottom: 22px;
+    margin-bottom: 1.375rem;
 }
 .ci-option-label {
     display: block;
@@ -327,39 +327,39 @@
     color: #aaa;
     text-transform: uppercase;
     letter-spacing: 0.05em;
-    margin-bottom: 6px;
+    margin-bottom: 0.375rem;
 }
 .ci-option-hint {
     font-size: 0.8rem;
     color: #555;
-    margin: 0 0 10px;
+    margin: 0 0 0.625rem;
 }
 .ci-optional { color: #444; font-weight: 400; text-transform: none; letter-spacing: 0; }
 .ci-radio-group {
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 0.5rem;
 }
 .ci-radio {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 0.625rem;
     cursor: pointer;
     font-size: 0.85rem;
     color: #bbb;
-    padding: 10px 14px;
+    padding: 0.625rem 0.875rem;
     border: 1px solid #1a1a1a;
-    border-radius: 8px;
+    border-radius: 0.5rem;
     transition: border-color 0.15s, background 0.15s;
 }
 .ci-radio:hover { border-color: #2a2a2a; background: rgba(255,255,255,0.02); }
 .ci-radio input { accent-color: #00ff88; }
 .ci-input {
     width: 100%;
-    padding: 9px 12px;
+    padding: 0.5625rem 0.75rem;
     background: #0d0d0d;
     border: 1px solid #1e1e1e;
-    border-radius: 8px;
+    border-radius: 0.5rem;
     color: #ccc;
     font-size: 0.85rem;
     transition: border-color 0.15s;
@@ -369,12 +369,12 @@
 .ci-input::placeholder { color: #3a3a3a; }
 
 /* ── Preview Table (Step 3) ── */
-.ci-preview-section { margin-top: 20px; }
+.ci-preview-section { margin-top: 1.25rem; }
 .ci-preview-table-wrap {
     overflow-x: auto;
     border: 1px solid #1a1a1a;
-    border-radius: 10px;
-    max-height: 180px;
+    border-radius: 0.625rem;
+    max-height: 11.25rem;
     overflow-y: auto;
 }
 .ci-preview-table {
@@ -383,7 +383,7 @@
     font-size: 0.78rem;
 }
 .ci-preview-table th {
-    padding: 8px 12px;
+    padding: 0.5rem 0.75rem;
     text-align: left;
     font-size: 0.68rem;
     font-weight: 700;
@@ -395,11 +395,11 @@
     white-space: nowrap;
 }
 .ci-preview-table td {
-    padding: 8px 12px;
+    padding: 0.5rem 0.75rem;
     color: #888;
     border-bottom: 1px solid #0e0e0e;
     white-space: nowrap;
-    max-width: 160px;
+    max-width: 10rem;
     overflow: hidden;
     text-overflow: ellipsis;
 }
@@ -408,43 +408,43 @@
 /* ── Progress (Step 4) ── */
 .ci-progress-section {
     text-align: center;
-    padding: 16px 0;
+    padding: 1rem 0;
 }
 .ci-progress-icon {
     font-size: 2.2rem;
     color: #00ff88;
-    margin-bottom: 14px;
+    margin-bottom: 0.875rem;
 }
 .ci-progress-title {
     font-size: 1rem;
     font-weight: 700;
     color: #ddd;
-    margin: 0 0 20px;
+    margin: 0 0 1.25rem;
 }
 .ci-progress-bar-wrap {
-    height: 6px;
+    height: 0.375rem;
     background: #151515;
-    border-radius: 3px;
+    border-radius: 0.1875rem;
     overflow: hidden;
-    margin-bottom: 20px;
+    margin-bottom: 1.25rem;
 }
 .ci-progress-bar {
     height: 100%;
     background: linear-gradient(90deg, #00ff88, #00cc6a);
-    border-radius: 3px;
+    border-radius: 0.1875rem;
     width: 0%;
     transition: width 0.4s ease;
 }
 .ci-progress-stats {
     display: flex;
     justify-content: center;
-    gap: 20px;
+    gap: 1.25rem;
     flex-wrap: wrap;
 }
 .ci-stat {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 0.375rem;
     font-size: 0.82rem;
     color: #666;
 }
@@ -455,28 +455,28 @@
 /* ── Results (Step 5) ── */
 .ci-results-card {
     text-align: center;
-    padding: 8px 0;
+    padding: 0.5rem 0;
 }
 .ci-results-icon {
     font-size: 2.8rem;
     color: #00ff88;
-    margin-bottom: 12px;
+    margin-bottom: 0.75rem;
 }
 .ci-results-title {
     font-size: 1.1rem;
     font-weight: 700;
     color: #fff;
-    margin: 0 0 24px;
+    margin: 0 0 1.5rem;
 }
 .ci-results-grid {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
-    gap: 12px;
-    margin-bottom: 20px;
+    gap: 0.75rem;
+    margin-bottom: 1.25rem;
 }
 .ci-result-item {
-    padding: 16px 12px;
-    border-radius: 10px;
+    padding: 1rem 0.75rem;
+    border-radius: 0.625rem;
     border: 1px solid #1a1a1a;
     background: #0a0a0a;
 }
@@ -485,7 +485,7 @@
     font-size: 1.6rem;
     font-weight: 800;
     line-height: 1;
-    margin-bottom: 4px;
+    margin-bottom: 0.25rem;
 }
 .ci-result-label {
     font-size: 0.72rem;
@@ -500,17 +500,17 @@
 .ci-result-fail .ci-result-num { color: #ff5050; }
 
 /* ── Error Log ── */
-.ci-errors-section { margin-top: 12px; }
+.ci-errors-section { margin-top: 0.75rem; }
 .ci-errors-list {
-    max-height: 150px;
+    max-height: 9.375rem;
     overflow-y: auto;
-    margin-top: 8px;
+    margin-top: 0.5rem;
     border: 1px solid #1a1a1a;
-    border-radius: 8px;
+    border-radius: 0.5rem;
     background: #060606;
 }
 .ci-error-row {
-    padding: 6px 12px;
+    padding: 0.375rem 0.75rem;
     font-size: 0.75rem;
     color: #ff5050;
     border-bottom: 1px solid #111;
@@ -521,14 +521,14 @@
 .ci-modal-footer {
     display: flex;
     justify-content: flex-end;
-    gap: 10px;
-    padding: 16px 24px;
+    gap: 0.625rem;
+    padding: 1rem 1.5rem;
     border-top: 1px solid #141414;
     flex-shrink: 0;
 }
 .ci-btn {
-    padding: 9px 22px;
-    border-radius: 8px;
+    padding: 0.5625rem 1.375rem;
+    border-radius: 0.5rem;
     font-size: 0.85rem;
     font-weight: 700;
     cursor: pointer;
@@ -565,11 +565,11 @@
     color: #555;
     font-size: 0.8rem;
     cursor: pointer;
-    padding: 4px 0;
+    padding: 0.25rem 0;
     transition: color 0.15s;
     display: inline-flex;
     align-items: center;
-    gap: 6px;
+    gap: 0.375rem;
 }
 .ci-btn-text:hover { color: #00ff88; }
 

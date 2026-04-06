@@ -12,7 +12,10 @@
 /* ── Reset / base ─────────────────────────────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; }
 html, body { margin: 0; padding: 0; }
-html { background: #000; }
+html {
+    background: #000;
+    font-size: clamp(10px, 3.4vw, 14px);
+}
 body {
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
     background: #050505;
@@ -55,9 +58,9 @@ kbd {
     font-size: 0.65rem;
     background: #000;
     border: 1px solid var(--border-strong);
-    padding: 2px 6px;
+    padding: 0.125rem 0.375rem;
     color: var(--text);
-    min-width: 22px;
+    min-width: 1.375rem;
     text-align: center;
     display: inline-block;
 }
@@ -93,13 +96,13 @@ body.pop-state-ringing .pop-state-bar { animation: popStatePulse 1.6s ease-in-ou
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 16px 18px 12px;
+    padding: 0.75rem 1rem 0.625rem;
     border-bottom: 1px solid var(--border);
     background: #000;
 }
-.pop-brand { display: flex; align-items: center; gap: 12px; }
+.pop-brand { display: flex; align-items: center; gap: 0.75rem; }
 .pop-brand-mark {
-    width: 10px; height: 10px;
+    width: 0.625rem; height: 0.625rem;
     background: var(--accent);
     box-shadow: 0 0 12px rgba(0, 255, 136, 0.6);
     transform: rotate(45deg);
@@ -115,14 +118,14 @@ body.pop-state-ringing .pop-state-bar { animation: popStatePulse 1.6s ease-in-ou
 .pop-header-meta {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 0.625rem;
     font-family: 'JetBrains Mono', monospace;
     font-size: 0.6rem;
     letter-spacing: 0.18em;
     color: var(--text-dim);
 }
 .pop-sync-dot {
-    width: 7px; height: 7px; border-radius: 50%;
+    width: 0.4375rem; height: 0.4375rem; border-radius: 50%;
     background: var(--accent);
     box-shadow: 0 0 8px var(--accent);
     animation: popDotBreathe 2.4s ease-in-out infinite;
@@ -135,7 +138,7 @@ body.pop-state-ringing .pop-state-bar { animation: popStatePulse 1.6s ease-in-ou
 .pop-header-btn {
     background: transparent;
     border: 1px solid var(--border-strong);
-    width: 28px; height: 28px;
+    width: 1.75rem; height: 1.75rem;
     display: flex; align-items: center; justify-content: center;
     color: var(--text-dim);
     cursor: pointer;
@@ -146,8 +149,8 @@ body.pop-state-ringing .pop-state-bar { animation: popStatePulse 1.6s ease-in-ou
 
 /* ── Call card ────────────────────────────────────────────────────────────── */
 .pop-call-card {
-    margin: 16px;
-    padding: 20px 20px 18px;
+    margin: 0.75rem;
+    padding: 1rem 1rem 0.875rem;
     background: var(--surface);
     border: 1px solid var(--state);
     box-shadow: 0 0 0 1px rgba(0,0,0,0.4), 0 24px 48px -24px var(--state-glow);
@@ -168,14 +171,14 @@ body.pop-state-idle .pop-call-card::before { opacity: 0; }
     display: flex;
     align-items: center;
     justify-content: space-between;
-    margin-bottom: 14px;
+    margin-bottom: 0.75rem;
     position: relative;
 }
 .pop-status-pill {
     display: inline-flex;
     align-items: center;
-    gap: 8px;
-    padding: 5px 11px 5px 9px;
+    gap: 0.5rem;
+    padding: 0.3125rem 0.6875rem 0.3125rem 0.5625rem;
     background: #000;
     border: 1px solid var(--state);
     font-family: 'JetBrains Mono', monospace;
@@ -187,18 +190,18 @@ body.pop-state-idle .pop-call-card::before { opacity: 0; }
     transition: border-color 250ms ease, color 250ms ease;
 }
 .pop-status-glyph {
-    width: 6px; height: 6px; border-radius: 50%;
+    width: 0.375rem; height: 0.375rem; border-radius: 50%;
     background: var(--state);
     box-shadow: 0 0 6px var(--state-glow);
 }
 body.pop-state-ringing .pop-status-glyph,
 body.pop-state-dialing .pop-status-glyph { animation: popDotBreathe 0.9s ease-in-out infinite; }
 body.pop-state-connected .pop-status-glyph { animation: popDotBreathe 2.2s ease-in-out infinite; }
-.pop-status-right { display: flex; align-items: center; gap: 10px; }
+.pop-status-right { display: flex; align-items: center; gap: 0.625rem; }
 .pop-rec-indicator {
     display: inline-flex;
     align-items: center;
-    gap: 5px;
+    gap: 0.3125rem;
     font-family: 'JetBrains Mono', monospace;
     font-size: 0.58rem;
     font-weight: 700;
@@ -206,7 +209,7 @@ body.pop-state-connected .pop-status-glyph { animation: popDotBreathe 2.2s ease-
     color: #fca5a5;
 }
 .pop-rec-dot {
-    width: 7px; height: 7px; border-radius: 50%;
+    width: 0.4375rem; height: 0.4375rem; border-radius: 50%;
     background: var(--danger);
     box-shadow: 0 0 8px rgba(239,68,68,0.7);
     animation: popDotBreathe 1.4s ease-in-out infinite;
@@ -225,12 +228,12 @@ body.pop-state-connected .pop-status-glyph { animation: popDotBreathe 2.2s ease-
 .pop-contact {
     display: flex;
     align-items: center;
-    gap: 14px;
-    padding: 12px 0 16px;
+    gap: 0.75rem;
+    padding: 0.625rem 0 0.875rem;
     position: relative;
 }
 .pop-contact-avatar {
-    width: 50px; height: 50px;
+    width: 2.75rem; height: 2.75rem;
     background: #000;
     border: 1px solid var(--state);
     display: flex;
@@ -260,13 +263,13 @@ body.pop-state-connected .pop-status-glyph { animation: popDotBreathe 2.2s ease-
     font-size: 0.76rem;
     color: var(--text-dim);
     letter-spacing: 0.05em;
-    margin-top: 3px;
+    margin-top: 0.1875rem;
 }
 .pop-contact-temp {
     display: inline-flex;
     align-items: center;
-    gap: 6px;
-    padding: 4px 9px;
+    gap: 0.375rem;
+    padding: 0.25rem 0.5625rem;
     background: rgba(239, 68, 68, 0.12);
     border: 1px solid rgba(239, 68, 68, 0.4);
     color: #fca5a5;
@@ -279,8 +282,8 @@ body.pop-state-connected .pop-status-glyph { animation: popDotBreathe 2.2s ease-
 .pop-contact-temp.temp-cool { background: rgba(59,130,246,0.12); border-color: rgba(59,130,246,0.4); color: #93c5fd; }
 .pop-contact-temp.temp-cold { background: rgba(107,114,128,0.12); border-color: rgba(107,114,128,0.4); color: #9ca3af; }
 .pop-contact-score {
-    margin-left: 4px;
-    padding-left: 6px;
+    margin-left: 0.25rem;
+    padding-left: 0.375rem;
     border-left: 1px solid currentColor;
     opacity: 0.75;
 }
@@ -288,15 +291,15 @@ body.pop-state-connected .pop-status-glyph { animation: popDotBreathe 2.2s ease-
 /* Manual dial */
 .pop-manual-dial {
     display: flex;
-    gap: 8px;
-    margin-top: 2px;
+    gap: 0.5rem;
+    margin-top: 0.125rem;
 }
 .pop-manual-dial input {
     flex: 1;
     background: #000;
     border: 1px solid var(--border-strong);
     color: var(--text);
-    padding: 11px 14px;
+    padding: 0.6875rem 0.875rem;
     font-family: 'JetBrains Mono', monospace;
     font-size: 0.9rem;
     letter-spacing: 0.04em;
@@ -311,8 +314,8 @@ body.pop-state-connected .pop-status-glyph { animation: popDotBreathe 2.2s ease-
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 8px;
-    padding: 11px 18px;
+    gap: 0.5rem;
+    padding: 0.6875rem 1.125rem;
     background: var(--surface-2);
     border: 1px solid var(--border-strong);
     font-family: 'Outfit', sans-serif;
@@ -337,7 +340,7 @@ body.pop-state-connected .pop-status-glyph { animation: popDotBreathe 2.2s ease-
     font-size: 0.6rem;
     font-weight: 700;
     letter-spacing: 0.12em;
-    padding: 4px 8px;
+    padding: 0.25rem 0.5rem;
     cursor: pointer;
     transition: all 140ms ease;
 }
@@ -347,8 +350,8 @@ body.pop-state-connected .pop-status-glyph { animation: popDotBreathe 2.2s ease-
 .pop-controls {
     display: grid;
     grid-template-columns: repeat(7, 1fr);
-    gap: 4px;
-    margin-top: 2px;
+    gap: 0.25rem;
+    margin-top: 0.125rem;
 }
 .pop-ctrl {
     position: relative;
@@ -356,8 +359,8 @@ body.pop-state-connected .pop-status-glyph { animation: popDotBreathe 2.2s ease-
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 4px;
-    padding: 11px 2px 10px;
+    gap: 0.25rem;
+    padding: 0.6875rem 0.125rem 0.625rem;
     background: #000;
     border: 1px solid var(--border-strong);
     color: var(--text-dim);
@@ -422,16 +425,16 @@ body.pop-state-connected .pop-status-glyph { animation: popDotBreathe 2.2s ease-
 .pop-keypad {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
-    gap: 6px;
-    margin-top: 14px;
-    padding-top: 14px;
+    gap: 0.375rem;
+    margin-top: 0.75rem;
+    padding-top: 0.75rem;
     border-top: 1px solid var(--border);
 }
 .pop-key {
     background: #000;
     border: 1px solid var(--border-strong);
     color: var(--text);
-    padding: 14px 4px;
+    padding: 0.875rem 0.25rem;
     font-family: 'Outfit', sans-serif;
     font-weight: 700;
     font-size: 1.3rem;
@@ -440,7 +443,7 @@ body.pop-state-connected .pop-status-glyph { animation: popDotBreathe 2.2s ease-
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 2px;
+    gap: 0.125rem;
 }
 .pop-key small {
     font-size: 0.46rem;
@@ -453,7 +456,7 @@ body.pop-state-connected .pop-status-glyph { animation: popDotBreathe 2.2s ease-
 
 /* ── Drawers ──────────────────────────────────────────────────────────────── */
 .pop-drawer {
-    margin: 0 16px 10px;
+    margin: 0 0.75rem 0.5rem;
     background: var(--surface);
     border: 1px solid var(--border);
 }
@@ -462,7 +465,7 @@ body.pop-state-connected .pop-status-glyph { animation: popDotBreathe 2.2s ease-
     align-items: center;
     justify-content: space-between;
     width: 100%;
-    padding: 12px 14px;
+    padding: 0.75rem 0.875rem;
     background: transparent;
     border: none;
     color: var(--text);
@@ -475,24 +478,24 @@ body.pop-state-connected .pop-status-glyph { animation: popDotBreathe 2.2s ease-
     transition: background 120ms ease;
 }
 .pop-drawer-toggle:hover { background: #0f0f0f; }
-.pop-drawer-label { display: inline-flex; align-items: center; gap: 10px; }
-.pop-drawer-label i { color: var(--accent); width: 14px; text-align: center; }
+.pop-drawer-label { display: inline-flex; align-items: center; gap: 0.625rem; }
+.pop-drawer-label i { color: var(--accent); width: 0.875rem; text-align: center; }
 .pop-drawer-count,
 .pop-intel-badge,
 .pop-notes-indicator {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    min-width: 22px;
-    height: 18px;
-    padding: 0 6px;
+    min-width: 1.375rem;
+    height: 1.125rem;
+    padding: 0 0.375rem;
     background: rgba(0, 255, 136, 0.14);
     border: 1px solid rgba(0, 255, 136, 0.35);
     color: var(--accent);
     font-family: 'JetBrains Mono', monospace;
     font-size: 0.62rem;
     font-weight: 700;
-    margin-left: 4px;
+    margin-left: 0.25rem;
 }
 .pop-intel-badge.is-hot  { background: rgba(239,68,68,0.14); border-color: rgba(239,68,68,0.4); color: #fca5a5; }
 .pop-intel-badge.is-warm { background: rgba(245,158,11,0.14); border-color: rgba(245,158,11,0.4); color: #fcd34d; }
@@ -500,7 +503,7 @@ body.pop-state-connected .pop-status-glyph { animation: popDotBreathe 2.2s ease-
 .pop-intel-badge.is-cold { background: rgba(107,114,128,0.14); border-color: rgba(107,114,128,0.4); color: #9ca3af; }
 
 .pop-notes-indicator {
-    min-width: 8px; width: 8px; height: 8px;
+    min-width: 0.5rem; width: 0.5rem; height: 0.5rem;
     padding: 0; border-radius: 50%; background: var(--accent); border-color: var(--accent);
 }
 
@@ -517,7 +520,7 @@ body.pop-state-connected .pop-status-glyph { animation: popDotBreathe 2.2s ease-
     border-top: 1px solid transparent;
 }
 .pop-drawer-body.is-open {
-    max-height: 420px;
+    max-height: 26.25rem;
     overflow-y: auto;
     border-top-color: var(--border);
 }
@@ -528,24 +531,24 @@ body.pop-state-connected .pop-status-glyph { animation: popDotBreathe 2.2s ease-
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 10px;
-    padding: 22px 16px;
+    gap: 0.625rem;
+    padding: 1.25rem 1rem;
     color: var(--text-dim);
     font-size: 0.76rem;
 }
 .pop-intel-loading i { color: var(--accent); }
 .pop-intel-empty i { color: var(--text-muted); }
 
-.pop-intel-card { padding: 16px 16px 18px; }
+.pop-intel-card { padding: 0.875rem 0.875rem 1rem; }
 .pop-intel-header {
     display: flex;
     align-items: center;
-    gap: 14px;
-    margin-bottom: 14px;
+    gap: 0.75rem;
+    margin-bottom: 0.75rem;
 }
 .pop-intel-score-ring {
     position: relative;
-    width: 58px; height: 58px;
+    width: 3.625rem; height: 3.625rem;
     flex-shrink: 0;
 }
 .pop-intel-score-ring svg { transform: rotate(-90deg); width: 100%; height: 100%; }
@@ -590,24 +593,24 @@ body.pop-state-connected .pop-status-glyph { animation: popDotBreathe 2.2s ease-
 .pop-intel-temp-reason {
     font-size: 0.72rem;
     color: var(--text-dim);
-    margin-top: 2px;
+    margin-top: 0.125rem;
     line-height: 1.4;
 }
 .pop-intel-summary {
-    margin: 0 0 12px;
-    padding: 10px 12px;
+    margin: 0 0 0.75rem;
+    padding: 0.625rem 0.75rem;
     background: #000;
     border: 1px solid var(--border-strong);
     font-size: 0.78rem;
     line-height: 1.5;
     color: var(--text);
 }
-.pop-intel-actions { display: flex; flex-direction: column; gap: 5px; }
+.pop-intel-actions { display: flex; flex-direction: column; gap: 0.3125rem; }
 .pop-intel-action {
     display: flex;
     align-items: flex-start;
-    gap: 10px;
-    padding: 9px 11px;
+    gap: 0.625rem;
+    padding: 0.5625rem 0.6875rem;
     background: #000;
     border: 1px solid var(--border);
     font-size: 0.74rem;
@@ -616,7 +619,7 @@ body.pop-state-connected .pop-status-glyph { animation: popDotBreathe 2.2s ease-
 }
 .pop-intel-action i {
     color: var(--accent);
-    margin-top: 2px;
+    margin-top: 0.125rem;
     font-size: 0.72rem;
     flex-shrink: 0;
 }
@@ -627,8 +630,8 @@ body.pop-state-connected .pop-status-glyph { animation: popDotBreathe 2.2s ease-
 .pop-queue-toolbar {
     display: flex;
     align-items: center;
-    gap: 6px;
-    padding: 10px 12px;
+    gap: 0.375rem;
+    padding: 0.625rem 0.75rem;
     border-bottom: 1px solid var(--border);
 }
 .pop-queue-toolbar input {
@@ -636,7 +639,7 @@ body.pop-state-connected .pop-status-glyph { animation: popDotBreathe 2.2s ease-
     background: #000;
     border: 1px solid var(--border-strong);
     color: var(--text);
-    padding: 7px 10px;
+    padding: 0.4375rem 0.625rem;
     font-size: 0.75rem;
     outline: none;
     transition: border-color 140ms ease;
@@ -644,7 +647,7 @@ body.pop-state-connected .pop-status-glyph { animation: popDotBreathe 2.2s ease-
 .pop-queue-toolbar input::placeholder { color: var(--text-muted); }
 .pop-queue-toolbar input:focus { border-color: var(--accent); }
 .pop-queue-cmd {
-    width: 30px; height: 30px;
+    width: 1.875rem; height: 1.875rem;
     background: #000;
     border: 1px solid var(--border-strong);
     color: var(--text-dim);
@@ -659,12 +662,12 @@ body.pop-state-connected .pop-status-glyph { animation: popDotBreathe 2.2s ease-
 .pop-queue-cmd:disabled { opacity: 0.35; cursor: not-allowed; }
 .pop-queue-cmd.is-active { border-color: var(--accent); color: var(--accent); }
 
-.pop-queue-list { list-style: none; margin: 0; padding: 6px 0; }
+.pop-queue-list { list-style: none; margin: 0; padding: 0.375rem 0; }
 .pop-queue-item {
     display: flex;
     align-items: center;
-    gap: 12px;
-    padding: 10px 14px;
+    gap: 0.75rem;
+    padding: 0.625rem 0.875rem;
     border-bottom: 1px solid #0f0f0f;
     cursor: pointer;
     transition: background 120ms ease;
@@ -674,10 +677,10 @@ body.pop-state-connected .pop-status-glyph { animation: popDotBreathe 2.2s ease-
 .pop-queue-item.is-active {
     background: rgba(0, 255, 136, 0.06);
     border-left: 2px solid var(--accent);
-    padding-left: 12px;
+    padding-left: 0.75rem;
 }
 .pop-queue-idx {
-    width: 22px;
+    width: 1.375rem;
     font-family: 'JetBrains Mono', monospace;
     font-size: 0.68rem;
     color: var(--text-muted);
@@ -698,7 +701,7 @@ body.pop-state-connected .pop-status-glyph { animation: popDotBreathe 2.2s ease-
     color: var(--text-dim);
 }
 .pop-queue-status {
-    width: 8px; height: 8px; border-radius: 50%;
+    width: 0.5rem; height: 0.5rem; border-radius: 50%;
     background: #2a2a2a;
     flex-shrink: 0;
 }
@@ -710,8 +713,8 @@ body.pop-state-connected .pop-status-glyph { animation: popDotBreathe 2.2s ease-
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 10px;
-    padding: 28px 20px;
+    gap: 0.625rem;
+    padding: 1.5rem 1.125rem;
     color: var(--text-muted);
     text-align: center;
     font-size: 0.74rem;
@@ -722,14 +725,14 @@ body.pop-state-connected .pop-status-glyph { animation: popDotBreathe 2.2s ease-
 /* Notes */
 .pop-notes-area {
     display: block;
-    width: calc(100% - 24px);
-    margin: 12px 12px 6px;
-    min-height: 90px;
+    width: calc(100% - 1.5rem);
+    margin: 0.75rem 0.75rem 0.375rem;
+    min-height: 5.625rem;
     resize: vertical;
     background: #000;
     border: 1px solid var(--border-strong);
     color: var(--text);
-    padding: 10px 12px;
+    padding: 0.625rem 0.75rem;
     font-family: 'Inter', sans-serif;
     font-size: 0.8rem;
     line-height: 1.5;
@@ -742,7 +745,7 @@ body.pop-state-connected .pop-status-glyph { animation: popDotBreathe 2.2s ease-
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 2px 14px 12px;
+    padding: 0.125rem 0.875rem 0.75rem;
 }
 .pop-notes-auto {
     font-family: 'JetBrains Mono', monospace;
@@ -753,19 +756,19 @@ body.pop-state-connected .pop-status-glyph { animation: popDotBreathe 2.2s ease-
 }
 
 /* History */
-.pop-history-list { list-style: none; margin: 0; padding: 4px 0; }
+.pop-history-list { list-style: none; margin: 0; padding: 0.25rem 0; }
 .pop-history-item {
     display: grid;
     grid-template-columns: auto 1fr auto auto;
-    gap: 10px;
+    gap: 0.625rem;
     align-items: center;
-    padding: 9px 14px;
+    padding: 0.5625rem 0.875rem;
     border-bottom: 1px solid #0f0f0f;
     font-size: 0.75rem;
 }
 .pop-history-item:last-child { border-bottom: none; }
 .pop-history-dir {
-    width: 22px; height: 22px;
+    width: 1.375rem; height: 1.375rem;
     display: flex; align-items: center; justify-content: center;
     border: 1px solid var(--border-strong);
     color: var(--text-dim);
@@ -806,7 +809,7 @@ body.pop-state-connected .pop-status-glyph { animation: popDotBreathe 2.2s ease-
     text-transform: none;
     letter-spacing: 0.08em;
     cursor: pointer;
-    padding: 4px 8px;
+    padding: 0.25rem 0.5rem;
     border: 1px solid var(--border-strong);
     transition: all 120ms ease;
 }
@@ -814,16 +817,16 @@ body.pop-state-connected .pop-status-glyph { animation: popDotBreathe 2.2s ease-
 .pop-disp-grid {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
-    gap: 5px;
-    padding: 12px;
+    gap: 0.3125rem;
+    padding: 0.75rem;
 }
 .pop-disp-btn {
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 6px;
-    padding: 12px 4px;
+    gap: 0.375rem;
+    padding: 0.75rem 0.25rem;
     background: #000;
     border: 1px solid var(--border-strong);
     color: var(--text-dim);
@@ -850,7 +853,7 @@ body.pop-state-connected .pop-status-glyph { animation: popDotBreathe 2.2s ease-
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 11px 18px;
+    padding: 0.625rem 1rem;
     border-top: 1px solid var(--border);
     background: #000;
     font-family: 'JetBrains Mono', monospace;
@@ -859,14 +862,14 @@ body.pop-state-connected .pop-status-glyph { animation: popDotBreathe 2.2s ease-
     color: var(--text-dim);
     text-transform: uppercase;
 }
-.pop-footer-left { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; }
+.pop-footer-left { display: flex; align-items: center; gap: 0.5rem; flex: 1; min-width: 0; }
 .pop-footer-left span:not(.pop-device-dot) {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
 }
 .pop-device-dot {
-    width: 7px; height: 7px; border-radius: 50%;
+    width: 0.4375rem; height: 0.4375rem; border-radius: 50%;
     background: #4a4a4a;
     flex-shrink: 0;
     transition: background 250ms ease, box-shadow 250ms ease;
@@ -876,14 +879,14 @@ body.pop-state-connected .pop-status-glyph { animation: popDotBreathe 2.2s ease-
 .pop-footer-stats {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 0.625rem;
     flex-shrink: 0;
 }
 .pop-stat {
     display: inline-flex;
     align-items: center;
-    gap: 5px;
-    padding: 3px 7px;
+    gap: 0.3125rem;
+    padding: 0.1875rem 0.4375rem;
     background: #0a0a0a;
     border: 1px solid var(--border-strong);
     color: var(--text);
@@ -909,12 +912,12 @@ body.pop-state-connected .pop-status-glyph { animation: popDotBreathe 2.2s ease-
 }
 .pop-modal-card {
     position: relative;
-    width: min(400px, calc(100% - 36px));
+    width: min(25rem, calc(100% - 2.25rem));
     background: var(--surface);
     border: 1px solid var(--accent);
     box-shadow: 0 24px 60px rgba(0,0,0,0.6), 0 0 0 1px rgba(0,255,136,0.08);
     animation: popModalRise 220ms cubic-bezier(.2,.9,.3,1);
-    max-height: calc(100vh - 40px);
+    max-height: calc(100vh - 2.5rem);
     display: flex;
     flex-direction: column;
 }
@@ -927,7 +930,7 @@ body.pop-state-connected .pop-status-glyph { animation: popDotBreathe 2.2s ease-
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 14px 18px;
+    padding: 0.875rem 1.125rem;
     border-bottom: 1px solid var(--border);
     font-family: 'Outfit', sans-serif;
     font-weight: 900;
@@ -939,7 +942,7 @@ body.pop-state-connected .pop-status-glyph { animation: popDotBreathe 2.2s ease-
     background: transparent;
     border: 1px solid var(--border-strong);
     color: var(--text-dim);
-    width: 28px; height: 28px;
+    width: 1.75rem; height: 1.75rem;
     display: flex; align-items: center; justify-content: center;
     cursor: pointer;
     font-size: 0.78rem;
@@ -947,7 +950,7 @@ body.pop-state-connected .pop-status-glyph { animation: popDotBreathe 2.2s ease-
 }
 .pop-modal-close:hover { border-color: var(--danger); color: var(--danger); }
 .pop-modal-body {
-    padding: 16px 18px;
+    padding: 1rem 1.125rem;
     overflow-y: auto;
     flex: 1;
 }
@@ -958,7 +961,7 @@ body.pop-state-connected .pop-status-glyph { animation: popDotBreathe 2.2s ease-
     letter-spacing: 0.14em;
     color: var(--text-dim);
     text-transform: uppercase;
-    margin: 12px 0 6px;
+    margin: 0.75rem 0 0.375rem;
 }
 .pop-modal-label:first-child { margin-top: 0; }
 .pop-modal-input,
@@ -968,7 +971,7 @@ body.pop-state-connected .pop-status-glyph { animation: popDotBreathe 2.2s ease-
     background: #000;
     border: 1px solid var(--border-strong);
     color: var(--text);
-    padding: 11px 13px;
+    padding: 0.6875rem 0.8125rem;
     font-size: 0.85rem;
     font-family: 'Inter', sans-serif;
     outline: none;
@@ -981,19 +984,19 @@ body.pop-state-connected .pop-status-glyph { animation: popDotBreathe 2.2s ease-
 .pop-modal-select {
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath fill='%238a8a8a' d='M0 0l5 6 5-6z'/%3E%3C/svg%3E");
     background-repeat: no-repeat;
-    background-position: right 14px center;
-    padding-right: 34px;
+    background-position: right 0.875rem center;
+    padding-right: 2.125rem;
 }
 .pop-modal-recents {
     display: flex;
     flex-wrap: wrap;
-    gap: 6px;
-    margin-top: 10px;
+    gap: 0.375rem;
+    margin-top: 0.625rem;
 }
 .pop-modal-recents .pop-recent-chip {
     background: #000;
     border: 1px solid var(--border-strong);
-    padding: 6px 10px;
+    padding: 0.375rem 0.625rem;
     font-family: 'JetBrains Mono', monospace;
     font-size: 0.7rem;
     color: var(--text);
@@ -1003,17 +1006,17 @@ body.pop-state-connected .pop-status-glyph { animation: popDotBreathe 2.2s ease-
 .pop-modal-recents .pop-recent-chip:hover { border-color: var(--accent); color: var(--accent); }
 
 .pop-modal-foot {
-    padding: 12px 18px;
+    padding: 0.75rem 1.125rem;
     border-top: 1px solid var(--border);
     display: flex;
-    gap: 10px;
+    gap: 0.625rem;
     justify-content: flex-end;
 }
 
 /* Shortcuts help block in settings modal */
 .pop-shortcuts-box {
-    margin-top: 18px;
-    padding: 14px;
+    margin-top: 1.125rem;
+    padding: 0.875rem;
     background: #000;
     border: 1px solid var(--border);
 }
@@ -1022,14 +1025,14 @@ body.pop-state-connected .pop-status-glyph { animation: popDotBreathe 2.2s ease-
     font-size: 0.58rem;
     letter-spacing: 0.14em;
     color: var(--text-dim);
-    margin-bottom: 10px;
+    margin-bottom: 0.625rem;
     text-transform: uppercase;
 }
 .pop-shortcuts-row {
     display: flex;
     align-items: center;
-    gap: 8px;
-    padding: 4px 0;
+    gap: 0.5rem;
+    padding: 0.25rem 0;
     font-size: 0.74rem;
     color: var(--text);
 }
@@ -1052,14 +1055,14 @@ body.pop-state-connected .pop-status-glyph { animation: popDotBreathe 2.2s ease-
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 10px;
-    padding: 32px 24px;
+    gap: 0.625rem;
+    padding: 2rem 1.5rem;
 }
 .pop-incoming-rings {
     position: absolute;
     top: 50%; left: 50%;
     transform: translate(-50%, -50%);
-    width: 260px; height: 260px;
+    width: 16.25rem; height: 16.25rem;
     pointer-events: none;
 }
 .pop-incoming-rings span {
@@ -1077,7 +1080,7 @@ body.pop-state-connected .pop-status-glyph { animation: popDotBreathe 2.2s ease-
     100% { transform: scale(1.35); opacity: 0; }
 }
 .pop-incoming-avatar {
-    width: 100px; height: 100px;
+    width: 6.25rem; height: 6.25rem;
     background: #000;
     border: 2px solid var(--accent);
     display: flex;
@@ -1087,7 +1090,7 @@ body.pop-state-connected .pop-status-glyph { animation: popDotBreathe 2.2s ease-
     font-weight: 900;
     font-size: 2.2rem;
     color: var(--accent);
-    margin-bottom: 10px;
+    margin-bottom: 0.625rem;
     z-index: 1;
     box-shadow: 0 0 32px rgba(0, 255, 136, 0.35);
 }
@@ -1113,16 +1116,16 @@ body.pop-state-connected .pop-status-glyph { animation: popDotBreathe 2.2s ease-
 }
 .pop-incoming-actions {
     display: flex;
-    gap: 16px;
-    margin-top: 22px;
+    gap: 1rem;
+    margin-top: 1.375rem;
     z-index: 1;
 }
 .pop-incoming-btn {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 6px;
-    padding: 18px 24px;
+    gap: 0.375rem;
+    padding: 1.125rem 1.5rem;
     background: #000;
     border: 2px solid;
     font-family: 'Outfit', sans-serif;
@@ -1130,7 +1133,7 @@ body.pop-state-connected .pop-status-glyph { animation: popDotBreathe 2.2s ease-
     font-size: 0.7rem;
     letter-spacing: 0.14em;
     cursor: pointer;
-    min-width: 110px;
+    min-width: 6.875rem;
     transition: all 160ms ease;
 }
 .pop-incoming-btn i { font-size: 1.4rem; }
@@ -1142,18 +1145,18 @@ body.pop-state-connected .pop-status-glyph { animation: popDotBreathe 2.2s ease-
 /* ── Toasts ───────────────────────────────────────────────────────────────── */
 .pop-toast-stack {
     position: fixed;
-    bottom: 68px;
-    right: 16px;
-    left: 16px;
+    bottom: 4.25rem;
+    right: 1rem;
+    left: 1rem;
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 0.5rem;
     pointer-events: none;
     z-index: 400;
 }
 .pop-toast {
     pointer-events: auto;
-    padding: 11px 14px;
+    padding: 0.6875rem 0.875rem;
     background: #000;
     border: 1px solid var(--accent);
     color: var(--text);
@@ -1182,15 +1185,17 @@ body.pop-state-connected .pop-status-glyph { animation: popDotBreathe 2.2s ease-
 .pop-drawer-body::-webkit-scrollbar-thumb:hover,
 .pop-modal-body::-webkit-scrollbar-thumb:hover { background: #2f2f2f; }
 
-/* Smaller windows */
+/* ── Responsive breakpoints ──────────────────────────────────────────────── */
 @media (max-width: 500px) {
-    .pop-controls  { grid-template-columns: repeat(4, 1fr); }
+    .pop-controls { grid-template-columns: repeat(4, 1fr); }
 }
 @media (max-width: 380px) {
-    .pop-controls  { grid-template-columns: repeat(3, 1fr); }
+    .pop-controls { grid-template-columns: repeat(3, 1fr); }
     .pop-disp-grid { grid-template-columns: repeat(2, 1fr); }
-    .pop-header    { padding: 14px 14px 10px; }
-    .pop-call-card { margin: 12px; padding: 16px; }
-    .pop-drawer    { margin: 0 12px 8px; }
-    .pop-footer-stats .pop-stat { padding: 2px 6px; font-size: 0.58rem; }
+}
+@media (min-width: 600px) {
+    html { font-size: 15px; }
+}
+@media (min-width: 800px) {
+    html { font-size: 16px; }
 }

@@ -6,11 +6,11 @@
    Dark = default. Light = [data-theme="light"].
 
    Breakpoints:
-     ≤ 1199px  — large tablet / small laptop
-     ≤ 991px   — tablet / nav collapse point
-     ≤ 767px   — mobile landscape + large portrait
-     ≤ 575px   — standard mobile portrait
-     ≤ 400px   — small mobile
+     ≤ 74.9375rem  — large tablet / small laptop
+     ≤ 61.9375rem   — tablet / nav collapse point
+     ≤ 47.9375rem   — mobile landscape + large portrait
+     ≤ 35.9375rem   — standard mobile portrait
+     ≤ 25rem   — small mobile
    ================================================================ */
 
 /* ════════════════════════════════════════════════════════════════
@@ -21,8 +21,8 @@
 .navbar-toggler {
     background: none;
     border: 1px solid rgba(0, 255, 136, 0.35);
-    border-radius: 8px;
-    padding: 7px 10px;
+    border-radius: 0.5rem;
+    padding: 0.4375rem 0.625rem;
     color: #ffffff;
     cursor: pointer;
     transition: background 0.2s, border-color 0.2s;
@@ -34,7 +34,7 @@
 }
 .navbar-toggler-icon {
     display: block;
-    width: 20px;
+    width: 1.25rem;
     height: 2px;
     background: #ffffff;
     position: relative;
@@ -44,15 +44,15 @@
 .navbar-toggler-icon::after {
     content: '';
     display: block;
-    width: 20px;
+    width: 1.25rem;
     height: 2px;
     background: #ffffff;
     position: absolute;
     left: 0;
     transition: transform 0.25s ease, top 0.25s ease, opacity 0.25s ease;
 }
-.navbar-toggler-icon::before { top: -6px; }
-.navbar-toggler-icon::after  { top:  6px; }
+.navbar-toggler-icon::before { top: -0.375rem; }
+.navbar-toggler-icon::after  { top:  0.375rem; }
 
 /* Animated X when open */
 .navbar.nav-open .navbar-toggler-icon {
@@ -89,7 +89,7 @@
 }
 
 /* ════════════════════════════════════════════════════════════════
-   2. ≤ 991px — Tablet: collapse nav, grid adjustments
+   2. ≤ 61.9375rem — Tablet: collapse nav, grid adjustments
    ════════════════════════════════════════════════════════════════ */
 @media (max-width: 991px) {
 
@@ -100,7 +100,7 @@
         display: flex;
         flex-direction: column;
         align-items: stretch;
-        padding: 20px 0 24px;
+        padding: 1.25rem 0 1.5rem;
         border-top: 1px solid rgba(255, 255, 136, 0.08);
         animation: mobileNavSlide 0.22s ease;
     }
@@ -118,7 +118,7 @@
         width: 100%;
     }
     .navbar-collapse .nav-link {
-        padding: 13px 0;
+        padding: 0.8125rem 0;
         font-size: 1rem;
         font-weight: 600;
         border-bottom: 1px solid rgba(255, 255, 255, 0.05);
@@ -131,14 +131,14 @@
     /* CTA buttons stacked in mobile */
     .navbar-collapse .d-flex {
         flex-direction: column;
-        gap: 10px;
-        margin-top: 20px;
+        gap: 0.625rem;
+        margin-top: 1.25rem;
         width: 100%;
     }
     .navbar-collapse .btn {
         width: 100%;
         text-align: center;
-        padding: 12px 20px;
+        padding: 0.75rem 1.25rem;
         font-size: 0.95rem;
     }
 
@@ -151,18 +151,18 @@
     }
 
     /* Hero: tighten up */
-    .hero { padding: 120px 0 80px; text-align: center; }
+    .hero { padding: 7.5rem 0 5rem; text-align: center; }
     .hero h1 { font-size: clamp(2rem, 6vw, 3rem); }
     .hero .lead { font-size: 1rem; }
-    .hero-actions { flex-direction: column; align-items: center; gap: 12px; }
-    .hero-actions .btn { width: 100%; max-width: 340px; }
+    .hero-actions { flex-direction: column; align-items: center; gap: 0.75rem; }
+    .hero-actions .btn { width: 100%; max-width: 21.25rem; }
 
     /* Section padding */
-    .section-pad { padding: 60px 0; }
+    .section-pad { padding: 3.75rem 0; }
 
     /* Pricing carousel → stacked */
-    .pricing-section { height: auto; padding: 60px 20px; }
-    .carousel-container { height: auto; flex-direction: column; gap: 30px; perspective: none; }
+    .pricing-section { height: auto; padding: 3.75rem 1.25rem; }
+    .carousel-container { height: auto; flex-direction: column; gap: 1.875rem; perspective: none; }
     .pricing-card {
         position: relative;
         left: auto;
@@ -171,8 +171,8 @@
         z-index: 1 !important;
         filter: none !important;
         width: 100%;
-        max-width: 480px;
-        margin: 0 auto 24px;
+        max-width: 30rem;
+        margin: 0 auto 1.5rem;
     }
 
     /* Feature grids */
@@ -180,8 +180,8 @@
     .feature-grid-3 { grid-template-columns: 1fr 1fr !important; }
 
     /* Stats row */
-    .stats-row { flex-wrap: wrap; gap: 24px; }
-    .stat-block { min-width: 120px; }
+    .stats-row { flex-wrap: wrap; gap: 1.5rem; }
+    .stat-block { min-width: 7.5rem; }
 
     /* Footer columns */
     .footer-grid { grid-template-columns: 1fr 1fr; }
@@ -189,12 +189,12 @@
 }
 
 /* ════════════════════════════════════════════════════════════════
-   3. ≤ 767px — Mobile landscape + standard portrait
+   3. ≤ 47.9375rem — Mobile landscape + standard portrait
    ════════════════════════════════════════════════════════════════ */
 @media (max-width: 767px) {
 
-    /* Base font scale */
-    html { font-size: 15px; }
+    /* Base font scale — slightly smaller for mobile */
+    html { font-size: 14px; }
 
     /* Navbar */
     .navbar { padding: 0.75rem 0; }
@@ -209,7 +209,7 @@
     .section-sub   { font-size: 0.95rem; }
 
     /* Hero */
-    .hero { padding: 100px 0 60px; }
+    .hero { padding: 6.25rem 0 3.75rem; }
     .hero h1 { font-size: clamp(1.9rem, 7.5vw, 2.8rem); }
     .hero-phone-mockup,
     .hero-device-preview,
@@ -227,7 +227,7 @@
     .ind-price-grid { grid-template-columns: 1fr !important; }
 
     /* CTA sections */
-    .cta-section { padding: 60px 0; }
+    .cta-section { padding: 3.75rem 0; }
     .cta-section h2 { font-size: clamp(1.6rem, 6vw, 2.2rem); }
 
     /* Comparison tables */
@@ -242,37 +242,37 @@
     /* Footer */
     .footer-grid { grid-template-columns: 1fr; }
     .footer-brand { grid-column: 1; }
-    .footer-bottom { flex-direction: column; gap: 6px; text-align: center; }
+    .footer-bottom { flex-direction: column; gap: 0.375rem; text-align: center; }
 
     /* Chat widget */
-    .chat-widget-container { right: 16px; bottom: 16px; }
-    .chat-toggle-btn { width: 54px; height: 54px; font-size: 1.3rem; }
-    .chat-window { width: calc(100vw - 32px); height: 78vh; right: 0; left: 0; margin: 0 auto; }
+    .chat-widget-container { right: 1rem; bottom: 1rem; }
+    .chat-toggle-btn { width: 3.375rem; height: 3.375rem; font-size: 1.3rem; }
+    .chat-window { width: calc(100vw - 2rem); height: 78vh; right: 0; left: 0; margin: 0 auto; }
     .chat-callout { display: none; }
 
     /* Buttons: full touch targets */
     .btn-lg { padding: 0.75rem 1.5rem; font-size: 1rem; }
-    .btn    { min-height: 44px; }
+    .btn    { min-height: 2.75rem; }
 
     /* Cards spacing */
-    .glass-card, .panel-card { padding: 20px 16px; }
+    .glass-card, .panel-card { padding: 1.25rem 1rem; }
 
     /* Popup */
-    .popup-card { border-radius: 20px; padding: 24px 20px; margin: 16px; }
+    .popup-card { border-radius: 1.25rem; padding: 1.5rem 1.25rem; margin: 1rem; }
 }
 
 /* ════════════════════════════════════════════════════════════════
-   4. ≤ 575px — Standard small phone portrait
+   4. ≤ 35.9375rem — Standard small phone portrait
    ════════════════════════════════════════════════════════════════ */
 @media (max-width: 575px) {
 
     /* Section padding tighter */
-    .section-pad  { padding: 50px 0; }
-    .page-top-pad { padding-top: 100px; padding-bottom: 50px; }
+    .section-pad  { padding: 3.125rem 0; }
+    .page-top-pad { padding-top: 6.25rem; padding-bottom: 3.125rem; }
 
     /* Hero */
-    .hero { padding: 90px 0 50px; }
-    .hero p.lead { font-size: 0.92rem; max-width: 90%; margin: 0 auto 24px; }
+    .hero { padding: 5.625rem 0 3.125rem; }
+    .hero p.lead { font-size: 0.92rem; max-width: 90%; margin: 0 auto 1.5rem; }
 
     /* KPI strip: single column */
     .kpi-row { grid-template-columns: 1fr 1fr !important; }
@@ -281,53 +281,53 @@
     .stats-row { flex-direction: column; align-items: center; }
 
     /* Pricing */
-    .price-card, .ind-price-card { padding: 24px 20px; border-radius: 16px; }
+    .price-card, .ind-price-card { padding: 1.5rem 1.25rem; border-radius: 1rem; }
     .price-tag { font-size: clamp(2rem, 10vw, 3rem); }
 
     /* Comparison table cells */
     .comp-table th,
-    .comp-table td { padding: 10px 8px; font-size: 0.82rem; }
+    .comp-table td { padding: 0.625rem 0.5rem; font-size: 0.82rem; }
 
     /* Section label chips */
-    .section-label { font-size: 0.72rem; padding: 4px 12px; }
+    .section-label { font-size: 0.72rem; padding: 0.25rem 0.75rem; }
 
     /* Articles */
     .article-page-title   { font-size: 1.8rem; }
     .article-section-title { font-size: 1.25rem; }
-    .article-highlight-box { padding: 20px; }
-    .article-cta-box       { padding: 24px; }
+    .article-highlight-box { padding: 1.25rem; }
+    .article-cta-box       { padding: 1.5rem; }
     .article-stat-row      { grid-template-columns: 1fr; }
 
     /* Connect page */
     .connect-grid { grid-template-columns: 1fr; }
 
     /* Buttons block on tiny screens */
-    .hero-actions { gap: 10px; }
+    .hero-actions { gap: 0.625rem; }
 
     /* Chat widget full bottom */
-    .chat-widget-container { right: 12px; bottom: 12px; }
-    .chat-window { width: calc(100vw - 24px); height: 82vh; }
+    .chat-widget-container { right: 0.75rem; bottom: 0.75rem; }
+    .chat-window { width: calc(100vw - 1.5rem); height: 82vh; }
 }
 
 /* ════════════════════════════════════════════════════════════════
-   5. ≤ 400px — Very small phones
+   5. ≤ 25rem — Very small phones
    ════════════════════════════════════════════════════════════════ */
 @media (max-width: 400px) {
-    html { font-size: 14px; }
+    html { font-size: 12px; }
     .navbar-brand { font-size: 1.1rem; }
     .hero h1 { font-size: clamp(1.6rem, 9vw, 2rem); }
     .btn { font-size: 0.88rem; padding: 0.6rem 1.2rem; }
-    .price-card, .ind-price-card { padding: 20px 16px; }
+    .price-card, .ind-price-card { padding: 1.25rem 1rem; }
     .kpi-row { grid-template-columns: 1fr !important; }
 }
 
 /* ════════════════════════════════════════════════════════════════
-   6. DASHBOARD MOBILE (≤ 767px)
+   6. DASHBOARD MOBILE (≤ 47.9375rem)
    ════════════════════════════════════════════════════════════════ */
 @media (max-width: 767px) {
 
     /* Topbar: tighten */
-    .dash-topbar { padding: 0 12px; height: var(--topbar-height); }
+    .dash-topbar { padding: 0 0.75rem; height: var(--topbar-height); }
     .topbar-title { font-size: 0.88rem; }
 
     /* Sidebar: collapse by default on mobile */
@@ -359,18 +359,18 @@
         width: 100% !important;
         flex: none !important;
         height: auto !important;
-        min-height: 200px;
+        min-height: 12.5rem;
     }
     #dlrColPhone {
-        min-height: 480px;
+        min-height: 30rem;
     }
 
     /* Tab bar: horizontal scroll */
     .nav-tabs { flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; }
-    .nav-tabs .nav-link { white-space: nowrap; font-size: 0.82rem; padding: 8px 12px; }
+    .nav-tabs .nav-link { white-space: nowrap; font-size: 0.82rem; padding: 0.5rem 0.75rem; }
 
     /* Panels: full width */
-    .panel, .glass-card { border-radius: 12px; }
+    .panel, .glass-card { border-radius: 0.75rem; }
     .config-side-nav { display: none; }
 
     /* iPhone phone UI: scale down slightly */
@@ -385,7 +385,7 @@
    Pad main content so it doesn't hide under the fixed bar.
    ════════════════════════════════════════════════════════════════ */
 @media (max-width: 767px) {
-    .dash-main { padding-bottom: 66px; }
+    .dash-main { padding-bottom: 4.125rem; }
 }
 
 /* ════════════════════════════════════════════════════════════════
@@ -396,7 +396,7 @@
 @media (pointer: coarse) {
     button, a.btn, input[type="button"], input[type="submit"],
     .nav-link, .sb-nav-item, .mobile-nav-btn {
-        min-height: 44px;
+        min-height: 2.75rem;
     }
     /* Tighter gap between icon and text on coarse devices */
     .btn i { pointer-events: none; }
@@ -405,7 +405,7 @@
 /* Prevent horizontal overflow on all pages */
 @media (max-width: 767px) {
     html, body { overflow-x: hidden; max-width: 100vw; }
-    .container { padding-left: 16px; padding-right: 16px; }
+    .container { padding-left: 1rem; padding-right: 1rem; }
     img, video, iframe { max-width: 100%; }
 }
 

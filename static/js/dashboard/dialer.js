@@ -3,6 +3,33 @@
         let dialerSelected = new Set();
         let dialerQueue = [];
         let dialerQueueRunning = false;
+
+        // ── Queue persistence (survives iframe refresh) ──
+        const _QUEUE_LS_KEY = 'igb_dialer_queue';
+        function _queuePersist() {
+            try {
+                if (!dialerQueue.length) { localStorage.removeItem(_QUEUE_LS_KEY); return; }
+                const slim = dialerQueue.slice(0, 2000).map(c => ({
+                    id: c.id, name: c.name, firstName: c.firstName,
+                    phone: c.phone, status: c.status || 'pending',
+                    temperature: c.temperature, score: c.score,
+                }));
+                localStorage.setItem(_QUEUE_LS_KEY, JSON.stringify(slim));
+            } catch (e) { /* quota exceeded or private mode */ }
+        }
+        function _queueRestore() {
+            try {
+                const raw = localStorage.getItem(_QUEUE_LS_KEY);
+                if (!raw) return;
+                const items = JSON.parse(raw);
+                if (!Array.isArray(items) || !items.length) return;
+                // Only restore pending/no-answer items (skip completed/failed)
+                const restorable = items.filter(c => c.status === 'pending' || c.status === 'no-answer');
+                if (!restorable.length) { localStorage.removeItem(_QUEUE_LS_KEY); return; }
+                dialerQueue = restorable;
+            } catch (e) { /* corrupt data — ignore */ }
+        }
+        _queueRestore();
         // Omnisconn engagement data cache: contactId → { messages, calls }
         let _igbEngagementCache = {};
         // Omnisconn AI intelligence cache: contactId → { temperature, score, summary }
@@ -3245,6 +3272,7 @@
             if (_igbIsOptedOut(_igbEngagementCache[c.id], c)) return;
             if (!dialerQueue.some(q => q.id === c.id)) {
                 dialerQueue.push({ id: c.id, name: c.name, firstName: c.firstName, phone: c.phone, status: 'pending' });
+                _queuePersist();
                 dialerRenderContacts();
                 dialerRenderQueue();
             }
@@ -3302,6 +3330,7 @@
                 }
             });
             dialerSelected.clear();
+            _queuePersist();
             dialerRenderContacts();
             dialerRenderQueue();
             dialerUpdateSelectionUI();
@@ -4816,6 +4845,7 @@
 
         // ── Queue management ──
         function dialerRenderQueue() {
+            _queuePersist();   // persist to localStorage on every render
             const list = document.getElementById('dialerQueueList');
             const cnt = document.getElementById('dialerQueueCount');
             const btn = document.getElementById('dialerStartBtn');
@@ -4840,7 +4870,7 @@
             }).join('');
         }
 
-        function dialerClearQueue() { if (dialerQueueRunning) return; dialerQueue = []; dialerCallIdx = -1; dialerRenderContacts(); dialerRenderQueue(); }
+        function dialerClearQueue() { if (dialerQueueRunning) return; dialerQueue = []; dialerCallIdx = -1; _queuePersist(); dialerRenderContacts(); dialerRenderQueue(); }
 
         // ═══════════════════════════════════════════════════════════════
         //   Campaign History — queues saved as named campaigns in localStorage
@@ -9916,7 +9946,7 @@
                     try { mod.popupWin.focus(); } catch (e) { /* cross-origin? */ }
                     return mod.popupWin;
                 }
-                const w = 460, h = 820;
+                const w = 340, h = 620;
                 const left = Math.max(0, (window.screen.availWidth  - w) - 24);
                 const top  = Math.max(0, Math.min(48, window.screen.availHeight - h - 24));
                 const features = `width=${w},height=${h},left=${left},top=${top},` +
@@ -9964,7 +9994,7 @@
                     mod._queuePushTimer = null;
                     try {
                         if (typeof dialerQueue === 'undefined' || !Array.isArray(dialerQueue)) return;
-                        const slim = dialerQueue.slice(0, 200).map(c => ({
+                        const slim = dialerQueue.slice(0, 2000).map(c => ({
                             contactId: c.contactId || c.id,
                             name: c.name || c.displayName || c.firstName || 'Lead',
                             firstName: c.firstName,
@@ -9987,6 +10017,9 @@
                         schedulePushQueue(150);
                         return r;
                     };
+                    // CRITICAL: reassign the closure-scoped variable so internal
+                    // callers (dialerAddSelectedToQueue, etc.) hit the wrapper.
+                    try { dialerRenderQueue = window.dialerRenderQueue; } catch (e) { /* strict mode */ }
                 }
             } catch (e) { /* ignore — queue streaming is best-effort */ }
 

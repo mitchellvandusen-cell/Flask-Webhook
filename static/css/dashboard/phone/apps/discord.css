@@ -27,7 +27,7 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 12px 14px;
+    padding: 0.75rem 0.875rem;
     background: #171717;
     border-bottom: 1px solid rgba(255,255,255,0.06);
     flex-shrink: 0;
@@ -61,8 +61,8 @@
     color: #555555;
     cursor: pointer;
     font-size: 0.9rem;
-    padding: 4px 6px;
-    border-radius: 6px;
+    padding: 0.25rem 0.375rem;
+    border-radius: 0.375rem;
     transition: color 0.15s, background 0.15s;
     display: flex;
     align-items: center;
@@ -84,11 +84,11 @@
 .discord-bell-btn {
     background: rgba(255,255,255,0.04);
     border: 1px solid rgba(255,255,255,0.08);
-    border-radius: 8px;
+    border-radius: 0.5rem;
     color: #888888;
     cursor: pointer;
     font-size: 0.85rem;
-    padding: 5px 8px;
+    padding: 0.3125rem 0.5rem;
     position: relative;
     transition: background 0.15s, color 0.15s;
 }
@@ -109,10 +109,10 @@
 /* Discord brand red badge — same both modes */
 .discord-bell-badge {
     position: absolute;
-    top: -4px;
-    right: -4px;
-    width: 14px;
-    height: 14px;
+    top: -0.25rem;
+    right: -0.25rem;
+    width: 0.875rem;
+    height: 0.875rem;
     border-radius: 50%;
     background: #ed4245;
     font-size: 0.6rem;
@@ -135,7 +135,7 @@
     scrollbar-width: thin;
     scrollbar-color: rgba(255,255,255,0.06) transparent;
 }
-.discord-server-list::-webkit-scrollbar { width: 4px; }
+.discord-server-list::-webkit-scrollbar { width: 0.25rem; }
 .discord-server-list::-webkit-scrollbar-thumb {
     background: rgba(255,255,255,0.06);
     border-radius: 2px;
@@ -149,7 +149,7 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 8px 14px;
+    padding: 0.5rem 0.875rem;
     font-size: 0.75rem;
     font-weight: 700;
     color: #555555;
@@ -196,9 +196,9 @@
 .discord-channel-btn {
     display: flex;
     align-items: center;
-    gap: 7px;
+    gap: 0.4375rem;
     width: 100%;
-    padding: 5px 14px 5px 22px;
+    padding: 0.3125rem 0.875rem 0.3125rem 1.375rem;
     background: none;
     border: none;
     color: #666666;
@@ -233,11 +233,11 @@
 .discord-messages {
     flex: 1;
     overflow-y: auto;
-    padding: 10px 0;
+    padding: 0.625rem 0;
     scrollbar-width: thin;
     scrollbar-color: rgba(255,255,255,0.06) transparent;
 }
-.discord-messages::-webkit-scrollbar { width: 4px; }
+.discord-messages::-webkit-scrollbar { width: 0.25rem; }
 .discord-messages::-webkit-scrollbar-thumb {
     background: rgba(255,255,255,0.06);
     border-radius: 2px;
@@ -250,7 +250,7 @@
 }
 
 .discord-msg {
-    padding: 4px 14px;
+    padding: 0.25rem 0.875rem;
     transition: background 0.12s;
 }
 .discord-msg:hover {
@@ -263,7 +263,7 @@
 .discord-msg-header {
     display: flex;
     align-items: baseline;
-    gap: 8px;
+    gap: 0.5rem;
     margin-bottom: 2px;
 }
 
@@ -298,12 +298,12 @@
 .dc-code-block {
     background: #0d0d0d;
     border: 1px solid rgba(255,255,255,0.06);
-    border-radius: 4px;
-    padding: 8px 12px;
+    border-radius: 0.25rem;
+    padding: 0.5rem 0.75rem;
     font-family: monospace;
     font-size: 0.8rem;
     color: #cccccc;
-    margin: 4px 0;
+    margin: 0.25rem 0;
     overflow-x: auto;
 }
 [data-theme="light"] .dc-code-block {
@@ -314,8 +314,8 @@
 
 .dc-inline-code {
     background: #1a1a1a;
-    border-radius: 3px;
-    padding: 1px 5px;
+    border-radius: 0.1875rem;
+    padding: 1px 0.3125rem;
     font-family: monospace;
     font-size: 0.82rem;
     color: #cccccc;
@@ -326,10 +326,10 @@
 }
 
 .dc-blockquote {
-    border-left: 3px solid #444444;
-    padding-left: 10px;
+    border-left: 0.1875rem solid #444444;
+    padding-left: 0.625rem;
     color: #888888;
-    margin: 4px 0;
+    margin: 0.25rem 0;
     font-style: italic;
 }
 [data-theme="light"] .dc-blockquote {
@@ -345,8 +345,8 @@
 .dc-bot-hint code {
     background: rgba(0,255,136,0.08);
     color: #00ff88;
-    border-radius: 3px;
-    padding: 1px 4px;
+    border-radius: 0.1875rem;
+    padding: 1px 0.25rem;
     font-family: monospace;
 }
 [data-theme="light"] .dc-bot-hint {
@@ -359,7 +359,7 @@
 
 /* ── Composer ── */
 .discord-composer {
-    padding: 10px 12px;
+    padding: 0.625rem 0.75rem;
     background: #171717;
     border-top: 1px solid rgba(255,255,255,0.06);
     flex-shrink: 0;
@@ -372,11 +372,11 @@
 .discord-composer-inner {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 0.5rem;
     background: #1e1e1e;
     border: 1px solid rgba(255,255,255,0.08);
-    border-radius: 10px;
-    padding: 6px 10px;
+    border-radius: 0.625rem;
+    padding: 0.375rem 0.625rem;
 }
 [data-theme="light"] .discord-composer-inner {
     background: #f4f4f4;
@@ -392,8 +392,8 @@
     font-size: 0.85rem;
     font-family: inherit;
     resize: none;
-    min-height: 20px;
-    max-height: 80px;
+    min-height: 1.25rem;
+    max-height: 5rem;
 }
 #discordReplyText::placeholder {
     color: #444444;
@@ -411,7 +411,7 @@
     color: #555555;
     cursor: pointer;
     font-size: 0.95rem;
-    padding: 2px 4px;
+    padding: 2px 0.25rem;
     transition: color 0.15s;
     flex-shrink: 0;
 }
@@ -434,8 +434,8 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 8px;
-    padding: 32px 20px;
+    gap: 0.5rem;
+    padding: 2rem 1.25rem;
     text-align: center;
     color: #444444;
 }
@@ -456,7 +456,7 @@
 .discord-modal-card {
     background: #1a1a1a;
     border: 1px solid rgba(88,101,242,0.20);
-    border-radius: 16px;
+    border-radius: 1rem;
     box-shadow: 0 30px 80px rgba(0,0,0,0.50);
     overflow: hidden;
 }
@@ -486,11 +486,11 @@
 .discord-guild-row {
     display: flex;
     align-items: center;
-    gap: 10px;
-    padding: 10px 14px;
+    gap: 0.625rem;
+    padding: 0.625rem 0.875rem;
     background: #222222;
     border: 1px solid rgba(255,255,255,0.06);
-    border-radius: 10px;
+    border-radius: 0.625rem;
     cursor: pointer;
     transition: background 0.15s, border-color 0.15s;
 }
@@ -518,9 +518,9 @@
 }
 
 .discord-guild-check {
-    width: 18px;
-    height: 18px;
-    border-radius: 4px;
+    width: 1.125rem;
+    height: 1.125rem;
+    border-radius: 0.25rem;
     border: 2px solid rgba(255,255,255,0.15);
     display: flex;
     align-items: center;
@@ -540,8 +540,8 @@
     background: #1e1e1e;
     border: 1px solid rgba(255,255,255,0.08);
     color: #cccccc;
-    border-radius: 8px;
-    padding: 10px 0;
+    border-radius: 0.5rem;
+    padding: 0.625rem 0;
     text-align: center;
     cursor: pointer;
     font-size: 0.9rem;
@@ -566,17 +566,17 @@
 
 /* ── Assistant Panel (floating AI helper) ── */
 .assistant-panel {
-    position: fixed; bottom: 24px; right: 24px; z-index: 9991;
-    width: 380px; height: 520px;
+    position: fixed; bottom: 1.5rem; right: 1.5rem; z-index: 9991;
+    width: 23.75rem; height: 32.5rem;
     background: linear-gradient(160deg, rgba(16,16,24,0.95) 0%, rgba(10,10,16,0.98) 100%);
     backdrop-filter: none;
     -webkit-backdrop-filter: none;
     border: 1px solid rgba(255,255,255,0.10);
-    border-radius: 16px;
+    border-radius: 1rem;
     box-shadow: 0 20px 48px rgba(0,0,0,0.60);
     display: flex; flex-direction: column;
     opacity: 0; pointer-events: none;
-    transform: translateY(20px) scale(0.95);
+    transform: translateY(1.25rem) scale(0.95);
     transition: opacity 0.25s ease, transform 0.25s ease;
 }
 .assistant-panel--open {
@@ -591,7 +591,7 @@
 
 .assistant-panel-header {
     display: flex; align-items: center; justify-content: space-between;
-    padding: 14px 16px;
+    padding: 0.875rem 1rem;
     border-bottom: 1px solid rgba(255,255,255,0.06);
 }
 [data-theme="light"] .assistant-panel-header {
@@ -599,7 +599,7 @@
 }
 
 .assistant-header-left {
-    display: flex; align-items: center; gap: 8px;
+    display: flex; align-items: center; gap: 0.5rem;
     color: #ffffff; font-size: 0.9rem; font-weight: 600;
 }
 .assistant-header-left i { color: var(--accent); font-size: 1rem; }
@@ -608,7 +608,7 @@
 
 .assistant-header-btn {
     background: none; border: none; color: #666666; cursor: pointer;
-    padding: 4px 8px; border-radius: 6px;
+    padding: 0.25rem 0.5rem; border-radius: 0.375rem;
     transition: background 0.15s, color 0.15s;
 }
 .assistant-header-btn:hover { color: #ffffff; background: rgba(255,255,255,0.06); }
@@ -617,11 +617,11 @@
 
 .assistant-messages {
     flex: 1; overflow-y: auto;
-    padding: 16px;
-    display: flex; flex-direction: column; gap: 10px;
+    padding: 1rem;
+    display: flex; flex-direction: column; gap: 0.625rem;
     scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.08) transparent;
 }
-.assistant-messages::-webkit-scrollbar { width: 4px; }
+.assistant-messages::-webkit-scrollbar { width: 0.25rem; }
 .assistant-messages::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 2px; }
 
 .assistant-msg { display: flex; }
@@ -630,8 +630,8 @@
 
 .assistant-bubble {
     max-width: 85%;
-    padding: 10px 14px;
-    border-radius: 14px;
+    padding: 0.625rem 0.875rem;
+    border-radius: 0.875rem;
     font-size: 0.85rem;
     line-height: 1.55;
     word-wrap: break-word;
@@ -640,13 +640,13 @@
     background: rgba(0,255,136,0.12);
     border: 1px solid rgba(0,255,136,0.15);
     color: #e8ffe8;
-    border-bottom-right-radius: 4px;
+    border-bottom-right-radius: 0.25rem;
 }
 .assistant-msg--assistant .assistant-bubble {
     background: rgba(255,255,255,0.04);
     border: 1px solid rgba(255,255,255,0.06);
     color: #cccccc;
-    border-bottom-left-radius: 4px;
+    border-bottom-left-radius: 0.25rem;
 }
 [data-theme="light"] .assistant-msg--user .assistant-bubble {
     background: #d1fae5; border-color: #a7f3d0; color: #065f46;
@@ -656,11 +656,11 @@
 }
 
 .assistant-typing {
-    display: none; align-items: center; gap: 4px;
-    padding: 8px 16px;
+    display: none; align-items: center; gap: 0.25rem;
+    padding: 0.5rem 1rem;
 }
 .assistant-typing-dot {
-    width: 6px; height: 6px; border-radius: 50%;
+    width: 0.375rem; height: 0.375rem; border-radius: 50%;
     background: rgba(255,255,255,0.25);
     animation: assistantDotBounce 1.4s ease-in-out infinite;
 }
@@ -673,8 +673,8 @@
 [data-theme="light"] .assistant-typing-dot { background: rgba(0,0,0,0.20); }
 
 .assistant-composer {
-    display: flex; align-items: flex-end; gap: 8px;
-    padding: 12px 14px;
+    display: flex; align-items: flex-end; gap: 0.5rem;
+    padding: 0.75rem 0.875rem;
     border-top: 1px solid rgba(255,255,255,0.06);
 }
 [data-theme="light"] .assistant-composer {
@@ -686,11 +686,11 @@
     background: rgba(255,255,255,0.04);
     border: 1px solid rgba(255,255,255,0.08);
     border-radius: 2px;
-    padding: 10px 14px;
+    padding: 0.625rem 0.875rem;
     color: #e0e0e0; font-size: 0.85rem;
     font-family: inherit;
     outline: none;
-    min-height: 40px; max-height: 100px;
+    min-height: 2.5rem; max-height: 6.25rem;
     transition: border-color 0.2s;
 }
 .assistant-composer textarea:focus { border-color: #00ff88; }
@@ -702,8 +702,8 @@
 
 .assistant-composer button {
     background: #00ff88; color: #000000;
-    border: none; border-radius: 10px;
-    width: 38px; height: 38px;
+    border: none; border-radius: 0.625rem;
+    width: 2.375rem; height: 2.375rem;
     display: flex; align-items: center; justify-content: center;
     cursor: pointer; font-size: 0.85rem;
     transition: transform 0.15s;
@@ -713,8 +713,8 @@
 [data-theme="light"] .assistant-composer button { background: #00aa5e; color: #ffffff; }
 
 .assistant-mic-btn {
-    background: none; border: 1px solid rgba(255,255,255,0.08); border-radius: 10px;
-    width: 38px; height: 38px; display: flex; align-items: center; justify-content: center;
+    background: none; border: 1px solid rgba(255,255,255,0.08); border-radius: 0.625rem;
+    width: 2.375rem; height: 2.375rem; display: flex; align-items: center; justify-content: center;
     color: #888888; cursor: pointer; font-size: 0.85rem; flex-shrink: 0;
     transition: color 0.2s, border-color 0.2s;
 }
@@ -731,7 +731,7 @@
 [data-theme="light"] .assistant-mic-btn:hover { color: #00aa5e; border-color: #00aa5e; }
 
 .assistant-nudge {
-    z-index: 9989; max-width: 280px; padding: 10px 16px;
+    z-index: 9989; max-width: 17.5rem; padding: 0.625rem 1rem;
     background: rgba(16,16,24,0.95); backdrop-filter: none;
     border: 1px solid rgba(255,255,255,0.10); border-radius: 2px;
     color: #cccccc; font-size: 0.8rem; line-height: 1.5;
@@ -740,7 +740,7 @@
     animation: assistantNudgeIn 0.3s ease;
 }
 @keyframes assistantNudgeIn {
-    from { opacity: 0; transform: translateY(8px); }
+    from { opacity: 0; transform: translateY(0.5rem); }
     to   { opacity: 1; transform: translateY(0); }
 }
 [data-theme="light"] .assistant-nudge {
@@ -750,9 +750,9 @@
 
 @media (max-width: 768px) {
     .assistant-panel {
-        width: calc(100vw - 16px);
-        height: calc(100vh - 120px);
-        bottom: 8px; right: 8px;
-        border-radius: 14px;
+        width: calc(100vw - 1rem);
+        height: calc(100vh - 7.5rem);
+        bottom: 0.5rem; right: 0.5rem;
+        border-radius: 0.875rem;
     }
 }

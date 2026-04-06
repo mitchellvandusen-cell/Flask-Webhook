@@ -6,7 +6,7 @@
 /* ── Page header icon ── */
 .biz-prof-header-icon {
     color: var(--accent, #00ff88);
-    margin-right: 8px;
+    margin-right: 0.5rem;
     font-size: 0.9rem;
 }
 
@@ -14,8 +14,8 @@
 .biz-prof-status-badge {
     font-size: 0.72rem;
     font-weight: 700;
-    padding: 3px 10px;
-    border-radius: 20px;
+    padding: 0.1875rem 0.625rem;
+    border-radius: 1.25rem;
     background: rgba(0,255,136,0.1);
     color: #00ff88;
     border: 1px solid rgba(0,255,136,0.2);
@@ -30,9 +30,9 @@ body.light-theme .biz-prof-status-badge {
 .biz-prof-info-box {
     background: rgba(0,255,136,0.04);
     border: 1px solid rgba(0,255,136,0.12);
-    border-radius: 10px;
-    padding: 14px 16px;
-    margin-bottom: 20px;
+    border-radius: 0.625rem;
+    padding: 0.875rem 1rem;
+    margin-bottom: 1.25rem;
 }
 body.light-theme .biz-prof-info-box {
     background: rgba(5,150,105,0.04);
@@ -43,7 +43,7 @@ body.light-theme .biz-prof-info-box {
     font-size: 0.75rem;
     color: #00ff88;
     font-weight: 600;
-    margin-bottom: 8px;
+    margin-bottom: 0.5rem;
 }
 body.light-theme .biz-prof-info-heading {
     color: #059669;
@@ -52,7 +52,7 @@ body.light-theme .biz-prof-info-heading {
 .biz-prof-checklist {
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 0.25rem;
 }
 .biz-prof-check-item {
     font-size: 0.75rem;
@@ -64,7 +64,7 @@ body.light-theme .biz-prof-check-item {
 }
 .biz-prof-check-icon {
     color: #00ff88;
-    margin-right: 4px;
+    margin-right: 0.25rem;
 }
 body.light-theme .biz-prof-check-icon {
     color: #059669;
@@ -74,8 +74,8 @@ body.light-theme .biz-prof-check-icon {
 .biz-prof-form-wrapper {
     background: rgba(0,255,136,0.03);
     border: 1px solid rgba(0,255,136,0.1);
-    border-radius: 10px;
-    padding: 20px;
+    border-radius: 0.625rem;
+    padding: 1.25rem;
 }
 body.light-theme .biz-prof-form-wrapper {
     background: #f8fffe;
@@ -87,8 +87,8 @@ body.light-theme .biz-prof-form-wrapper {
     font-weight: 600;
     font-size: 0.82rem;
     color: #fff;
-    margin-bottom: 10px;
-    margin-top: 4px;
+    margin-bottom: 0.625rem;
+    margin-top: 0.25rem;
 }
 body.light-theme .biz-prof-section-title {
     color: #1a1a1a;
@@ -108,14 +108,14 @@ body.light-theme .biz-prof-icon-green { color: #059669; }
     font-size: 0.75rem;
     font-weight: 600;
     display: block;
-    margin-bottom: 4px;
+    margin-bottom: 0.25rem;
 }
 .biz-prof-field-label-sm {
     color: #aaa;
     font-size: 0.72rem;
     font-weight: 600;
     display: block;
-    margin-bottom: 4px;
+    margin-bottom: 0.25rem;
 }
 body.light-theme .biz-prof-field-label,
 body.light-theme .biz-prof-field-label-sm {
@@ -128,8 +128,8 @@ body.light-theme .biz-prof-field-label-sm {
     background: rgba(255,255,255,0.04);
     border: 1px solid rgba(255,255,255,0.1);
     color: #fff;
-    padding: 8px 12px;
-    border-radius: 8px;
+    padding: 0.5rem 0.75rem;
+    border-radius: 0.5rem;
     font-size: 0.85rem;
     outline: none;
     transition: border-color 0.18s ease;
@@ -155,8 +155,8 @@ body.light-theme .biz-prof-input::placeholder { color: #aaa; }
     background: rgba(255,255,255,0.04);
     border: 1px solid rgba(255,255,255,0.1);
     color: #fff;
-    padding: 8px 12px;
-    border-radius: 8px;
+    padding: 0.5rem 0.75rem;
+    border-radius: 0.5rem;
     font-size: 0.85rem;
     outline: none;
     transition: border-color 0.18s ease;
@@ -172,14 +172,14 @@ body.light-theme .biz-prof-select:focus { border-color: rgba(5,150,105,0.45); }
 body.light-theme .biz-prof-select option { background: #fff; color: #1a1a1a; }
 
 /* ── Sole Proprietor EIN section ── */
-.biz-prof-sole-prop { margin-bottom: 14px; }
+.biz-prof-sole-prop { margin-bottom: 0.875rem; }
 
 .biz-prof-ein-rec-box {
-    padding: 10px 14px;
+    padding: 0.625rem 0.875rem;
     background: rgba(0,255,136,0.05);
     border: 1px solid rgba(0,255,136,0.2);
-    border-radius: 8px;
-    margin-bottom: 10px;
+    border-radius: 0.5rem;
+    margin-bottom: 0.625rem;
 }
 body.light-theme .biz-prof-ein-rec-box {
     background: rgba(5,150,105,0.05);
@@ -189,7 +189,7 @@ body.light-theme .biz-prof-ein-rec-box {
     font-size: 0.78rem;
     color: #00ff88;
     font-weight: 700;
-    margin-bottom: 4px;
+    margin-bottom: 0.25rem;
 }
 body.light-theme .biz-prof-ein-rec-heading { color: #059669; }
 .biz-prof-ein-rec-text {
@@ -201,19 +201,19 @@ body.light-theme .biz-prof-ein-rec-text { color: #555; }
 .biz-prof-strong { color: #fff; }
 body.light-theme .biz-prof-strong { color: #1a1a1a; }
 
-.biz-prof-ein-toggle { margin-bottom: 8px; }
+.biz-prof-ein-toggle { margin-bottom: 0.5rem; }
 .biz-prof-ein-toggle-label {
     font-size: 0.78rem;
     color: #ccc;
     font-weight: 600;
-    margin-bottom: 6px;
+    margin-bottom: 0.375rem;
 }
 body.light-theme .biz-prof-ein-toggle-label { color: #333; }
 
 .biz-prof-ein-btn {
     flex: 1;
-    padding: 8px 12px;
-    border-radius: 8px;
+    padding: 0.5rem 0.75rem;
+    border-radius: 0.5rem;
     font-size: 0.82rem;
     font-weight: 600;
     cursor: pointer;
@@ -242,10 +242,10 @@ body.light-theme .biz-prof-ein-btn-no {
 body.light-theme .biz-prof-ein-btn-no:hover { border-color: #aaa; color: #333; }
 
 .biz-prof-no-ein-card {
-    padding: 10px 14px;
+    padding: 0.625rem 0.875rem;
     background: rgba(255,165,0,0.05);
     border: 1px solid rgba(255,165,0,0.15);
-    border-radius: 8px;
+    border-radius: 0.5rem;
     font-size: 0.74rem;
     color: #aaa;
     line-height: 1.65;
@@ -258,12 +258,12 @@ body.light-theme .biz-prof-link-orange { color: #059669; }
 .biz-prof-submit-btn {
     display: block;
     width: 100%;
-    margin-top: 20px;
+    margin-top: 1.25rem;
     background: linear-gradient(135deg, #00ff88, #00cc6a);
     border: none;
     color: #000;
-    border-radius: 10px;
-    padding: 12px 28px;
+    border-radius: 0.625rem;
+    padding: 0.75rem 1.75rem;
     font-size: 0.9rem;
     font-weight: 700;
     cursor: pointer;
@@ -277,10 +277,10 @@ body.light-theme .biz-prof-submit-btn {
 
 /* ── Result message ── */
 .biz-prof-result {
-    margin-top: 10px;
+    margin-top: 0.625rem;
     font-size: 0.78rem;
     text-align: center;
     color: #aaa;
-    min-height: 20px;
+    min-height: 1.25rem;
 }
 body.light-theme .biz-prof-result { color: #555; }

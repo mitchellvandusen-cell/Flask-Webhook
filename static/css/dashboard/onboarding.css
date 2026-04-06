@@ -14,24 +14,24 @@
     flex-direction: column;
     align-items: center;
     overflow: hidden;
-    padding-top: 48px;
+    padding-top: 3rem;
 }
 
 /* ── Progress ────────────────────────────────────────────────── */
 .onb-progress {
     text-align: center;
-    margin-bottom: 28px;
+    margin-bottom: 1.75rem;
     flex-shrink: 0;
 }
 .onb-progress-dots {
     display: flex;
-    gap: 10px;
+    gap: 0.625rem;
     justify-content: center;
-    margin-bottom: 10px;
+    margin-bottom: 0.625rem;
 }
 .onb-dot {
-    width: 10px;
-    height: 10px;
+    width: 0.625rem;
+    height: 0.625rem;
     border-radius: 50%;
     background: var(--border-strong);
     transition: background 0.35s ease, box-shadow 0.35s ease;
@@ -70,19 +70,19 @@
     min-width: 100%;
     display: flex;
     justify-content: center;
-    padding: 0 20px;
+    padding: 0 1.25rem;
     align-items: flex-start;
 }
 
 /* ── Card ────────────────────────────────────────────────────── */
 .onb-card {
     width: 100%;
-    max-width: 560px;
+    max-width: 35rem;
     background: var(--surface-1);
     border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 40px 36px;
-    max-height: calc(100vh - 160px);
+    border-radius: 0.75rem;
+    padding: 2.5rem 2.25rem;
+    max-height: calc(100vh - 10rem);
     overflow-y: auto;
 }
 
@@ -92,39 +92,39 @@
     font-size: 1.75rem;
     font-weight: 800;
     color: var(--text-primary);
-    margin: 0 0 8px;
+    margin: 0 0 0.5rem;
     line-height: var(--lh-tight);
 }
 .onb-subtitle {
     font-size: var(--fs-base);
     color: var(--text-secondary);
-    margin: 0 0 28px;
+    margin: 0 0 1.75rem;
     line-height: var(--lh-relaxed);
 }
 
 /* ── Form Fields ─────────────────────────────────────────────── */
 .onb-field-group {
-    margin-bottom: 20px;
+    margin-bottom: 1.25rem;
 }
 .onb-label {
     display: block;
     font-size: var(--fs-sm);
     font-weight: 600;
     color: var(--text-secondary);
-    margin-bottom: 6px;
+    margin-bottom: 0.375rem;
     letter-spacing: 0.2px;
 }
 .onb-input,
 .onb-select {
     width: 100%;
-    height: 48px;
-    padding: 0 16px;
+    height: 3rem;
+    padding: 0 1rem;
     font-size: var(--fs-base);
     font-family: inherit;
     color: var(--text-primary);
     background: var(--surface-2);
     border: 1px solid var(--border);
-    border-radius: 10px;
+    border-radius: 0.625rem;
     outline: none;
     transition: border-color 0.2s ease, box-shadow 0.2s ease;
     box-sizing: border-box;
@@ -145,11 +145,11 @@
 .onb-error-msg {
     font-size: var(--fs-xs);
     color: var(--status-error);
-    margin-top: 4px;
+    margin-top: 0.25rem;
 }
 .onb-row {
     display: flex;
-    gap: 16px;
+    gap: 1rem;
 }
 .onb-row .onb-field-group {
     flex: 1;
@@ -160,20 +160,20 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 8px;
+    gap: 0.5rem;
     width: 100%;
-    height: 52px;
+    height: 3.25rem;
     background: var(--accent);
     color: #0a0a0a;
     border: none;
-    border-radius: 10px;
-    padding: 0 28px;
+    border-radius: 0.625rem;
+    padding: 0 1.75rem;
     font-weight: 700;
     font-size: var(--fs-md);
     font-family: 'Outfit', sans-serif;
     cursor: pointer;
     transition: opacity 0.2s ease, transform 0.15s ease;
-    margin-top: 8px;
+    margin-top: 0.5rem;
 }
 .onb-continue-btn:hover {
     opacity: 0.92;
@@ -188,12 +188,12 @@
 .onb-back-btn {
     display: inline-flex;
     align-items: center;
-    gap: 6px;
+    gap: 0.375rem;
     background: none;
     border: 1px solid var(--border);
-    border-radius: 10px;
-    padding: 0 20px;
-    height: 44px;
+    border-radius: 0.625rem;
+    padding: 0 1.25rem;
+    height: 2.75rem;
     font-size: var(--fs-sm);
     font-weight: 600;
     color: var(--text-secondary);
@@ -207,8 +207,8 @@
 .onb-nav-row {
     display: flex;
     align-items: center;
-    gap: 12px;
-    margin-top: 24px;
+    gap: 0.75rem;
+    margin-top: 1.5rem;
 }
 .onb-nav-row .onb-continue-btn {
     flex: 1;
@@ -219,15 +219,15 @@
 .onb-expand-btn {
     display: inline-flex;
     align-items: center;
-    gap: 6px;
+    gap: 0.375rem;
     background: none;
     border: none;
-    padding: 6px 0;
+    padding: 0.375rem 0;
     font-size: var(--fs-sm);
     color: var(--accent);
     cursor: pointer;
     font-weight: 500;
-    margin-top: 4px;
+    margin-top: 0.25rem;
 }
 .onb-expand-btn:hover {
     text-decoration: underline;
@@ -236,9 +236,9 @@
     display: none;
     background: var(--surface-2);
     border: 1px solid var(--border);
-    border-radius: 10px;
-    padding: 20px;
-    margin-top: 12px;
+    border-radius: 0.625rem;
+    padding: 1.25rem;
+    margin-top: 0.75rem;
 }
 .onb-help-panel.open {
     display: block;
@@ -247,7 +247,7 @@
     font-size: var(--fs-base);
     font-weight: 700;
     color: var(--text-primary);
-    margin: 0 0 10px;
+    margin: 0 0 0.625rem;
 }
 .onb-help-list {
     list-style: none;
@@ -256,7 +256,7 @@
 }
 .onb-help-list li {
     position: relative;
-    padding: 6px 0 6px 22px;
+    padding: 0.375rem 0 0.375rem 1.375rem;
     font-size: var(--fs-sm);
     color: var(--text-secondary);
     line-height: var(--lh-relaxed);
@@ -265,9 +265,9 @@
     content: '';
     position: absolute;
     left: 0;
-    top: 13px;
-    width: 6px;
-    height: 6px;
+    top: 0.8125rem;
+    width: 0.375rem;
+    height: 0.375rem;
     border-radius: 50%;
     background: var(--accent);
 }
@@ -282,22 +282,22 @@
 .onb-help-note {
     font-size: var(--fs-xs);
     color: var(--text-muted);
-    margin-top: 10px;
+    margin-top: 0.625rem;
     line-height: var(--lh-relaxed);
 }
 
 /* ── Domain Search (Step 3) ──────────────────────────────────── */
 .onb-path-toggle {
     display: flex;
-    gap: 12px;
-    margin-bottom: 24px;
+    gap: 0.75rem;
+    margin-bottom: 1.5rem;
 }
 .onb-path-btn {
     flex: 1;
-    padding: 16px;
+    padding: 1rem;
     background: var(--surface-2);
     border: 2px solid var(--border);
-    border-radius: 10px;
+    border-radius: 0.625rem;
     text-align: center;
     cursor: pointer;
     transition: border-color 0.2s ease, background 0.2s ease;
@@ -309,7 +309,7 @@
 .onb-path-btn-icon {
     font-size: 1.5rem;
     display: block;
-    margin-bottom: 6px;
+    margin-bottom: 0.375rem;
 }
 .onb-path-btn-label {
     font-size: var(--fs-sm);
@@ -322,12 +322,12 @@
     margin-top: 2px;
 }
 .onb-domain-features {
-    margin: 0 0 20px;
+    margin: 0 0 1.25rem;
     padding: 0;
     list-style: none;
 }
 .onb-domain-features li {
-    padding: 5px 0 5px 24px;
+    padding: 0.3125rem 0 0.3125rem 1.5rem;
     position: relative;
     font-size: var(--fs-sm);
     color: var(--text-secondary);
@@ -354,19 +354,19 @@
 }
 .onb-domain-search-row {
     display: flex;
-    gap: 10px;
-    margin-bottom: 16px;
+    gap: 0.625rem;
+    margin-bottom: 1rem;
 }
 .onb-domain-search-row .onb-input {
     flex: 1;
 }
 .onb-domain-search-btn {
-    height: 48px;
-    padding: 0 20px;
+    height: 3rem;
+    padding: 0 1.25rem;
     background: var(--accent);
     color: #0a0a0a;
     border: none;
-    border-radius: 10px;
+    border-radius: 0.625rem;
     font-weight: 700;
     font-size: var(--fs-sm);
     cursor: pointer;
@@ -377,17 +377,17 @@
 .onb-domain-results {
     display: flex;
     flex-direction: column;
-    gap: 8px;
-    margin-bottom: 16px;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
 }
 .onb-domain-option {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 14px 16px;
+    padding: 0.875rem 1rem;
     background: var(--surface-2);
     border: 2px solid var(--border);
-    border-radius: 10px;
+    border-radius: 0.625rem;
     cursor: pointer;
     transition: border-color 0.2s ease;
 }
@@ -417,8 +417,8 @@
     font-size: var(--fs-sm);
     color: var(--text-muted);
     cursor: pointer;
-    padding: 10px 0;
-    margin-top: 8px;
+    padding: 0.625rem 0;
+    margin-top: 0.5rem;
 }
 .onb-skip-link:hover {
     color: var(--text-secondary);
@@ -428,17 +428,17 @@
 .onb-number-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 10px;
-    margin-bottom: 16px;
+    gap: 0.625rem;
+    margin-bottom: 1rem;
 }
 .onb-number-card {
     display: flex;
     align-items: center;
-    gap: 10px;
-    padding: 14px 16px;
+    gap: 0.625rem;
+    padding: 0.875rem 1rem;
     background: var(--surface-2);
     border: 2px solid var(--border);
-    border-radius: 10px;
+    border-radius: 0.625rem;
     cursor: pointer;
     transition: border-color 0.2s ease, background 0.2s ease;
 }
@@ -450,8 +450,8 @@
     border-color: var(--accent-border);
 }
 .onb-number-check {
-    width: 22px;
-    height: 22px;
+    width: 1.375rem;
+    height: 1.375rem;
     border: 2px solid var(--border-strong);
     border-radius: 50%;
     display: flex;
@@ -459,7 +459,7 @@
     justify-content: center;
     flex-shrink: 0;
     transition: background 0.2s, border-color 0.2s;
-    font-size: 11px;
+    font-size: 0.6875rem;
     color: transparent;
 }
 .onb-number-card.selected .onb-number-check {
@@ -477,7 +477,7 @@
     font-size: var(--fs-sm);
     color: var(--text-muted);
     text-align: center;
-    margin-bottom: 12px;
+    margin-bottom: 0.75rem;
 }
 .onb-number-count strong {
     color: var(--accent);
@@ -485,8 +485,8 @@
 }
 .onb-area-code-row {
     display: flex;
-    gap: 10px;
-    margin-bottom: 16px;
+    gap: 0.625rem;
+    margin-bottom: 1rem;
 }
 .onb-area-code-row .onb-input {
     flex: 1;
@@ -509,7 +509,7 @@
 }
 .onb-intro-content {
     text-align: center;
-    padding: 0 24px;
+    padding: 0 1.5rem;
 }
 .onb-intro-line1 {
     font-family: 'Outfit', sans-serif;
@@ -531,7 +531,7 @@
     -webkit-text-fill-color: transparent;
     filter: drop-shadow(0 2px 12px rgba(212, 160, 74, 0.25));
     opacity: 0;
-    margin: 12px 0 20px;
+    margin: 0.75rem 0 1.25rem;
     letter-spacing: -1px;
     animation: onbBrandIn 1.2s cubic-bezier(0.16, 1, 0.3, 1) 0.8s forwards;
 }
@@ -576,7 +576,7 @@
 }
 .onb-closing-content {
     text-align: center;
-    padding: 0 24px;
+    padding: 0 1.5rem;
 }
 .onb-closing-line {
     font-family: 'Outfit', sans-serif;
@@ -603,8 +603,8 @@
 /* ── Loading Spinner ─────────────────────────────────────────── */
 .onb-spinner {
     display: inline-block;
-    width: 18px;
-    height: 18px;
+    width: 1.125rem;
+    height: 1.125rem;
     border: 2px solid rgba(0, 0, 0, 0.2);
     border-top-color: #0a0a0a;
     border-radius: 50%;
@@ -618,12 +618,12 @@
 .onb-info {
     display: flex;
     align-items: flex-start;
-    gap: 12px;
-    padding: 14px 16px;
+    gap: 0.75rem;
+    padding: 0.875rem 1rem;
     background: var(--surface-2);
     border: 1px solid var(--border);
-    border-radius: 10px;
-    margin-bottom: 20px;
+    border-radius: 0.625rem;
+    margin-bottom: 1.25rem;
 }
 .onb-info-icon {
     color: var(--accent);
@@ -640,11 +640,11 @@
 /* ── Mobile ──────────────────────────────────────────────────── */
 @media (max-width: 640px) {
     .onb-overlay {
-        padding-top: 28px;
+        padding-top: 1.75rem;
     }
     .onb-card {
-        padding: 28px 20px;
-        border-radius: 10px;
+        padding: 1.75rem 1.25rem;
+        border-radius: 0.625rem;
     }
     .onb-title {
         font-size: 1.4rem;
@@ -658,7 +658,7 @@
     }
     .onb-path-toggle {
         flex-direction: column;
-        gap: 10px;
+        gap: 0.625rem;
     }
 }
 
