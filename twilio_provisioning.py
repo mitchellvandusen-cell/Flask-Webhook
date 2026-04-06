@@ -1038,6 +1038,49 @@ def register_business_profile(sub_account_sid: str, business_name: str,
                     logger.warning(f"[SpamProtection] EntityAssignment for {entity_name} failed: {e}")
                     results["errors"].append(f"Assign {entity_name}: {e}")
 
+    # ── Step 5b: Upload EIN document (if provided) ──
+    # Must happen BEFORE evaluation/submission — once a profile is in
+    # pending-review, entity assignments may be rejected by Twilio.
+    # Sole proprietors with new EINs upload their CP 575 letter.
+    # Twilio SDK doesn't support file uploads on Trust Hub supporting docs,
+    # so we use the REST API directly with multipart form data.
+    ein_doc_sid = ""
+    if profile_sid and ein_document_data:
+        try:
+            ein_doc_sid = _upload_ein_supporting_document(
+                sub_account_sid=sub_account_sid,
+                sub_account_auth_token=sub_account_auth_token,
+                business_name=business_name,
+                ein=ein,
+                contact_name=contact_name,
+                ein_document_data=ein_document_data,
+                ein_document_type=ein_document_type,
+                ein_document_name=ein_document_name,
+            )
+            if ein_doc_sid:
+                # Assign to profile
+                client.trusthub.v1.customer_profiles(profile_sid) \
+                    .customer_profiles_entity_assignments.create(
+                        object_sid=ein_doc_sid,
+                    )
+                results["steps"].append({
+                    "name": "ein_document",
+                    "status": "ok",
+                    "sid": ein_doc_sid,
+                })
+                results["ein_document_sid"] = ein_doc_sid
+                logger.info(f"[SpamProtection] EIN document uploaded and assigned: {ein_doc_sid}")
+        except TwilioRestException as e:
+            if e.code == 20409:
+                logger.info(f"[SpamProtection] EIN document already assigned (20409)")
+                results["steps"].append({"name": "ein_document", "status": "ok", "sid": ein_doc_sid})
+            else:
+                logger.error(f"[SpamProtection] EIN document assignment failed: {e}")
+                results["errors"].append(f"EIN document: {e}")
+        except Exception as e:
+            logger.error(f"[SpamProtection] EIN document upload failed: {e}")
+            results["errors"].append(f"EIN document: {e}")
+
     # ── Step 6: Assign phone numbers to profile ──
     if profile_sid:
         try:
@@ -1150,47 +1193,6 @@ def register_business_profile(sub_account_sid: str, business_name: str,
             "reason": "No Customer Profile created — cannot set CNAM labels",
         })
 
-    # ── Step 8b: Upload EIN document (if provided) ──
-    # Sole proprietors with new EINs upload their CP 575 letter.
-    # Twilio SDK doesn't support file uploads on Trust Hub supporting docs,
-    # so we use the REST API directly with multipart form data.
-    ein_doc_sid = ""
-    if profile_sid and ein_document_data:
-        try:
-            ein_doc_sid = _upload_ein_supporting_document(
-                sub_account_sid=sub_account_sid,
-                sub_account_auth_token=sub_account_auth_token,
-                business_name=business_name,
-                ein=ein,
-                contact_name=contact_name,
-                ein_document_data=ein_document_data,
-                ein_document_type=ein_document_type,
-                ein_document_name=ein_document_name,
-            )
-            if ein_doc_sid:
-                # Assign to profile
-                client.trusthub.v1.customer_profiles(profile_sid) \
-                    .customer_profiles_entity_assignments.create(
-                        object_sid=ein_doc_sid,
-                    )
-                results["steps"].append({
-                    "name": "ein_document",
-                    "status": "ok",
-                    "sid": ein_doc_sid,
-                })
-                results["ein_document_sid"] = ein_doc_sid
-                logger.info(f"[SpamProtection] EIN document uploaded and assigned: {ein_doc_sid}")
-        except TwilioRestException as e:
-            if e.code == 20409:
-                logger.info(f"[SpamProtection] EIN document already assigned (20409)")
-                results["steps"].append({"name": "ein_document", "status": "ok", "sid": ein_doc_sid})
-            else:
-                logger.error(f"[SpamProtection] EIN document assignment failed: {e}")
-                results["errors"].append(f"EIN document: {e}")
-        except Exception as e:
-            logger.error(f"[SpamProtection] EIN document upload failed: {e}")
-            results["errors"].append(f"EIN document: {e}")
-
     # Add profile_sid to results for caller to save
     if profile_sid:
         results["profile_sid"] = profile_sid
@@ -1296,7 +1298,10 @@ def _upload_ein_supporting_document(
         logger.info(f"[SpamProtection] EIN document uploaded: {sid}")
         return sid
     else:
-        error_msg = resp.json().get("message", resp.text[:200])
+        try:
+            error_msg = resp.json().get("message", resp.text[:200])
+        except Exception:
+            error_msg = resp.text[:200]
         logger.error(
             f"[SpamProtection] EIN document upload failed ({resp.status_code}): {error_msg}"
         )
