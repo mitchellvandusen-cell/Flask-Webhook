@@ -62,9 +62,15 @@ def _check_needs_onboarding(user, voice_config=None):
     For PREEXISTING users: verifies a Twilio profile actually exists (profile_sid
     in voice_config OR live Twilio API check). If the flag says True but no
     Twilio profile exists, resets the flag and returns True.
+
+    Exemptions: admins, demo accounts.
     """
     is_admin = user.email.lower() in [e.lower() for e in ADMIN_EMAILS]
     if is_admin:
+        return False
+
+    # Demo accounts skip onboarding
+    if getattr(user, 'email', '').endswith('@insurancegrok.com'):
         return False
 
     vc = voice_config if voice_config is not None else (user.voice_config or {})
@@ -79,38 +85,46 @@ def _check_needs_onboarding(user, voice_config=None):
     if profile_sid:
         return False  # Has a real Twilio profile → onboarding done
 
-    # Flag says True but no profile_sid locally — check Twilio API
+    # Flag says True but no profile_sid — need to verify against Twilio.
+    # Only make the API call if user has a sub-account (otherwise no point).
     sub_sid = getattr(user, 'twilio_sub_account_sid', '') or vc.get('twilio_sub_account_sid', '')
     sub_auth = getattr(user, 'twilio_sub_account_auth_token', '') or vc.get('twilio_auth_token', '')
 
-    if sub_sid and sub_auth:
-        try:
-            from twilio_provisioning import get_sub_account_client_native
-            client = get_sub_account_client_native(sub_sid, sub_auth)
-            profiles = client.trusthub.v1.customer_profiles.list(limit=5)
-            for p in profiles:
-                p_status = getattr(p, 'status', '')
-                if p_status in ('twilio-approved', 'in-review', 'pending-review', 'draft'):
-                    # Found a real Twilio profile — update local data
-                    trust_hub['profile_sid'] = p.sid
-                    trust_hub['review_status'] = p_status
-                    vc['trust_hub'] = trust_hub
-                    conn = get_db_connection()
-                    if conn:
-                        try:
-                            cur = conn.cursor()
-                            cur.execute("UPDATE subscribers SET voice_config = %s WHERE email = %s",
-                                        (json.dumps(vc), user.email))
-                            conn.commit()
-                        except Exception:
-                            conn.rollback()
-                        finally:
-                            return_db_connection(conn)
-                    return False
-        except Exception as e:
-            logger.warning(f"[onboarding] Twilio profile discovery failed for {user.email}: {e}")
+    if not sub_sid or not sub_auth:
+        # No sub-account yet — user submitted the form but Twilio registration
+        # couldn't run. The profile data is saved; registration will happen once
+        # they get a sub-account. Don't reset the flag — let them through.
+        return False
 
-    # No Twilio profile found — reset the flag and require onboarding
+    try:
+        from twilio_provisioning import get_sub_account_client_native
+        client = get_sub_account_client_native(sub_sid, sub_auth)
+        profiles = client.trusthub.v1.customer_profiles.list(limit=5)
+        for p in profiles:
+            p_status = getattr(p, 'status', '')
+            if p_status in ('twilio-approved', 'in-review', 'pending-review', 'draft'):
+                # Found a real Twilio profile — sync to local data
+                trust_hub['profile_sid'] = p.sid
+                trust_hub['review_status'] = p_status
+                vc['trust_hub'] = trust_hub
+                conn = get_db_connection()
+                if conn:
+                    try:
+                        cur = conn.cursor()
+                        cur.execute("UPDATE subscribers SET voice_config = %s WHERE email = %s",
+                                    (json.dumps(vc), user.email))
+                        conn.commit()
+                    except Exception:
+                        conn.rollback()
+                    finally:
+                        return_db_connection(conn)
+                return False
+    except Exception as e:
+        logger.warning(f"[onboarding] Twilio profile discovery failed for {user.email}: {e}")
+        # API failed — don't block the user, let them through
+        return False
+
+    # Twilio has no non-rejected profiles — reset flag and require re-onboarding
     conn = get_db_connection()
     if conn:
         try:
@@ -118,7 +132,7 @@ def _check_needs_onboarding(user, voice_config=None):
             cur.execute("UPDATE subscribers SET business_profile_submitted = FALSE WHERE email = %s",
                         (user.email,))
             conn.commit()
-            logger.info(f"[onboarding] Reset business_profile_submitted for {user.email} — no Twilio profile found")
+            logger.info(f"[onboarding] Reset business_profile_submitted for {user.email} — no active Twilio profile")
         except Exception:
             conn.rollback()
         finally:
