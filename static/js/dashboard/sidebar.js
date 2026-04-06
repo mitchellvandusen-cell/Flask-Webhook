@@ -99,7 +99,13 @@
                 p.classList.remove('show', 'active');
             });
             const pane = document.getElementById(baseTabId);
-            if (pane) pane.classList.add('show', 'active');
+            if (pane) {
+                // Add 'active' first (display:block), then 'show' after reflow
+                // so Bootstrap's .fade opacity transition actually triggers.
+                pane.classList.add('active');
+                pane.offsetHeight; // force reflow
+                pane.classList.add('show');
+            }
 
             // Switch to the specific sub-panel within the base tab
             if (subPanel) {
