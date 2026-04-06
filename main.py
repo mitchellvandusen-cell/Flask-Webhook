@@ -264,6 +264,14 @@ app.config['WTF_CSRF_ENABLED'] = False
 
 
 @app.before_request
+def redirect_www():
+    """301 redirect www.omnisconn.com -> omnisconn.com for SEO canonicalization."""
+    if request.host.startswith('www.'):
+        from flask import redirect
+        return redirect(request.url.replace('://www.', '://', 1), code=301)
+
+
+@app.before_request
 def handle_cors_preflight():
     """Handle OPTIONS preflight requests for GHL Custom JS cross-origin calls.
     These endpoints use JWT Bearer tokens (not cookies) so credentials mode is not needed.
