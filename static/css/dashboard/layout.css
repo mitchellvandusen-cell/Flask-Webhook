@@ -8,6 +8,13 @@
    Light mode uses [data-theme="light"] overrides.
    ================================================================ */
 
+/* ── Tab pane visibility ──
+   Bootstrap's .fade uses opacity (keeps layout space). Our sidebar
+   manages tabs manually, so force non-active panes to display:none
+   to prevent invisible panes from pushing content down.            */
+#dashTabsContent > .tab-pane:not(.active) { display: none !important; }
+#dashTabsContent > .tab-pane.active { display: block !important; opacity: 1 !important; }
+
 
 /* ================================================================
    1. LIGHT THEME — ROOT VARIABLE OVERRIDES
