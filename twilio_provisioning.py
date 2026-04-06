@@ -1074,6 +1074,7 @@ def register_business_profile(sub_account_sid: str, business_name: str,
             if e.code == 20409:
                 logger.info(f"[SpamProtection] EIN document already assigned (20409)")
                 results["steps"].append({"name": "ein_document", "status": "ok", "sid": ein_doc_sid})
+                results["ein_document_sid"] = ein_doc_sid
             else:
                 logger.error(f"[SpamProtection] EIN document assignment failed: {e}")
                 results["errors"].append(f"EIN document: {e}")
