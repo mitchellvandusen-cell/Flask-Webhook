@@ -129,7 +129,7 @@
             if (app === 'recordings') { iosOpenApp('calls'); return; }
             _iosCurrentApp = app;
             const home = document.getElementById('iosHome');
-            const appMap = { messages: 'iosAppMessages', calls: 'iosAppCalls', calendar: 'iosAppCalendar', discord: 'iosAppDiscord', slack: 'iosAppSlack', insights: 'iosAppInsights', stats: 'iosAppStats' };
+            const appMap = { messages: 'iosAppMessages', calls: 'iosAppCalls', calendar: 'iosAppCalendar', discord: 'iosAppDiscord', slack: 'iosAppSlack', insights: 'iosAppInsights', stats: 'iosAppStats', quote: 'iosAppQuote' };
             if (home) home.style.display = 'none';
             Object.keys(appMap).forEach(k => {
                 const el = document.getElementById(appMap[k]);
@@ -154,11 +154,12 @@
             if (app === 'slack') iosSlackInit();
             if (app === 'insights') iosInsightsInit();
             if (app === 'stats') iosStatsLoad();
+            if (app === 'quote') iosQuoteInit();
         }
 
         function iosGoHome() {
             const home = document.getElementById('iosHome');
-            const apps = ['iosAppMessages', 'iosAppCalls', 'iosAppCalendar', 'iosAppDiscord', 'iosAppSlack', 'iosAppInsights', 'iosAppStats'];
+            const apps = ['iosAppMessages', 'iosAppCalls', 'iosAppCalendar', 'iosAppDiscord', 'iosAppSlack', 'iosAppInsights', 'iosAppStats', 'iosAppQuote'];
             apps.forEach(id => { const el = document.getElementById(id); if (el) el.style.display = 'none'; });
             if (home) home.style.display = 'flex';
             _iosCurrentApp = null;
