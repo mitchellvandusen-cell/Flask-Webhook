@@ -55,6 +55,77 @@ logger = logging.getLogger(__name__)
 dashboard_bp = Blueprint('dashboard', __name__)
 
 
+def _check_needs_onboarding(user, voice_config=None):
+    """Determine if a user needs to complete the business profile onboarding.
+
+    For NEW users: checks business_profile_submitted flag.
+    For PREEXISTING users: verifies a Twilio profile actually exists (profile_sid
+    in voice_config OR live Twilio API check). If the flag says True but no
+    Twilio profile exists, resets the flag and returns True.
+    """
+    is_admin = user.email.lower() in [e.lower() for e in ADMIN_EMAILS]
+    if is_admin:
+        return False
+
+    vc = voice_config if voice_config is not None else (user.voice_config or {})
+    trust_hub = vc.get('trust_hub', {})
+    profile_sid = trust_hub.get('profile_sid', '')
+
+    # Fast path: flag is False → needs onboarding
+    if not user.business_profile_submitted:
+        return True
+
+    # Flag is True — verify Twilio profile actually exists
+    if profile_sid:
+        return False  # Has a real Twilio profile → onboarding done
+
+    # Flag says True but no profile_sid locally — check Twilio API
+    sub_sid = getattr(user, 'twilio_sub_account_sid', '') or vc.get('twilio_sub_account_sid', '')
+    sub_auth = getattr(user, 'twilio_sub_account_auth_token', '') or vc.get('twilio_auth_token', '')
+
+    if sub_sid and sub_auth:
+        try:
+            from twilio_provisioning import get_sub_account_client_native
+            client = get_sub_account_client_native(sub_sid, sub_auth)
+            profiles = client.trusthub.v1.customer_profiles.list(limit=5)
+            for p in profiles:
+                p_status = getattr(p, 'status', '')
+                if p_status in ('twilio-approved', 'in-review', 'pending-review', 'draft'):
+                    # Found a real Twilio profile — update local data
+                    trust_hub['profile_sid'] = p.sid
+                    trust_hub['review_status'] = p_status
+                    vc['trust_hub'] = trust_hub
+                    conn = get_db_connection()
+                    if conn:
+                        try:
+                            cur = conn.cursor()
+                            cur.execute("UPDATE subscribers SET voice_config = %s WHERE email = %s",
+                                        (json.dumps(vc), user.email))
+                            conn.commit()
+                        except Exception:
+                            conn.rollback()
+                        finally:
+                            return_db_connection(conn)
+                    return False
+        except Exception as e:
+            logger.warning(f"[onboarding] Twilio profile discovery failed for {user.email}: {e}")
+
+    # No Twilio profile found — reset the flag and require onboarding
+    conn = get_db_connection()
+    if conn:
+        try:
+            cur = conn.cursor()
+            cur.execute("UPDATE subscribers SET business_profile_submitted = FALSE WHERE email = %s",
+                        (user.email,))
+            conn.commit()
+            logger.info(f"[onboarding] Reset business_profile_submitted for {user.email} — no Twilio profile found")
+        except Exception:
+            conn.rollback()
+        finally:
+            return_db_connection(conn)
+    return True
+
+
 # ── GHL App entry point ───────────────────────────────────────────────────────
 
 @dashboard_bp.route("/dialer-popout")
@@ -360,11 +431,9 @@ def dashboard():
     # Agency context — for sidebar/tabs showing agency-specific items
     is_agency = current_user.role == 'agency_owner'
 
-    # Business profile onboarding gate — all paying users must complete
+    # Business profile onboarding gate — all users must complete
     # the onboarding wizard before accessing the workspace.
-    needs_onboarding = False
-    if not is_admin and not current_user.business_profile_submitted:
-        needs_onboarding = True
+    needs_onboarding = _check_needs_onboarding(current_user, voice_config)
 
     return render_template('dashboard.html',
         form=form,

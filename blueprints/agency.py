@@ -240,6 +240,10 @@ def agency_dashboard():
     # CRM config fields for integrations tab
     from crm_adapters.factory import CRM_CONFIG_FIELDS, CRM_DISPLAY_NAMES
 
+    # Business profile onboarding gate — agency owners must also complete
+    from blueprints.dashboard import _check_needs_onboarding
+    needs_onboarding = _check_needs_onboarding(current_user, voice_config)
+
     return render_template('dashboard.html',
         form=form,
         access_token_display=access_token_display,
@@ -249,6 +253,7 @@ def agency_dashboard():
         sub=current_user,
         profile=profile,
         needs_oauth=needs_oauth,
+        needs_onboarding=needs_onboarding,
         show_congrats=show_congrats,
         missing_fields=missing_fields,
         is_placeholder=is_placeholder,
