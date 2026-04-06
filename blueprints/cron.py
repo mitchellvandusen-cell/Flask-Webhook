@@ -272,6 +272,33 @@ def api_cron_sync_ghl_data():
         return safe_jsonify({"success": False, "error": "Internal server error"}), 200
 
 
+# ── Trust Hub status refresh ───────────────────────────────────────────────
+
+@cron_bp.route("/api/cron/trust-hub-refresh", methods=["GET", "POST"])
+def api_cron_trust_hub_refresh():
+    """
+    Poll all pending Trust Hub profiles and auto-create CNAM/Voice Integrity
+    on approval. Schedule every 30 minutes via cron.
+    """
+    if not _cron_authorized():
+        return safe_jsonify({"error": "Unauthorized"}), 401
+
+    try:
+        if not extensions.ensure_redis():
+            return safe_jsonify({"success": False, "error": "Redis unavailable"}), 503
+
+        from tasks import refresh_pending_trust_hub_profiles
+        job = extensions.q_website.enqueue(
+            refresh_pending_trust_hub_profiles,
+            job_timeout=600,
+            result_ttl=86400,
+        )
+        return safe_jsonify({"success": True, "queued": True, "job_id": job.id})
+    except Exception as e:
+        logger.error(f"Cron trust-hub-refresh crashed: {e}", exc_info=True)
+        return safe_jsonify({"success": False, "error": "Internal server error"}), 200
+
+
 # ── Number health daily maintenance ─────────────────────────────────────────
 
 @cron_bp.route("/api/cron/number-health", methods=["GET", "POST"])

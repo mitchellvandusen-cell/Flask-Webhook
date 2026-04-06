@@ -24,6 +24,14 @@
                     _showActiveDomain(d); // Show what we have + error state
                 } else {
                     document.getElementById('domainSetup').style.display = 'block';
+                    // Pre-fill domain from onboarding handoff (?onb_domain=...)
+                    var params = new URLSearchParams(window.location.search);
+                    var onbDomain = params.get('onb_domain');
+                    if (onbDomain) {
+                        var searchInput = document.getElementById('domainSearchInput');
+                        if (searchInput) searchInput.value = onbDomain.replace(/\.com$/i, '');
+                        if (typeof domainSearch === 'function') domainSearch();
+                    }
                 }
             })
             .catch(() => {

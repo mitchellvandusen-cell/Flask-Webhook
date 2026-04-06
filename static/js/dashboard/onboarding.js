@@ -1,7 +1,8 @@
 /* ================================================================
-   ONBOARDING WIZARD — 5-Step Pre-Qualification + Guided Setup
+   ONBOARDING WIZARD — 6-Step Pre-Qualification + Guided Setup
    Step 1: LLC?  Step 2: EIN?  Step 3: Website?
-   Step 4: Address & Contact  Step 5: Phone Numbers
+   Step 4: Address & Contact  Step 5: Review & Submit
+   Step 6: Phone Numbers
    Self-gates via DASHBOARD_BOOT.needsOnboarding.
    ================================================================ */
 (function () {
@@ -12,7 +13,7 @@
     if (!BOOT || !BOOT.needsOnboarding) return;
 
     var currentStep = 1;
-    var TOTAL_STEPS = 5;
+    var TOTAL_STEPS = 6;
     var saving = false;
     var introPlayed = sessionStorage.getItem('onb_intro_done') === '1';
 
@@ -110,7 +111,7 @@
        NAVIGATION
        ════════════════════════════════════════════════════════════════ */
 
-    function goToStep(step, instant) {
+    window.goToStep = function goToStep(step, instant) {
         currentStep = step;
 
         var slides = document.getElementById('onbSlides');
@@ -135,20 +136,13 @@
         var lbl = document.getElementById('onbStepNum');
         if (lbl) lbl.textContent = step;
 
-        // Pre-fill step 4 summary when arriving there
-        if (step === 4) prefillStep4();
-    }
+        // Pre-fill review step when arriving at step 5
+        if (step === 5) prefillReview();
+    };
 
     window.onbNext = function () {
         if (saving) return;
         if (!validateStep(currentStep)) return;
-
-        // Step 4: save profile before advancing to step 5
-        if (currentStep === 4) {
-            saveProfile(function () { goToStep(5); });
-            return;
-        }
-
         if (currentStep < TOTAL_STEPS) goToStep(currentStep + 1);
     };
 
@@ -323,26 +317,51 @@
     };
 
     /* ════════════════════════════════════════════════════════════════
-       STEP 4: PRE-FILL + SAVE
+       STEP 5: REVIEW & SUBMIT
        ════════════════════════════════════════════════════════════════ */
 
-    function prefillStep4() {
+    function prefillReview() {
         var bizName = hasLlc ? valOf('onbBizName') : valOf('onbSolePropName');
+        var bizType = hasLlc ? valOf('onbBizType') : 'Sole Proprietorship';
         var ein = valOf('onbEIN');
-        var web = hasWebsite ? valOf('onbWebsite') : (selectedDomain ? 'https://' + selectedDomain : '');
+        var web = hasWebsite ? valOf('onbWebsite') : (selectedDomain ? selectedDomain : '');
 
-        setText('onbPrefillName', bizName || '—');
-        setText('onbPrefillEin', ein ? maskEin(ein) : '—');
-        setText('onbPrefillWeb', web || 'Not set');
-        showIf('onbPrefillWebWrap', !!web);
+        setText('onbRevBizName', bizName || '—');
+        setText('onbRevBizType', bizType || '—');
+        setText('onbRevEin', ein || '—');
+
+        // EIN document
+        if (einFileData) {
+            setText('onbRevDoc', einFileData.name);
+            showIf('onbRevDocWrap', true);
+        } else {
+            showIf('onbRevDocWrap', false);
+        }
+
+        // Website
+        setText('onbRevWebsite', web || 'Not set — can be added later');
+
+        // Address
+        var street = valOf('onbStreet');
+        var city = valOf('onbCity');
+        var state = valOf('onbState');
+        var zip = valOf('onbZip');
+        var addr = [street, city, state, zip].filter(Boolean).join(', ');
+        setText('onbRevAddress', addr || '—');
+
+        // Contact
+        setText('onbRevContact', valOf('onbContactName') || '—');
+        setText('onbRevRole', valOf('onbContactRole') || '—');
+        setText('onbRevEmail', valOf('onbContactEmail') || '—');
+        setText('onbRevPhone', valOf('onbContactPhone') || '—');
     }
 
-    function maskEin(ein) {
-        // Show as XX-XXX**89 for privacy
-        var digits = ein.replace(/\D/g, '');
-        if (digits.length >= 9) return digits.slice(0, 2) + '-' + digits.slice(2, 5) + '****';
-        return ein;
-    }
+    window.onbSubmitProfile = function () {
+        if (saving) return;
+        saveProfile(function () {
+            goToStep(6);
+        });
+    };
 
     /* ════════════════════════════════════════════════════════════════
        STEP 5: PHONE NUMBERS
@@ -511,7 +530,7 @@
 
     function saveProfile(callback) {
         saving = true;
-        setBtnLoading('onbStep4Btn', true);
+        setBtnLoading('onbSubmitBtn', true);
 
         var bizName = hasLlc ? valOf('onbBizName') : valOf('onbSolePropName');
         var bizType = hasLlc ? valOf('onbBizType') : 'Sole Proprietorship';
@@ -534,7 +553,7 @@
             zip:            valOf('onbZip'),
             website:        website,
             contact_name:   valOf('onbContactName'),
-            contact_title:  valOf('onbContactTitle'),
+            contact_title:  valOf('onbContactRole'),
             contact_email:  valOf('onbContactEmail'),
             contact_phone:  valOf('onbContactPhone')
         };
@@ -554,16 +573,18 @@
         .then(function (r) { return r.json(); })
         .then(function (result) {
             saving = false;
-            setBtnLoading('onbStep4Btn', false);
+            setBtnLoading('onbSubmitBtn', false);
             if (result.error) {
                 if (typeof _showDashToast === 'function') _showDashToast(false, result.error);
                 return;
             }
+            if (typeof _showDashToast === 'function')
+                _showDashToast(true, 'Business profile saved. Carrier verification submitted.');
             if (callback) callback();
         })
         .catch(function () {
             saving = false;
-            setBtnLoading('onbStep4Btn', false);
+            setBtnLoading('onbSubmitBtn', false);
             if (typeof _showDashToast === 'function') _showDashToast(false, 'Save failed. Please try again.');
         });
     }

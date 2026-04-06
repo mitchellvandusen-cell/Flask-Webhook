@@ -2430,3 +2430,393 @@ def provision_agency_subaccounts_task(agency_email, company_id):
         return {"error": str(e)}
     finally:
         return_db_connection(conn)
+
+
+# ═══════════════════════════════════════════════════════════════════
+# TRUST HUB AUTO-REGISTRATION (queued from onboarding wizard)
+# ═══════════════════════════════════════════════════════════════════
+
+def submit_trust_hub_registration(email: str) -> dict:
+    """Submit business profile to carrier verification (Twilio Trust Hub).
+
+    Called as RQ background job after onboarding step 4 saves the profile.
+    Creates Secondary Customer Profile, EndUsers, Address, evaluates,
+    and submits for review. Also creates Voice Integrity Trust Product
+    if evaluation is compliant.
+
+    Idempotent: skips if trust_hub.profile_sid already exists.
+    """
+    import twilio_provisioning as tp
+
+    conn = get_db_connection()
+    if not conn:
+        return {"error": "DB unavailable"}
+
+    try:
+        cur = conn.cursor()
+
+        # ── Fresh read (not stale data from the web request) ──
+        cur.execute("""
+            SELECT voice_config, twilio_sub_account_sid, twilio_sub_account_auth_token,
+                   location_id, email
+            FROM subscribers WHERE email = %s
+        """, (email,))
+        row = cur.fetchone()
+        if not row:
+            logger.warning(f"[TrustHub] Subscriber not found: {email}")
+            return {"error": "subscriber_not_found"}
+
+        vc = row['voice_config'] or {}
+        sub_sid = row['twilio_sub_account_sid'] or vc.get('twilio_sub_account_sid', '')
+        sub_auth = row['twilio_sub_account_auth_token'] or vc.get('twilio_auth_token', '')
+        location_id = row['location_id']
+        trust_hub = vc.get('trust_hub', {})
+
+        # ── Guards ──
+        if not sub_sid:
+            logger.info(f"[TrustHub] No sub-account for {email}, skipping")
+            return {"status": "skipped", "reason": "no_sub_account"}
+
+        if trust_hub.get('profile_sid'):
+            logger.info(f"[TrustHub] Already registered for {email}: {trust_hub['profile_sid']}")
+            return {"status": "skipped", "reason": "already_registered"}
+
+        # ── Extract fields ──
+        biz_name = trust_hub.get('business_name', '').strip()
+        ein = trust_hub.get('ein', '').strip()
+        if not biz_name or not ein:
+            logger.warning(f"[TrustHub] Missing business_name or ein for {email}")
+            return {"error": "missing_required_fields"}
+
+        logger.info(f"[TrustHub] Starting registration for {email} ({biz_name})")
+
+        # ── Call register_business_profile ──
+        results = tp.register_business_profile(
+            sub_account_sid=sub_sid,
+            business_name=biz_name,
+            ein=ein,
+            street=trust_hub.get('street', ''),
+            city=trust_hub.get('city', ''),
+            state=trust_hub.get('state', ''),
+            zip_code=trust_hub.get('zip', ''),
+            contact_name=trust_hub.get('contact_name', ''),
+            contact_email=trust_hub.get('contact_email', email),
+            contact_phone=trust_hub.get('contact_phone', ''),
+            sub_account_auth_token=sub_auth,
+            business_type=trust_hub.get('business_type', ''),
+            website=trust_hub.get('website', ''),
+            contact_title=trust_hub.get('contact_title', ''),
+            existing_profile_sid=trust_hub.get('profile_sid', ''),
+        )
+
+        # ── Process results ──
+        profile_sid = results.get('profile_sid', '')
+        if not profile_sid:
+            for step in results.get('steps', []):
+                if step.get('name') in ('secondary_profile', 'customer_profile') and step.get('sid'):
+                    profile_sid = step['sid']
+                    break
+
+        has_profile = bool(profile_sid)
+        errors = results.get('errors', [])
+
+        # Determine review status
+        review_status = ''
+        noncompliant = False
+        eval_issues = []
+        for step in results.get('steps', []):
+            if step.get('name') == 'evaluation':
+                if step.get('status') == 'noncompliant':
+                    noncompliant = True
+                    eval_issues = step.get('issues', [])
+                    review_status = 'noncompliant'
+            if step.get('name') == 'submit_review' and step.get('status') == 'ok':
+                review_status = step.get('profile_status', 'pending-review')
+
+        # ── Write back with row lock (prevents lost-update) ──
+        cur.execute("SELECT voice_config FROM subscribers WHERE email = %s FOR UPDATE", (email,))
+        fresh = cur.fetchone()
+        fresh_vc = (fresh['voice_config'] if fresh else {}) or {}
+        fresh_th = fresh_vc.get('trust_hub', {})
+
+        fresh_th['protection_active'] = has_profile
+        fresh_th['_sub_sid'] = sub_sid
+        fresh_th['_validated'] = True
+        if profile_sid:
+            fresh_th['profile_sid'] = profile_sid
+        if review_status:
+            fresh_th['review_status'] = review_status
+        if eval_issues:
+            fresh_th['evaluation_issues'] = eval_issues
+        end_user_sid = results.get('end_user_sid', '')
+        if end_user_sid:
+            fresh_th['end_user_sid'] = end_user_sid
+
+        fresh_vc['trust_hub'] = fresh_th
+        cur.execute("UPDATE subscribers SET voice_config = %s WHERE email = %s",
+                    (json.dumps(fresh_vc), email))
+        conn.commit()
+
+        # ── Voice Integrity (if profile created and evaluation wasn't noncompliant) ──
+        if has_profile and not noncompliant:
+            try:
+                vi_result = tp.create_voice_integrity_trust_product(
+                    sub_account_sid=sub_sid,
+                    business_name=biz_name,
+                    contact_email=trust_hub.get('contact_email') or email,
+                    sub_account_auth_token=sub_auth,
+                    existing_profile_sid=profile_sid,
+                )
+                # Save VI result
+                cur.execute("SELECT voice_config FROM subscribers WHERE email = %s FOR UPDATE", (email,))
+                vi_fresh = cur.fetchone()
+                vi_vc = (vi_fresh['voice_config'] if vi_fresh else {}) or {}
+                vi_vc['number_integrity'] = {
+                    'trust_product_sid': vi_result.get('trust_product_sid', ''),
+                    'profile_sid': vi_result.get('profile_sid', profile_sid),
+                    'end_user_sid': vi_result.get('end_user_sid', ''),
+                    'status': vi_result.get('status', 'draft'),
+                    'business_name': biz_name,
+                    'registered_at': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()),
+                    '_sub_sid': sub_sid,
+                }
+                cur.execute("UPDATE subscribers SET voice_config = %s WHERE email = %s",
+                            (json.dumps(vi_vc), email))
+                conn.commit()
+                logger.info(f"[TrustHub] Voice Integrity created for {email}: {vi_result.get('trust_product_sid')}")
+            except Exception as vi_err:
+                logger.error(f"[TrustHub] Voice Integrity failed for {email}: {vi_err}")
+
+        # ── Logging ──
+        status_label = "success" if has_profile else "error"
+        summary_parts = []
+        if has_profile:
+            summary_parts.append(f"Profile {profile_sid}")
+        if review_status:
+            summary_parts.append(f"Status: {review_status}")
+        if errors:
+            summary_parts.append(f"Errors: {', '.join(errors[:3])}")
+
+        log_webhook_event(
+            location_id=location_id or '',
+            event_type="trust_hub_registration",
+            status=status_label,
+            summary='; '.join(summary_parts) or "Trust Hub registration attempted",
+        )
+
+        # ── Alert on failure ──
+        if not has_profile:
+            save_persistent_alert(
+                email=email,
+                alert_type="trust_hub_failed",
+                title="Carrier Verification Issue",
+                message="Your business profile could not be submitted for carrier verification. "
+                        "Please check the Spam Protection tab for details or contact support.",
+                severity="error",
+                location_id=location_id,
+            )
+
+        logger.info(f"[TrustHub] Registration complete for {email}: profile={has_profile} status={review_status}")
+        return {
+            "status": "ok" if has_profile else "error",
+            "profile_sid": profile_sid,
+            "review_status": review_status,
+            "errors": errors,
+        }
+
+    except Exception as e:
+        logger.error(f"[TrustHub] Registration crashed for {email}: {e}", exc_info=True)
+        try:
+            save_persistent_alert(
+                email=email,
+                alert_type="trust_hub_failed",
+                title="Carrier Verification Error",
+                message="An unexpected error occurred during carrier verification. Our team has been notified.",
+                severity="error",
+            )
+        except Exception:
+            pass
+        return {"error": str(e)}
+    finally:
+        return_db_connection(conn)
+
+
+def refresh_pending_trust_hub_profiles() -> dict:
+    """Batch-poll pending Trust Hub profiles and auto-create CNAM/VI on approval.
+
+    Called by cron job /api/cron/trust-hub-refresh every 30 minutes.
+    Checks all subscribers with pending profiles, updates status from Twilio,
+    and auto-creates CNAM + Voice Integrity Trust Products when approved.
+    """
+    import twilio_provisioning as tp
+
+    conn = get_db_connection()
+    if not conn:
+        return {"error": "DB unavailable"}
+
+    checked = 0
+    approved = 0
+    rejected = 0
+    unchanged = 0
+    errs = []
+
+    try:
+        cur = conn.cursor()
+
+        # Find all subscribers with pending Trust Hub profiles
+        cur.execute("""
+            SELECT email, voice_config, twilio_sub_account_sid, twilio_sub_account_auth_token,
+                   location_id
+            FROM subscribers
+            WHERE voice_config IS NOT NULL
+              AND twilio_sub_account_sid IS NOT NULL
+              AND voice_config->'trust_hub'->>'profile_sid' IS NOT NULL
+              AND COALESCE(voice_config->'trust_hub'->>'review_status', '') NOT IN
+                  ('twilio-approved', 'twilio-rejected', 'approved')
+        """)
+        rows = cur.fetchall()
+        logger.info(f"[TrustHub Cron] Found {len(rows)} pending profiles to check")
+
+        for row in rows:
+            email = row['email']
+            vc = row['voice_config'] or {}
+            sub_sid = row['twilio_sub_account_sid'] or ''
+            sub_auth = row['twilio_sub_account_auth_token'] or vc.get('twilio_auth_token', '')
+            trust_hub = vc.get('trust_hub', {})
+            profile_sid = trust_hub.get('profile_sid', '')
+            location_id = row['location_id']
+
+            if not sub_sid or not profile_sid:
+                continue
+
+            try:
+                result = tp.check_secondary_profile_status(
+                    sub_account_sid=sub_sid,
+                    sub_account_auth_token=sub_auth,
+                    profile_sid=profile_sid,
+                )
+                checked += 1
+                new_status = result.get('status', '')
+                old_status = trust_hub.get('review_status', '')
+
+                if new_status == old_status:
+                    unchanged += 1
+                    time.sleep(1)
+                    continue
+
+                # ── Status changed — persist ──
+                cur.execute("SELECT voice_config FROM subscribers WHERE email = %s FOR UPDATE", (email,))
+                fresh = cur.fetchone()
+                fresh_vc = (fresh['voice_config'] if fresh else {}) or {}
+                fresh_th = fresh_vc.get('trust_hub', {})
+                fresh_th['review_status'] = new_status
+                fresh_vc['trust_hub'] = fresh_th
+                cur.execute("UPDATE subscribers SET voice_config = %s WHERE email = %s",
+                            (json.dumps(fresh_vc), email))
+                conn.commit()
+
+                if new_status == 'twilio-approved':
+                    approved += 1
+                    logger.info(f"[TrustHub Cron] APPROVED: {email}")
+
+                    # Auto-create CNAM Trust Product
+                    biz_name = fresh_th.get('business_name', '')
+                    cnam_display = biz_name[:15].strip() if biz_name else ''
+                    contact_email = fresh_th.get('contact_email') or email
+
+                    if cnam_display and not fresh_vc.get('cnam', {}).get('trust_product_sid'):
+                        try:
+                            cnam_result = tp.create_cnam_trust_product(
+                                sub_account_sid=sub_sid,
+                                business_name=biz_name,
+                                cnam_display_name=cnam_display,
+                                contact_email=contact_email,
+                                sub_account_auth_token=sub_auth,
+                                existing_profile_sid=profile_sid,
+                            )
+                            # Assign all numbers + submit
+                            cnam_tp_sid = cnam_result.get('trust_product_sid', '')
+                            if cnam_tp_sid:
+                                # Get all phone number SIDs
+                                nums = tp.list_phone_numbers(sub_sid)
+                                num_sids = [n.get('sid') for n in (nums or []) if n.get('sid')]
+                                if num_sids:
+                                    tp.assign_numbers_to_cnam(
+                                        sub_account_sid=sub_sid,
+                                        trust_product_sid=cnam_tp_sid,
+                                        phone_number_sids=num_sids,
+                                        sub_account_auth_token=sub_auth,
+                                        profile_sid=profile_sid,
+                                    )
+                                tp.submit_cnam_for_review(
+                                    sub_account_sid=sub_sid,
+                                    trust_product_sid=cnam_tp_sid,
+                                    sub_account_auth_token=sub_auth,
+                                )
+                                # Save CNAM state
+                                cur.execute("SELECT voice_config FROM subscribers WHERE email = %s FOR UPDATE", (email,))
+                                cnam_fresh = cur.fetchone()
+                                cnam_vc = (cnam_fresh['voice_config'] if cnam_fresh else {}) or {}
+                                cnam_vc['cnam'] = {
+                                    'trust_product_sid': cnam_tp_sid,
+                                    'profile_sid': profile_sid,
+                                    'cnam_display_name': cnam_display,
+                                    'status': 'pending-review',
+                                    'assigned_count': len(num_sids),
+                                    'registered_at': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()),
+                                    '_sub_sid': sub_sid,
+                                }
+                                cur.execute("UPDATE subscribers SET voice_config = %s WHERE email = %s",
+                                            (json.dumps(cnam_vc), email))
+                                conn.commit()
+                            logger.info(f"[TrustHub Cron] CNAM created for {email}: {cnam_tp_sid}")
+                        except Exception as cnam_err:
+                            logger.error(f"[TrustHub Cron] CNAM failed for {email}: {cnam_err}")
+                            errs.append(f"{email}: CNAM {cnam_err}")
+
+                    # Success alert
+                    save_persistent_alert(
+                        email=email,
+                        alert_type="trust_hub_approved",
+                        title="Carrier Verification Approved",
+                        message="Your business identity has been verified by phone carriers. "
+                                "Caller ID and spam protection are now active.",
+                        severity="success",
+                        location_id=location_id,
+                    )
+
+                elif new_status == 'twilio-rejected':
+                    rejected += 1
+                    reasons = result.get('message', 'Unknown reason')
+                    logger.warning(f"[TrustHub Cron] REJECTED: {email} — {reasons}")
+                    save_persistent_alert(
+                        email=email,
+                        alert_type="trust_hub_rejected",
+                        title="Carrier Verification Rejected",
+                        message=f"Your carrier verification was not approved. {reasons} "
+                                "Please update your business profile in the Spam Protection tab and resubmit.",
+                        severity="error",
+                        location_id=location_id,
+                    )
+
+            except Exception as e:
+                logger.error(f"[TrustHub Cron] Error checking {email}: {e}")
+                errs.append(f"{email}: {e}")
+
+            time.sleep(1)  # Rate limit: 1 subscriber per second
+
+        result = {
+            "checked": checked,
+            "approved": approved,
+            "rejected": rejected,
+            "unchanged": unchanged,
+            "errors": errs,
+        }
+        logger.info(f"[TrustHub Cron] Complete: {result}")
+        return result
+
+    except Exception as e:
+        logger.error(f"[TrustHub Cron] Crashed: {e}", exc_info=True)
+        return {"error": str(e)}
+    finally:
+        return_db_connection(conn)

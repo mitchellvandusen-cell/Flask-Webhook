@@ -25,8 +25,9 @@
             <span class="onb-dot" data-step="3"></span>
             <span class="onb-dot" data-step="4"></span>
             <span class="onb-dot" data-step="5"></span>
+            <span class="onb-dot" data-step="6"></span>
         </div>
-        <div class="onb-step-label">Step <span id="onbStepNum">1</span> of 5</div>
+        <div class="onb-step-label">Step <span id="onbStepNum">1</span> of 6</div>
     </div>
 
     <!-- ── Slide Viewport ── -->
@@ -265,22 +266,6 @@
                     <h2 class="onb-title">Business Address & Contact</h2>
                     <p class="onb-subtitle">This must match your IRS registration. Used for carrier verification of your business identity.</p>
 
-                    <!-- Pre-filled read-only summary -->
-                    <div class="onb-prefilled-row">
-                        <div class="onb-prefilled-item">
-                            <span class="onb-prefilled-label">Business Name</span>
-                            <span class="onb-prefilled-value" id="onbPrefillName">—</span>
-                        </div>
-                        <div class="onb-prefilled-item">
-                            <span class="onb-prefilled-label">EIN</span>
-                            <span class="onb-prefilled-value" id="onbPrefillEin">—</span>
-                        </div>
-                        <div class="onb-prefilled-item" id="onbPrefillWebWrap">
-                            <span class="onb-prefilled-label">Website</span>
-                            <span class="onb-prefilled-value" id="onbPrefillWeb">—</span>
-                        </div>
-                    </div>
-
                     <div class="onb-field-group">
                         <label class="onb-label">Street Address</label>
                         <input type="text" id="onbStreet" class="onb-input" placeholder="123 Main Street, Suite 100" autocomplete="street-address">
@@ -325,9 +310,19 @@
                             <label class="onb-label">Your Name</label>
                             <input type="text" id="onbContactName" class="onb-input" placeholder="John Doe" autocomplete="name">
                         </div>
-                        <div class="onb-field-group onb-field-title">
-                            <label class="onb-label">Title</label>
-                            <input type="text" id="onbContactTitle" class="onb-input" placeholder="Owner" autocomplete="organization-title">
+                        <div class="onb-field-group onb-field-role">
+                            <label class="onb-label">Role</label>
+                            <select id="onbContactRole" class="onb-select">
+                                <option value="Owner">Owner</option>
+                                <option value="CEO">CEO</option>
+                                <option value="CFO">CFO</option>
+                                <option value="Director">Director</option>
+                                <option value="VP">VP</option>
+                                <option value="General Manager">General Manager</option>
+                                <option value="General Counsel">General Counsel</option>
+                                <option value="Agent">Agent</option>
+                                <option value="Broker">Broker</option>
+                            </select>
                         </div>
                     </div>
 
@@ -349,8 +344,130 @@
                 </div>
             </div>
 
-            <!-- ════════════════ STEP 5: Phone Numbers ════════════════ -->
+            <!-- ════════════════ STEP 5: Review & Submit ════════════════ -->
             <div class="onb-slide" data-step="5">
+                <div class="onb-card onb-card-review">
+                    <h2 class="onb-title">Review Your Business Profile</h2>
+                    <p class="onb-subtitle">Confirm everything is correct before submitting for carrier verification. This information will be used to verify your business identity with phone carriers.</p>
+
+                    <!-- Business Identity Section -->
+                    <div class="onb-review-section">
+                        <div class="onb-review-header">
+                            <div class="onb-review-header-left">
+                                <i class="fa-solid fa-building onb-review-icon"></i>
+                                <h3 class="onb-review-title">Business Identity</h3>
+                            </div>
+                            <button type="button" class="onb-review-edit" onclick="onbPrev(); onbPrev(); onbPrev(); onbPrev();">
+                                <i class="fa-solid fa-pen"></i> Edit
+                            </button>
+                        </div>
+                        <div class="onb-review-grid">
+                            <div class="onb-review-field">
+                                <span class="onb-review-label">Legal Business Name</span>
+                                <span class="onb-review-value" id="onbRevBizName">—</span>
+                            </div>
+                            <div class="onb-review-field">
+                                <span class="onb-review-label">Entity Type</span>
+                                <span class="onb-review-value" id="onbRevBizType">—</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- EIN Section -->
+                    <div class="onb-review-section">
+                        <div class="onb-review-header">
+                            <div class="onb-review-header-left">
+                                <i class="fa-solid fa-file-invoice onb-review-icon"></i>
+                                <h3 class="onb-review-title">EIN Verification</h3>
+                            </div>
+                            <button type="button" class="onb-review-edit" onclick="goToStep(2)">
+                                <i class="fa-solid fa-pen"></i> Edit
+                            </button>
+                        </div>
+                        <div class="onb-review-grid">
+                            <div class="onb-review-field">
+                                <span class="onb-review-label">EIN</span>
+                                <span class="onb-review-value onb-review-mono" id="onbRevEin">—</span>
+                            </div>
+                            <div class="onb-review-field" id="onbRevDocWrap">
+                                <span class="onb-review-label">IRS Confirmation</span>
+                                <span class="onb-review-value" id="onbRevDoc">—</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Website Section -->
+                    <div class="onb-review-section">
+                        <div class="onb-review-header">
+                            <div class="onb-review-header-left">
+                                <i class="fa-solid fa-globe onb-review-icon"></i>
+                                <h3 class="onb-review-title">Online Presence</h3>
+                            </div>
+                            <button type="button" class="onb-review-edit" onclick="goToStep(3)">
+                                <i class="fa-solid fa-pen"></i> Edit
+                            </button>
+                        </div>
+                        <div class="onb-review-grid">
+                            <div class="onb-review-field onb-review-field-full">
+                                <span class="onb-review-label">Website</span>
+                                <span class="onb-review-value" id="onbRevWebsite">—</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Address & Representative Section -->
+                    <div class="onb-review-section">
+                        <div class="onb-review-header">
+                            <div class="onb-review-header-left">
+                                <i class="fa-solid fa-user-tie onb-review-icon"></i>
+                                <h3 class="onb-review-title">Address & Authorized Representative</h3>
+                            </div>
+                            <button type="button" class="onb-review-edit" onclick="goToStep(4)">
+                                <i class="fa-solid fa-pen"></i> Edit
+                            </button>
+                        </div>
+                        <div class="onb-review-grid">
+                            <div class="onb-review-field onb-review-field-full">
+                                <span class="onb-review-label">Address</span>
+                                <span class="onb-review-value" id="onbRevAddress">—</span>
+                            </div>
+                            <div class="onb-review-field">
+                                <span class="onb-review-label">Representative</span>
+                                <span class="onb-review-value" id="onbRevContact">—</span>
+                            </div>
+                            <div class="onb-review-field">
+                                <span class="onb-review-label">Role</span>
+                                <span class="onb-review-value" id="onbRevRole">—</span>
+                            </div>
+                            <div class="onb-review-field">
+                                <span class="onb-review-label">Email</span>
+                                <span class="onb-review-value" id="onbRevEmail">—</span>
+                            </div>
+                            <div class="onb-review-field">
+                                <span class="onb-review-label">Phone</span>
+                                <span class="onb-review-value" id="onbRevPhone">—</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Submit CTA -->
+                    <div class="onb-review-submit-wrap">
+                        <div class="onb-review-notice">
+                            <i class="fa-solid fa-shield-check"></i>
+                            By submitting, your business profile will be sent to phone carriers for identity verification. This typically takes 24 hours.
+                        </div>
+                        <div class="onb-nav-row">
+                            <button class="onb-back-btn" onclick="onbPrev()"><i class="fa-solid fa-arrow-left"></i> Back</button>
+                            <button class="onb-continue-btn onb-submit-btn" id="onbSubmitBtn" onclick="onbSubmitProfile()">
+                                <i class="fa-solid fa-paper-plane"></i> Submit for Carrier Verification
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ════════════════ STEP 6: Phone Numbers ════════════════ -->
+            <div class="onb-slide" data-step="6">
                 <div class="onb-card">
                     <h2 class="onb-title">Get Your Phone Numbers</h2>
                     <p class="onb-subtitle">You get 5 phone numbers free with your plan. Search by area code to find numbers in your market.</p>
@@ -394,5 +511,9 @@
 <div class="onb-closing" id="onbClosing" style="display:none;">
     <div class="onb-closing-content">
         <div class="onb-closing-line" id="onbClosingLine">Connect everything. Close everyone.</div>
+        <div class="onb-closing-status">
+            <i class="fa-solid fa-circle-check"></i>
+            Carrier verification submitted — you'll be notified when approved.
+        </div>
     </div>
 </div>

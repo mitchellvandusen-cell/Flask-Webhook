@@ -580,5 +580,18 @@
 
             // Init mobile layout
             _setupMobileLayout();
+
+            // Poll carrier verification status on dashboard load
+            var _boot = window.DASHBOARD_BOOT || {};
+            if (_boot.trustHubProfileSid && _boot.trustHubReviewStatus !== 'twilio-approved') {
+                fetch('/api/trust-hub-status')
+                    .then(function (r) { return r.json(); })
+                    .then(function (data) {
+                        if (data.status === 'twilio-approved' && typeof _showDashToast === 'function') {
+                            _showDashToast(true, 'Carrier verification approved. Caller ID is now active.', 6000);
+                        }
+                    })
+                    .catch(function () { /* silent — non-critical */ });
+            }
         });
 

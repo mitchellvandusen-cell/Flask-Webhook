@@ -594,6 +594,21 @@
 .onb-closing-line.animate {
     animation: onbClosingReveal 1.2s cubic-bezier(0.16, 1, 0.3, 1) 0.4s forwards;
 }
+.onb-closing-status {
+    font-size: var(--fs-sm);
+    color: rgba(255, 255, 255, 0.4);
+    margin-top: 1.5rem;
+    opacity: 0;
+    animation: onbFadeUp 0.6s ease 2.2s forwards;
+}
+.onb-closing-status i {
+    color: var(--accent);
+    margin-right: 0.375rem;
+}
+[data-theme="light"] .onb-closing-status {
+    color: rgba(0, 0, 0, 0.35);
+}
+
 @keyframes onbClosingReveal {
     0%   { opacity: 0; transform: translateY(20px) scale(0.96); letter-spacing: 6px; }
     50%  { opacity: 0.9; letter-spacing: 1px; }
@@ -834,6 +849,135 @@
     word-break: break-all;
 }
 
+/* ── Review Step (Step 5) — Enterprise Summary ─────────────── */
+.onb-card-review {
+    max-width: 38rem;
+}
+.onb-review-section {
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 0.625rem;
+    padding: 1.25rem 1.5rem;
+    margin-bottom: 1rem;
+    transition: border-color 0.2s ease;
+}
+.onb-review-section:hover {
+    border-color: rgba(0, 255, 136, 0.15);
+}
+.onb-review-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 1rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid var(--border);
+}
+.onb-review-header-left {
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+}
+.onb-review-icon {
+    color: var(--accent);
+    font-size: 1rem;
+    width: 1.75rem;
+    height: 1.75rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--accent-dim);
+    border-radius: 0.375rem;
+    flex-shrink: 0;
+}
+.onb-review-title {
+    font-family: 'Outfit', sans-serif;
+    font-size: var(--fs-sm);
+    font-weight: 700;
+    color: var(--text-primary);
+    margin: 0;
+    letter-spacing: 0.2px;
+    text-transform: uppercase;
+}
+.onb-review-edit {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    background: none;
+    border: 1px solid transparent;
+    border-radius: 0.375rem;
+    padding: 0.25rem 0.625rem;
+    font-size: var(--fs-xs);
+    font-weight: 600;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: color 0.15s, border-color 0.15s;
+}
+.onb-review-edit:hover {
+    color: var(--accent);
+    border-color: var(--accent);
+}
+.onb-review-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.75rem 1.5rem;
+}
+.onb-review-field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.125rem;
+}
+.onb-review-field-full {
+    grid-column: 1 / -1;
+}
+.onb-review-label {
+    font-size: 0.6875rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+.onb-review-value {
+    font-size: var(--fs-sm);
+    font-weight: 500;
+    color: var(--text-primary);
+    line-height: 1.4;
+}
+.onb-review-mono {
+    font-family: 'JetBrains Mono', monospace;
+    letter-spacing: 0.5px;
+}
+
+/* Submit wrap */
+.onb-review-submit-wrap {
+    margin-top: 1.5rem;
+}
+.onb-review-notice {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.625rem;
+    padding: 0.875rem 1rem;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 0.625rem;
+    font-size: var(--fs-xs);
+    color: var(--text-muted);
+    line-height: var(--lh-relaxed);
+    margin-bottom: 1rem;
+}
+.onb-review-notice i {
+    color: var(--accent);
+    font-size: 1rem;
+    flex-shrink: 0;
+    margin-top: 1px;
+}
+.onb-submit-btn {
+    font-size: var(--fs-base);
+    letter-spacing: 0.3px;
+}
+
+/* Role field width */
+.onb-field-role { max-width: 200px; }
+
 /* ── Loading state (replaces inline styles) ────────────────── */
 .onb-loading-state {
     text-align: center;
@@ -876,37 +1020,30 @@
         flex-direction: column;
         gap: 0.75rem;
     }
+    .onb-review-grid {
+        grid-template-columns: 1fr;
+    }
+    .onb-review-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.5rem;
+    }
 }
 
 /* ================================================================
    LIGHT THEME OVERRIDES
    ================================================================ */
+/* Intro + Closing always play on dark background (cinematic) even in light theme.
+   Gold text on dark = dramatic. The wizard steps use light theme normally.
+   Closing brightens to var(--bg) which is #fff in light mode. */
 [data-theme="light"] .onb-intro {
-    background: #fafafa;
-}
-[data-theme="light"] .onb-intro-line1 {
-    color: rgba(0, 0, 0, 0.35);
-}
-[data-theme="light"] .onb-intro-brand {
-    background: linear-gradient(135deg, #9a7230 0%, #c9963a 30%, #b8862e 50%, #8a6528 70%, #c9963a 100%);
-    background-clip: text;
-    -webkit-background-clip: text;
-    filter: drop-shadow(0 2px 10px rgba(154, 114, 48, 0.2));
-}
-[data-theme="light"] .onb-intro-tagline {
-    color: rgba(0, 0, 0, 0.3);
+    background: #050505;  /* stays dark — cinematic intro */
 }
 [data-theme="light"] .onb-closing {
-    background: #fafafa;
-}
-[data-theme="light"] .onb-closing-line {
-    background: linear-gradient(135deg, #9a7230 0%, #c9963a 30%, #b8862e 50%, #8a6528 70%, #c9963a 100%);
-    background-clip: text;
-    -webkit-background-clip: text;
-    filter: drop-shadow(0 2px 10px rgba(154, 114, 48, 0.15));
+    background: #050505;  /* stays dark — cinematic closing */
 }
 [data-theme="light"] .onb-closing.brightening {
-    background: var(--bg);
+    background: var(--bg);  /* transitions from dark → light dashboard */
 }
 [data-theme="light"] .onb-continue-btn {
     color: #ffffff;
@@ -926,6 +1063,20 @@
     background: var(--lt-accent-bg);
 }
 [data-theme="light"] .onb-yesno-card.selected .onb-yesno-icon {
+    color: var(--lt-accent);
+}
+[data-theme="light"] .onb-review-section:hover {
+    border-color: rgba(5, 150, 105, 0.2);
+}
+[data-theme="light"] .onb-review-icon {
+    color: var(--lt-accent);
+    background: var(--lt-accent-bg);
+}
+[data-theme="light"] .onb-review-edit:hover {
+    color: var(--lt-accent);
+    border-color: var(--lt-accent);
+}
+[data-theme="light"] .onb-review-notice i {
     color: var(--lt-accent);
 }
 [data-theme="light"] .onb-upload-area:hover,

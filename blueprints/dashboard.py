@@ -980,6 +980,81 @@ def onboarding_check():
     return flask_jsonify({"checks": checks, "all_connected": all_connected, "email": user.email})
 
 
+# ── Trust Hub status (lightweight AJAX for dashboard load) ──────────────────
+
+@dashboard_bp.route("/api/trust-hub-status")
+@login_required
+def api_trust_hub_status():
+    """Lightweight carrier verification status check.
+    Called by frontend on dashboard load to show current Trust Hub state.
+    Makes a single Twilio API call if profile_sid exists."""
+    conn = get_db_connection()
+    if not conn:
+        return flask_jsonify({"status": "error", "message": "DB unavailable"}), 503
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT voice_config, twilio_sub_account_sid, twilio_sub_account_auth_token
+            FROM subscribers WHERE email = %s
+        """, (current_user.email,))
+        row = cur.fetchone()
+        if not row:
+            return flask_jsonify({"status": "not_registered"})
+
+        vc = row['voice_config'] or {}
+        trust_hub = vc.get('trust_hub', {})
+        profile_sid = trust_hub.get('profile_sid', '')
+
+        if not profile_sid:
+            return flask_jsonify({"status": "not_registered"})
+
+        sub_sid = row['twilio_sub_account_sid'] or vc.get('twilio_sub_account_sid', '')
+        sub_auth = row['twilio_sub_account_auth_token'] or vc.get('twilio_auth_token', '')
+
+        if not sub_sid:
+            return flask_jsonify({
+                "status": trust_hub.get('review_status', 'unknown'),
+                "profile_sid": profile_sid,
+                "message": "Sub-account not provisioned",
+            })
+
+        # Single Twilio API call to check live status
+        import twilio_provisioning as tp
+        result = tp.check_secondary_profile_status(
+            sub_account_sid=sub_sid,
+            sub_account_auth_token=sub_auth,
+            profile_sid=profile_sid,
+        )
+        new_status = result.get('status', '')
+        old_status = trust_hub.get('review_status', '')
+
+        # Persist if changed
+        if new_status and new_status != old_status:
+            trust_hub['review_status'] = new_status
+            vc['trust_hub'] = trust_hub
+            cur.execute("UPDATE subscribers SET voice_config = %s WHERE email = %s",
+                        (json.dumps(vc), current_user.email))
+            conn.commit()
+
+        return flask_jsonify({
+            "status": new_status or old_status or "unknown",
+            "profile_sid": profile_sid,
+            "message": result.get('message', ''),
+            "business_name": trust_hub.get('business_name', ''),
+            "submitted_at": trust_hub.get('registered_at', ''),
+            "cnam_status": vc.get('cnam', {}).get('status', 'not_registered'),
+            "voice_integrity_status": vc.get('number_integrity', {}).get('status', 'not_registered'),
+        })
+    except Exception as e:
+        logger.error(f"[TrustHubStatus] Error for {current_user.email}: {e}")
+        return flask_jsonify({
+            "status": "error",
+            "message": "Could not check carrier verification status",
+        })
+    finally:
+        return_db_connection(conn)
+
+
 # ── Language preference ──────────────────────────────────────────────────────
 
 @dashboard_bp.route("/api/set-language", methods=["POST"])

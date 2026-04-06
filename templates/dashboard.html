@@ -239,6 +239,9 @@
         // Onboarding wizard gate
         needsOnboarding:         {{ 'true' if needs_onboarding else 'false' }},
         fullName:                {{ (current_user.full_name or '')|tojson }},
+        // Trust Hub carrier verification status
+        trustHubProfileSid:      {{ (voice_config.get('trust_hub', {}).get('profile_sid', '') if voice_config is defined else '')|tojson }},
+        trustHubReviewStatus:    {{ (voice_config.get('trust_hub', {}).get('review_status', '') if voice_config is defined else '')|tojson }},
     };
     </script>
 

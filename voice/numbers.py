@@ -1194,6 +1194,22 @@ def save_trust_hub():
         finally:
             return_db_connection(conn)
 
+    # Queue Trust Hub registration as background job (non-blocking)
+    if has_required and not trust_hub.get('profile_sid'):
+        try:
+            from extensions import ensure_redis, q_website
+            if ensure_redis() and q_website:
+                from tasks import submit_trust_hub_registration
+                job = q_website.enqueue(
+                    submit_trust_hub_registration,
+                    current_user.email,
+                    job_timeout=300,
+                    result_ttl=86400,
+                )
+                logger.info(f"[Onboarding] Queued Trust Hub job {job.id} for {current_user.email}")
+        except Exception as e:
+            logger.error(f"[Onboarding] Failed to queue Trust Hub job: {e}")
+
     return jsonify({"status": "ok"})
 
 
