@@ -1,257 +1,267 @@
             <div class="tab-pane fade" id="domain" role="tabpanel">
-<div class="dc-domain-tab">
-
-  <!-- Loading state -->
-  <div id="domainLoading" class="domain-loading">
-    <div class="domain-shimmer"></div>
-    <div class="domain-shimmer" style="width:60%"></div>
-  </div>
-
-  <!-- Active Domain State -->
-  <div id="domainActive" style="display:none;">
-    <div class="domain-status-card">
-      <div class="domain-status-header">
-        <div class="domain-status-icon domain-status-live">
-          <i class="fa-solid fa-circle-check"></i>
-        </div>
-        <div class="domain-status-info">
-          <h3 id="domainActiveName" class="domain-active-name"></h3>
-          <p class="domain-active-label">Your business website is live</p>
-        </div>
-      </div>
-      <div class="domain-links-row">
-        <a id="domainActiveUrl" href="#" target="_blank" class="domain-link-pill">
-          <i class="fa-solid fa-arrow-up-right-from-square"></i> Visit Site
-        </a>
-        <a id="domainPrivacyUrl" href="#" target="_blank" class="domain-link-pill">
-          <i class="fa-solid fa-shield-halved"></i> Privacy Policy
-        </a>
-        <a id="domainTermsUrl" href="#" target="_blank" class="domain-link-pill">
-          <i class="fa-solid fa-file-contract"></i> Terms
-        </a>
-      </div>
-      <div class="domain-detail-grid">
-        <div class="domain-detail">
-          <span class="domain-detail-label">Business Email</span>
-          <span id="domainActiveEmail" class="domain-detail-value"></span>
-        </div>
-        <div class="domain-detail">
-          <span class="domain-detail-label">DBA Name</span>
-          <span id="domainActiveDba" class="domain-detail-value"></span>
-        </div>
-        <div class="domain-detail">
-          <span class="domain-detail-label">Status</span>
-          <span id="domainActiveStatus" class="domain-detail-value"></span>
-        </div>
-        <div class="domain-detail">
-          <span class="domain-detail-label">Provisioned</span>
-          <span id="domainActiveDate" class="domain-detail-value"></span>
-        </div>
-      </div>
+<div class="vc-container">
+    <div class="vc-status-bar">
+        <i class="fa-solid fa-globe"></i>
+        <span>Domain & Website</span>
+        <span class="vc-status-val" id="domainStatusPill">Loading...</span>
     </div>
 
-    <!-- Edit Landing Page -->
-    <div class="domain-edit-section">
-      <h4 class="domain-section-title">
-        <i class="fa-solid fa-pen-to-square"></i> Edit Landing Page
-      </h4>
-      <div class="domain-edit-form">
-        <div class="domain-form-group">
-          <label>Your Name</label>
-          <input type="text" id="domainEditName" placeholder="John Smith">
-        </div>
-        <div class="domain-form-group">
-          <label>Phone Number (displayed on page)</label>
-          <input type="tel" id="domainEditPhone" placeholder="(555) 123-4567">
-        </div>
-        <div class="domain-form-group">
-          <label>Licensed States</label>
-          <input type="text" id="domainEditStates" placeholder="TX, CA, FL">
-          <span class="domain-form-hint">Comma-separated state abbreviations</span>
-        </div>
-        <div class="domain-form-group">
-          <label>About / Bio</label>
-          <textarea id="domainEditBio" rows="3" placeholder="A few sentences about your experience and what you offer..."></textarea>
-        </div>
-        <button onclick="domainSavePage()" class="domain-save-btn">
-          <i class="fa-solid fa-floppy-disk"></i> Save Changes
-        </button>
-      </div>
-    </div>
-  </div>
-
-  <!-- No Domain — Setup Flow -->
-  <div id="domainSetup" style="display:none;">
-    <div class="domain-promo">
-      <div class="domain-promo-badge">NEW</div>
-      <h2 class="domain-promo-title">Get Your Business Domain</h2>
-      <p class="domain-promo-desc">
-        A custom .com domain, professional landing page, business email, and full A2P compliance —
-        everything you need for caller ID approval, spam protection, and SMS registration.
-      </p>
-      <div class="domain-promo-features">
-        <div class="domain-feature">
-          <i class="fa-solid fa-globe"></i>
-          <div>
-            <strong>Custom .com Domain</strong>
-            <span>yourname.com — registered and managed for you</span>
-          </div>
-        </div>
-        <div class="domain-feature">
-          <i class="fa-solid fa-file-lines"></i>
-          <div>
-            <strong>Landing Page + Privacy + Terms</strong>
-            <span>A2P 10DLC compliant, auto-generated, always live</span>
-          </div>
-        </div>
-        <div class="domain-feature">
-          <i class="fa-solid fa-envelope"></i>
-          <div>
-            <strong>Business Email</strong>
-            <span>you@yourname.com — forwards to your Gmail</span>
-          </div>
-        </div>
-        <div class="domain-feature">
-          <i class="fa-solid fa-shield-halved"></i>
-          <div>
-            <strong>Auto-Verification</strong>
-            <span>Carrier email verification handled automatically</span>
-          </div>
-        </div>
-      </div>
-      <div class="domain-promo-price">
-        <span class="domain-price-amount">$10</span>
-        <span class="domain-price-period">/month</span>
-      </div>
+    <!-- Loading state -->
+    <div id="domainLoading" class="domain-loading">
+        <div class="domain-shimmer"></div>
+        <div class="domain-shimmer" style="width:60%"></div>
     </div>
 
-    <!-- Search -->
-    <div class="domain-search-section">
-      <h4 class="domain-section-title">
-        <i class="fa-solid fa-magnifying-glass"></i> Find Your Domain
-      </h4>
-      <div class="domain-search-row">
-        <div class="domain-form-group" style="flex:1;">
-          <label>Business Name (DBA)</label>
-          <input type="text" id="domainDbaInput" placeholder="Smith Life Insurance"
-                 onkeydown="if(event.key==='Enter'){domainSearch();}">
-        </div>
-        <button onclick="domainSearch()" class="domain-search-btn" id="domainSearchBtn">
-          Search Available Domains
-        </button>
-      </div>
-
-      <!-- Results -->
-      <div id="domainResults" style="display:none;">
-        <div id="domainResultsList" class="domain-results-list"></div>
-      </div>
-    </div>
-
-    <!-- Selected Domain — Details Form -->
-    <div id="domainDetailsForm" style="display:none;">
-      <h4 class="domain-section-title">
-        <i class="fa-solid fa-user-pen"></i> Your Information
-      </h4>
-      <p class="domain-details-sub">This information appears on your landing page and is used for domain registration.</p>
-
-      <div class="domain-edit-form">
-        <div class="domain-form-row">
-          <div class="domain-form-group">
-            <label>Your Full Name <span class="domain-req">*</span></label>
-            <input type="text" id="domainAgentName" placeholder="John Smith">
-          </div>
-          <div class="domain-form-group">
-            <label>Display Phone <span class="domain-req">*</span></label>
-            <input type="tel" id="domainPhone" placeholder="(555) 123-4567">
-          </div>
-        </div>
-
-        <div class="domain-form-group">
-          <label>Email Prefix <span class="domain-req">*</span></label>
-          <div class="domain-email-preview">
-            <input type="text" id="domainEmailPrefix" placeholder="john" value="info" style="max-width:140px;">
-            <span class="domain-email-at">@</span>
-            <span id="domainEmailDomain" class="domain-email-domain">yourdomain.com</span>
-          </div>
-          <span class="domain-form-hint">This will be your business email address</span>
-        </div>
-
-        <div class="domain-form-group">
-          <label>Forward Emails To <span class="domain-req">*</span></label>
-          <input type="email" id="domainForwardTo" placeholder="yourpersonal@gmail.com"
-                 value="{{ current_user.email if current_user else '' }}">
-          <span class="domain-form-hint">Your business email will forward here</span>
-        </div>
-
-        <div class="domain-form-group">
-          <label>Licensed States</label>
-          <input type="text" id="domainStates" placeholder="TX, CA, FL">
-          <span class="domain-form-hint">Comma-separated. Shows as badges on your page.</span>
-        </div>
-
-        <!-- Physical Address — required by ICANN for domain registration -->
-        <div class="domain-form-group">
-          <label>Street Address <span class="domain-req">*</span></label>
-          <input type="text" id="domainStreet" placeholder="123 Main St">
-          <span class="domain-form-hint">Required by ICANN for domain registration. PO Boxes not accepted.</span>
-        </div>
-        <div class="domain-form-row">
-          <div class="domain-form-group">
-            <label>City <span class="domain-req">*</span></label>
-            <input type="text" id="domainCity" placeholder="Austin">
-          </div>
-          <div class="domain-form-group">
-            <label>State <span class="domain-req">*</span></label>
-            <input type="text" id="domainStateReg" placeholder="TX" maxlength="2">
-          </div>
-          <div class="domain-form-group">
-            <label>ZIP Code <span class="domain-req">*</span></label>
-            <input type="text" id="domainZip" placeholder="78701" maxlength="10">
-          </div>
-        </div>
-
-        <div class="domain-form-group">
-          <label>Short Bio <span class="domain-optional">(optional)</span></label>
-          <textarea id="domainBio" rows="3" placeholder="Helping families protect their future with affordable life insurance coverage..."></textarea>
-        </div>
-
-        <!-- Disclaimer -->
-        <div class="domain-disclaimer-box">
-          <label class="domain-disclaimer-label">
-            <input type="checkbox" id="domainDisclaimer">
-            <span>I represent that the business name/DBA entered is legally registered to me or my business entity. Omnisconn provides domain registration, web hosting, and email services as-is and assumes no responsibility for verifying business registrations, DBA filings, or compliance with state or federal regulations. I am solely responsible for ensuring all business information is accurate, truthful, and legally compliant. The auto-generated privacy policy and terms of service are provided as templates and do not constitute legal advice. Domain registration is subject to ICANN policies and the Cloudflare Registrar terms of service.</span>
-          </label>
-        </div>
-
-        <!-- Promo Code (hidden until toggled) -->
-        <div class="domain-promo-code-row">
-          <span class="domain-promo-toggle" onclick="document.getElementById('domainPromoFields').style.display='';this.style.display='none';">Have a promo code?</span>
-          <div id="domainPromoFields" style="display:none;">
-            <div class="domain-form-group">
-              <label>Promo Code</label>
-              <div class="domain-promo-input-row">
-                <input type="text" id="domainPromoCode" placeholder="Enter code">
-                <button type="button" onclick="domainApplyPromo()" class="domain-promo-apply-btn" id="domainPromoApplyBtn">Apply</button>
-              </div>
-              <span id="domainPromoStatus" class="domain-promo-status"></span>
+    <!-- ═══════════ ACTIVE DOMAIN STATE ═══════════ -->
+    <div id="domainActive" style="display:none;">
+        <div class="domain-status-card">
+            <div class="domain-status-header">
+                <div class="domain-status-icon domain-status-live">
+                    <i class="fa-solid fa-circle-check"></i>
+                </div>
+                <div class="domain-status-info">
+                    <h3 id="domainActiveName" class="domain-active-name"></h3>
+                    <p class="domain-active-label">Your business website is live</p>
+                </div>
             </div>
-          </div>
+            <div class="domain-links-row">
+                <a id="domainActiveUrl" href="#" target="_blank" class="domain-link-pill">
+                    <i class="fa-solid fa-arrow-up-right-from-square"></i> Visit Site
+                </a>
+                <a id="domainPrivacyUrl" href="#" target="_blank" class="domain-link-pill">
+                    <i class="fa-solid fa-shield-halved"></i> Privacy Policy
+                </a>
+                <a id="domainTermsUrl" href="#" target="_blank" class="domain-link-pill">
+                    <i class="fa-solid fa-file-contract"></i> Terms
+                </a>
+            </div>
+            <div class="domain-detail-grid">
+                <div class="domain-detail">
+                    <span class="domain-detail-label">Business Email</span>
+                    <span id="domainActiveEmail" class="domain-detail-value"></span>
+                </div>
+                <div class="domain-detail">
+                    <span class="domain-detail-label">DBA Name</span>
+                    <span id="domainActiveDba" class="domain-detail-value"></span>
+                </div>
+                <div class="domain-detail">
+                    <span class="domain-detail-label">Status</span>
+                    <span id="domainActiveStatus" class="domain-detail-value"></span>
+                </div>
+                <div class="domain-detail">
+                    <span class="domain-detail-label">Provisioned</span>
+                    <span id="domainActiveDate" class="domain-detail-value"></span>
+                </div>
+            </div>
         </div>
 
-        <button onclick="domainPurchase()" class="domain-purchase-btn" id="domainPurchaseBtn">
-          <i class="fa-solid fa-rocket"></i> Get My Domain — $10/month
-        </button>
-      </div>
+        <!-- Edit Landing Page -->
+        <div class="domain-edit-section">
+            <h4 class="domain-section-title">
+                <i class="fa-solid fa-pen-to-square"></i> Edit Landing Page
+            </h4>
+            <div class="domain-edit-form">
+                <div class="domain-form-group">
+                    <label>Your Name</label>
+                    <input type="text" id="domainEditName" placeholder="John Smith">
+                </div>
+                <div class="domain-form-group">
+                    <label>Phone Number (displayed on page)</label>
+                    <input type="tel" id="domainEditPhone" placeholder="(555) 123-4567">
+                </div>
+                <div class="domain-form-group">
+                    <label>Licensed States</label>
+                    <input type="text" id="domainEditStates" placeholder="TX, CA, FL">
+                    <span class="domain-form-hint">Comma-separated state abbreviations</span>
+                </div>
+                <div class="domain-form-group">
+                    <label>About / Bio</label>
+                    <textarea id="domainEditBio" rows="3" placeholder="A few sentences about your experience and what you offer..."></textarea>
+                </div>
+                <button onclick="domainSavePage()" class="domain-save-btn">
+                    <i class="fa-solid fa-floppy-disk"></i> Save Changes
+                </button>
+            </div>
+        </div>
     </div>
-  </div>
 
-  <!-- Provisioning Progress -->
-  <div id="domainProvisioning" style="display:none;">
-    <div class="domain-provisioning-card">
-      <h3><i class="fa-solid fa-gear fa-spin"></i> Setting Up Your Domain</h3>
-      <div id="domainProvSteps" class="domain-prov-steps"></div>
+    <!-- ═══════════ NO DOMAIN — SETUP FLOW ═══════════ -->
+    <div id="domainSetup" style="display:none;">
+
+        <!-- Why you need this -->
+        <div class="domain-why-section">
+            <h3 class="domain-why-title">Carriers require a business website to approve your registration.</h3>
+            <p class="domain-why-sub">Without one, your caller ID, SMS, and A2P registration will be rejected. We handle everything — no code, no setup, nothing to configure.</p>
+        </div>
+
+        <!-- What you get -->
+        <div class="domain-features-grid">
+            <div class="domain-feat-card">
+                <div class="domain-feat-icon"><i class="fa-solid fa-globe"></i></div>
+                <div class="domain-feat-title">Your Own .com Domain</div>
+                <div class="domain-feat-desc">Registered and managed for you. Renews automatically.</div>
+            </div>
+            <div class="domain-feat-card">
+                <div class="domain-feat-icon"><i class="fa-solid fa-window-maximize"></i></div>
+                <div class="domain-feat-title">Professional Landing Page</div>
+                <div class="domain-feat-desc">Live instantly. Your name, bio, licensed states, and contact form.</div>
+            </div>
+            <div class="domain-feat-card">
+                <div class="domain-feat-icon"><i class="fa-solid fa-envelope"></i></div>
+                <div class="domain-feat-title">Business Email</div>
+                <div class="domain-feat-desc">you@yourdomain.com — forwards straight to your inbox.</div>
+            </div>
+            <div class="domain-feat-card">
+                <div class="domain-feat-icon"><i class="fa-solid fa-file-shield"></i></div>
+                <div class="domain-feat-title">Privacy Policy & Terms</div>
+                <div class="domain-feat-desc">Auto-generated and always live. Required for A2P 10DLC.</div>
+            </div>
+            <div class="domain-feat-card">
+                <div class="domain-feat-icon"><i class="fa-solid fa-tower-broadcast"></i></div>
+                <div class="domain-feat-title">Carrier Verification</div>
+                <div class="domain-feat-desc">Passes AT&T, T-Mobile, and Verizon identity checks automatically.</div>
+            </div>
+            <div class="domain-feat-card">
+                <div class="domain-feat-icon"><i class="fa-solid fa-bolt"></i></div>
+                <div class="domain-feat-title">Ready in 2 Minutes</div>
+                <div class="domain-feat-desc">Pick a domain, fill in your info, done. We do the rest.</div>
+            </div>
+        </div>
+
+        <!-- Price -->
+        <div class="domain-price-bar">
+            <span class="domain-price-amount">$10</span>
+            <span class="domain-price-period">/month</span>
+            <span class="domain-price-note">Domain + website + email + compliance. Cancel anytime.</span>
+        </div>
+
+        <!-- Search -->
+        <div class="domain-search-section">
+            <h4 class="domain-section-title">
+                <i class="fa-solid fa-magnifying-glass"></i> Find Your Domain
+            </h4>
+            <div class="domain-search-row">
+                <div class="domain-form-group" style="flex:1;">
+                    <label>Business Name (DBA)</label>
+                    <input type="text" id="domainDbaInput" placeholder="Smith Life Insurance"
+                           onkeydown="if(event.key==='Enter'){domainSearch();}">
+                </div>
+                <button onclick="domainSearch()" class="domain-search-btn" id="domainSearchBtn">
+                    Search Available Domains
+                </button>
+            </div>
+
+            <!-- Results -->
+            <div id="domainResults" style="display:none;">
+                <div id="domainResultsList" class="domain-results-list"></div>
+            </div>
+        </div>
+
+        <!-- Selected Domain — Details Form -->
+        <div id="domainDetailsForm" style="display:none;">
+            <h4 class="domain-section-title">
+                <i class="fa-solid fa-user-pen"></i> Your Information
+            </h4>
+            <p class="domain-details-sub">This information appears on your landing page and is used for domain registration.</p>
+
+            <div class="domain-edit-form">
+                <div class="domain-form-row">
+                    <div class="domain-form-group">
+                        <label>Your Full Name <span class="domain-req">*</span></label>
+                        <input type="text" id="domainAgentName" placeholder="John Smith">
+                    </div>
+                    <div class="domain-form-group">
+                        <label>Display Phone <span class="domain-req">*</span></label>
+                        <input type="tel" id="domainPhone" placeholder="(555) 123-4567">
+                    </div>
+                </div>
+
+                <div class="domain-form-group">
+                    <label>Email Prefix <span class="domain-req">*</span></label>
+                    <div class="domain-email-preview">
+                        <input type="text" id="domainEmailPrefix" placeholder="john" value="info" style="max-width:140px;">
+                        <span class="domain-email-at">@</span>
+                        <span id="domainEmailDomain" class="domain-email-domain">yourdomain.com</span>
+                    </div>
+                    <span class="domain-form-hint">This will be your business email address</span>
+                </div>
+
+                <div class="domain-form-group">
+                    <label>Forward Emails To <span class="domain-req">*</span></label>
+                    <input type="email" id="domainForwardTo" placeholder="yourpersonal@gmail.com"
+                           value="{{ current_user.email if current_user else '' }}">
+                    <span class="domain-form-hint">Your business email will forward here</span>
+                </div>
+
+                <div class="domain-form-group">
+                    <label>Licensed States</label>
+                    <input type="text" id="domainStates" placeholder="TX, CA, FL">
+                    <span class="domain-form-hint">Comma-separated. Shows as badges on your page.</span>
+                </div>
+
+                <!-- Physical Address — required by ICANN for domain registration -->
+                <div class="domain-form-group">
+                    <label>Street Address <span class="domain-req">*</span></label>
+                    <input type="text" id="domainStreet" placeholder="123 Main St">
+                    <span class="domain-form-hint">Required by ICANN for domain registration. PO Boxes not accepted.</span>
+                </div>
+                <div class="domain-form-row">
+                    <div class="domain-form-group">
+                        <label>City <span class="domain-req">*</span></label>
+                        <input type="text" id="domainCity" placeholder="Austin">
+                    </div>
+                    <div class="domain-form-group">
+                        <label>State <span class="domain-req">*</span></label>
+                        <input type="text" id="domainStateReg" placeholder="TX" maxlength="2">
+                    </div>
+                    <div class="domain-form-group">
+                        <label>ZIP Code <span class="domain-req">*</span></label>
+                        <input type="text" id="domainZip" placeholder="78701" maxlength="10">
+                    </div>
+                </div>
+
+                <div class="domain-form-group">
+                    <label>Short Bio <span class="domain-optional">(optional)</span></label>
+                    <textarea id="domainBio" rows="3" placeholder="Helping families protect their future with affordable life insurance coverage..."></textarea>
+                </div>
+
+                <!-- Disclaimer -->
+                <div class="domain-disclaimer-box">
+                    <label class="domain-disclaimer-label">
+                        <input type="checkbox" id="domainDisclaimer">
+                        <span>I represent that the business name/DBA entered is legally registered to me or my business entity. Omnisconn provides domain registration, web hosting, and email services as-is and assumes no responsibility for verifying business registrations, DBA filings, or compliance with state or federal regulations. I am solely responsible for ensuring all business information is accurate, truthful, and legally compliant. The auto-generated privacy policy and terms of service are provided as templates and do not constitute legal advice. Domain registration is subject to ICANN policies and the Cloudflare Registrar terms of service.</span>
+                    </label>
+                </div>
+
+                <!-- Promo Code (hidden until toggled) -->
+                <div class="domain-promo-code-row">
+                    <span class="domain-promo-toggle" onclick="document.getElementById('domainPromoFields').style.display='';this.style.display='none';">Have a promo code?</span>
+                    <div id="domainPromoFields" style="display:none;">
+                        <div class="domain-form-group">
+                            <label>Promo Code</label>
+                            <div class="domain-promo-input-row">
+                                <input type="text" id="domainPromoCode" placeholder="Enter code">
+                                <button type="button" onclick="domainApplyPromo()" class="domain-promo-apply-btn" id="domainPromoApplyBtn">Apply</button>
+                            </div>
+                            <span id="domainPromoStatus" class="domain-promo-status"></span>
+                        </div>
+                    </div>
+                </div>
+
+                <button onclick="domainPurchase()" class="domain-purchase-btn" id="domainPurchaseBtn">
+                    <i class="fa-solid fa-rocket"></i> Get My Domain — $10/month
+                </button>
+            </div>
+        </div>
     </div>
-  </div>
+
+    <!-- Provisioning Progress -->
+    <div id="domainProvisioning" style="display:none;">
+        <div class="domain-provisioning-card">
+            <h3><i class="fa-solid fa-gear fa-spin"></i> Setting Up Your Domain</h3>
+            <div id="domainProvSteps" class="domain-prov-steps"></div>
+        </div>
+    </div>
 
 </div>
             </div>

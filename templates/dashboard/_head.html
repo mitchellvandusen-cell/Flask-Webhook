@@ -1478,8 +1478,39 @@
         }
 
         /* ── Domain Tab ────────────────────────────────────────────────────── */
-        .dc-domain-tab { padding: 1.5rem 0; }
-        .domain-loading { padding: 2rem 0; }
+        .domain-loading { padding: 2rem 1.5rem; }
+
+        /* Why section */
+        .domain-why-section { padding: 1.5rem; margin-bottom: 1.25rem; }
+        .domain-why-title { font-size: 1.15rem; font-weight: 700; color: #fff; margin: 0 0 0.5rem; line-height: 1.35; }
+        .domain-why-sub { font-size: 0.88rem; color: #888; margin: 0; line-height: 1.55; max-width: 640px; }
+
+        /* Feature grid */
+        .domain-features-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.75rem; padding: 0 1.5rem; margin-bottom: 1.5rem; }
+        .domain-feat-card { background: #0a0a0a; border: 1px solid #1a1a1a; border-radius: 8px; padding: 1rem; }
+        .domain-feat-icon { color: var(--accent, #00ff88); font-size: 1rem; margin-bottom: 0.5rem; }
+        .domain-feat-title { font-size: 0.82rem; font-weight: 700; color: #fff; margin-bottom: 0.25rem; }
+        .domain-feat-desc { font-size: 0.75rem; color: #777; line-height: 1.4; }
+
+        /* Price bar */
+        .domain-price-bar { display: flex; align-items: baseline; gap: 0.35rem; padding: 0 1.5rem; margin-bottom: 1.5rem; flex-wrap: wrap; }
+        .domain-price-note { font-size: 0.78rem; color: #666; margin-left: 0.5rem; }
+
+        /* Light theme */
+        body.light-theme .domain-why-title { color: #111; }
+        body.light-theme .domain-why-sub { color: #666; }
+        body.light-theme .domain-feat-card { background: #fff; border-color: #e5e7eb; }
+        body.light-theme .domain-feat-icon { color: #059669; }
+        body.light-theme .domain-feat-title { color: #111; }
+        body.light-theme .domain-feat-desc { color: #666; }
+        body.light-theme .domain-price-note { color: #888; }
+
+        @media (max-width: 768px) {
+            .domain-features-grid { grid-template-columns: repeat(2, 1fr); }
+        }
+        @media (max-width: 480px) {
+            .domain-features-grid { grid-template-columns: 1fr; }
+        }
         .domain-shimmer {
             height: 18px; background: linear-gradient(90deg, #1a1a1a 25%, #252525 50%, #1a1a1a 75%);
             background-size: 200% 100%; animation: shimmer 1.5s infinite; border-radius: 4px; margin-bottom: 0.75rem;

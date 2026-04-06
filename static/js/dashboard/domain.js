@@ -24,6 +24,7 @@
         var setup = document.getElementById('domainSetup');
         if (loading) loading.style.display = 'none';
         if (setup) setup.style.display = 'block';
+        _setPill('Not Set Up', '#666');
         // Pre-fill domain from onboarding handoff (?onb_domain=...)
         try {
             var params = new URLSearchParams(window.location.search);
@@ -34,6 +35,11 @@
                 if (typeof domainSearch === 'function') domainSearch();
             }
         } catch (e) { /* URLSearchParams not supported — ignore */ }
+    }
+
+    function _setPill(text, color) {
+        var pill = document.getElementById('domainStatusPill');
+        if (pill) { pill.textContent = text; pill.style.color = color || ''; }
     }
 
     window.domainTabInit = function () {
@@ -47,11 +53,14 @@
                 if (loading) loading.style.display = 'none';
                 if (d.has_domain && d.status === 'active') {
                     _showActiveDomain(d);
+                    _setPill('Live', 'var(--accent, #00ff88)');
                 } else if (d.has_domain && d.status === 'provisioning') {
                     var prov = document.getElementById('domainProvisioning');
                     if (prov) prov.style.display = 'block';
+                    _setPill('Provisioning...', '#f59e0b');
                 } else if (d.has_domain && d.status === 'error') {
                     _showActiveDomain(d);
+                    _setPill('Error', '#ef4444');
                 } else {
                     _showSetup();
                 }
