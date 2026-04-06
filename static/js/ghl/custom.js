@@ -1654,7 +1654,7 @@ async function igbSecA2p(c) {
         c.appendChild(info);
     } else {
         c.innerHTML += igbBadge('Not Registered', false);
-        c.appendChild(igbMakeElement('div', 'igb-cfg-desc', 'Your SMS bot currently sends through GHL (GoHighLevel). A2P registration is only needed if you switch to direct Twilio SMS.'));
+        c.appendChild(igbMakeElement('div', 'igb-cfg-desc', 'Your SMS bot currently sends through LeadConnector. A2P registration is only needed if you switch to direct Twilio SMS.'));
         c.innerHTML += igbDashLink('Set Up A2P Registration', 'voice', 'a2p');
     }
 }
@@ -1729,7 +1729,7 @@ async function igbSecSms(c) {
         + '<input class="igb-cfg-input" id="igb-sc-tz" type="text" value="' + igbSafeText(data.timezone || 'America/Chicago') + '" placeholder="America/Chicago" maxlength="50">';
     form.innerHTML += '<label class="igb-cfg-label">SMS Send Via</label>'
         + '<select class="igb-cfg-input igb-cfg-select" id="igb-sc-via">'
-        + '<option value="ghl"' + (data.sms_send_via === 'ghl' || !data.sms_send_via ? ' selected' : '') + '>GHL (GoHighLevel) -Default</option>'
+        + '<option value="ghl"' + (data.sms_send_via === 'ghl' || !data.sms_send_via ? ' selected' : '') + '>LeadConnector - Default</option>'
         + '<option value="twilio"' + (data.sms_send_via && data.sms_send_via.startsWith('+') ? ' selected' : '') + '>Twilio (Direct) -Requires A2P</option>'
         + '</select>';
     c.appendChild(igbMakeElement('div', 'igb-cfg-desc', 'Your SMS bot sends through GHL by default -no extra setup needed. Switch to Twilio only if you need direct number control with A2P 10DLC registration.'));

@@ -52,8 +52,8 @@
                                                         class="cfg-sms-radio">
                                                     <img src="https://images.leadconnectorhq.com/image/f_webp/q_80/r_1200/u_https://assets.cdn.filesafe.space/WDJNKXKiQj2XODO7jYzV/media/66be66f4b5e9ba05e7a7c191.png" alt="LC" class="cfg-sms-lc-icon" onerror="this.style.display='none'">
                                                     <div class="cfg-sms-option-body">
-                                                        <div class="cfg-sms-option-title">Via GoHighLevel</div>
-                                                        <div class="cfg-sms-option-desc">Default — sends through your GHL/LeadConnector account</div>
+                                                        <div class="cfg-sms-option-title">Via LeadConnector</div>
+                                                        <div class="cfg-sms-option-desc">Default — sends through your LeadConnector account</div>
                                                     </div>
                                                     <span class="cfg-sms-default-badge">DEFAULT</span>
                                                 </label>
@@ -81,7 +81,7 @@
 
                                                 <div id="sms-no-numbers" class="cfg-sms-no-numbers">
                                                     <i class="fa-solid fa-info-circle me-1"></i>
-                                                    No phone numbers found. Make sure your GHL account is connected.
+                                                    No phone numbers found. Make sure your LeadConnector account is connected.
                                                 </div>
 
                                                 <button type="button" id="sms-lookup-btn" onclick="loadSmsChannelNumbers()" class="cfg-sms-lookup-btn">
@@ -90,7 +90,7 @@
 
                                             </div>
                                             <small class="text-muted cfg-sms-hint">
-                                                Choose how the bot sends SMS replies. Default uses your GHL account — or look up your numbers to send from a specific one.
+                                                Choose how the bot sends SMS replies. Default uses your LeadConnector account — or look up your numbers to send from a specific one.
                                             </small>
                                         </div>
                                     </div>
@@ -102,12 +102,12 @@
                                         <div class="col-12 {% if missing_fields is defined and 'location_id' in missing_fields %}field-needs-attention{% endif %}">
                                             {{ form.location_id.label(class="form-label vc-label") }}
                                             {{ form.location_id(class="form-control vc-input") }}
-                                            <small class="vc-hint">Your GoHighLevel Location ID — found in GHL Settings → Business Info</small>
+                                            <small class="vc-hint">Your LeadConnector Location ID — found in Settings → Business Info</small>
                                         </div>
                                         <div class="col-12">
                                             <label class="form-label vc-label">CRM User ID</label>
                                             {{ form.crm_user_id(class="form-control vc-input") }}
-                                            <small class="vc-hint">Your GHL User ID for attributing booked appointments</small>
+                                            <small class="vc-hint">Your LeadConnector User ID for attributing booked appointments</small>
                                         </div>
                                         <div class="col-12 {% if missing_fields is defined and 'timezone' in missing_fields %}field-needs-attention{% endif %}">
                                             {{ form.timezone.label(class="form-label vc-label") }}

@@ -2386,7 +2386,7 @@
                     + '</div>';
                 html += '<div id="dlrAddNote_' + c.id + '" style="display:none;margin-bottom:8px;">'
                     + '<textarea id="dlrNoteText_' + c.id + '" placeholder="Type your note..." rows="3" style="width:100%;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);border-radius:6px;color:#ddd;font-size:0.82rem;padding:6px 8px;resize:vertical;box-sizing:border-box;"></textarea>'
-                    + '<button onclick="_dlrSaveNote(' + "'" + c.id + "'" + ')" style="margin-top:4px;width:100%;padding:5px;background:linear-gradient(135deg,var(--accent),#00b36b);border:none;border-radius:5px;color:#000;font-weight:700;font-size:.75rem;cursor:pointer;">Save Note to GHL</button>'
+                    + '<button onclick="_dlrSaveNote(' + "'" + c.id + "'" + ')" style="margin-top:4px;width:100%;padding:5px;background:linear-gradient(135deg,var(--accent),#00b36b);border:none;border-radius:5px;color:#000;font-weight:700;font-size:.75rem;cursor:pointer;">Save Note to LeadConnector</button>'
                     + '</div>';
                 if (c.notes && c.notes.length) {
                     c.notes.forEach(n => {
@@ -2439,7 +2439,7 @@
                 });
                 const d = await r.json();
                 if (d.ok) {
-                    _showDashToast(true, 'Note saved to GHL');
+                    _showDashToast(true, 'Note saved to LeadConnector');
                     ta.value = '';
                     document.getElementById('dlrAddNote_' + contactId).style.display = 'none';
                     // Reload contact detail to show new note
@@ -2473,7 +2473,7 @@
                 + fld('state', 'State', data.state)
                 + fld('companyName', 'Company', data.companyName)
                 + '<div style="display:flex;gap:6px;margin-top:8px;">'
-                + '<button onclick="_dlrSaveContact(\'' + contactId + '\')" style="flex:1;padding:5px;background:linear-gradient(135deg,var(--accent),#00b36b);border:none;border-radius:5px;color:#000;font-weight:700;font-size:.75rem;cursor:pointer;">Save to GHL</button>'
+                + '<button onclick="_dlrSaveContact(\'' + contactId + '\')" style="flex:1;padding:5px;background:linear-gradient(135deg,var(--accent),#00b36b);border:none;border-radius:5px;color:#000;font-weight:700;font-size:.75rem;cursor:pointer;">Save to LeadConnector</button>'
                 + '<button onclick="document.getElementById(\'dlrEditContactForm_' + contactId + '\').style.display=\'none\';document.getElementById(\'dlrEditContactToggle_' + contactId + '\').style.display=\'\'" style="padding:5px 10px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:5px;color:#888;font-size:.75rem;cursor:pointer;">Cancel</button>'
                 + '</div>';
             formEl.style.display = 'block';
@@ -2496,7 +2496,7 @@
                 });
                 const d = await r.json();
                 if (d.ok) {
-                    _showDashToast(true, 'Contact updated in GHL');
+                    _showDashToast(true, 'Contact updated in LeadConnector');
                     // Update local copy
                     const local = dialerContacts.find(x => x.id === contactId);
                     if (local) {
@@ -2668,7 +2668,7 @@
             if (_dlrAvailableChannels.includes('ghl')) {
                 var opt = document.createElement('option');
                 opt.value = 'ghl';
-                opt.textContent = 'GHL';
+                opt.textContent = 'LeadConnector';
                 sel.appendChild(opt);
             }
             if (_dlrAvailableChannels.includes('twilio')) {
@@ -10089,7 +10089,7 @@
                         <span id="omcPopoutBannerDot" style="width:10px;height:10px;border-radius:50%;background:#f59e0b;box-shadow:0 0 10px rgba(245,158,11,0.6);flex-shrink:0"></span>
                         <div id="omcPopoutBannerText" style="display:flex;flex-direction:column;min-width:0">
                             <div id="omcPopoutBannerTitle" style="font-weight:700;letter-spacing:0.04em">Voice runs in a pop-out window</div>
-                            <div id="omcPopoutBannerSub" style="font-size:0.72rem;color:#8a8a8a;margin-top:2px">Mic is blocked in this GHL frame. Click to open the dialer.</div>
+                            <div id="omcPopoutBannerSub" style="font-size:0.72rem;color:#8a8a8a;margin-top:2px">Mic is blocked in this CRM frame. Click to open the dialer.</div>
                         </div>
                     </div>
                     <button type="button" id="omcPopoutBannerBtn" style="background:#00ff88;border:none;color:#000;font-family:Outfit,sans-serif;font-weight:800;font-size:0.72rem;letter-spacing:0.14em;text-transform:uppercase;padding:10px 14px;cursor:pointer;white-space:nowrap;border-radius:4px">
@@ -10169,7 +10169,7 @@
                         dot.style.background = '#f59e0b';
                         dot.style.boxShadow = '0 0 10px rgba(245,158,11,0.6)';
                         title.textContent = 'Voice runs in a pop-out window';
-                        sub.textContent = 'Mic is blocked in this GHL frame. Click to open the dialer.';
+                        sub.textContent = 'Mic is blocked in this CRM frame. Click to open the dialer.';
                         btn.innerHTML = '<i class="fa-solid fa-up-right-from-square" style="margin-right:6px"></i>OPEN DIALER';
                         break;
                 }

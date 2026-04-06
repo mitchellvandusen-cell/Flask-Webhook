@@ -35,7 +35,7 @@
                 el = document.getElementById('agencyPendingCount'); if (el) el.textContent = members.filter(function(m) { return m.status !== 'Active' && m.status !== 'Cancelled'; }).length;
 
                 if (!members.length) {
-                    tbody.innerHTML = '<tr><td colspan="5" class="text-center dash-text-muted">No members found. Agents will appear here when they connect their GHL account under your company.</td></tr>';
+                    tbody.innerHTML = '<tr><td colspan="5" class="text-center dash-text-muted">No members found. Agents will appear here when they connect their LeadConnector account under your company.</td></tr>';
                     return;
                 }
 

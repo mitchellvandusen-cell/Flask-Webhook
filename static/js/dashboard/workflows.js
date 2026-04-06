@@ -1015,7 +1015,7 @@
                     '<button class="wfb-merge-btn" onclick="wfbInsertMerge(\'lastName\',\'cfgIgbMsg\')">{{lastName}}</button>' +
                     '<button class="wfb-merge-btn" onclick="wfbInsertMerge(\'phone\',\'cfgIgbMsg\')">{{phone}}</button>' +
                 '</div>' +
-                '<div class="wfb-config-hint">Sent through your configured SMS channel (GHL or Twilio).</div></div></div>';
+                '<div class="wfb-config-hint">Sent through your configured SMS channel (LeadConnector or Twilio).</div></div></div>';
         } else if (node.subtype === 'ai_call') {
             h += '<div class="wfb-config-field"><label class="wfb-config-label">Voice Prompt</label>' +
                 '<textarea class="wfb-config-textarea" id="cfgPrompt" placeholder="Describe what the AI should say...">' + _esc(c.voice_prompt || '') + '</textarea></div>';
@@ -1156,12 +1156,12 @@
             h += '<div class="wfb-config-hint">Result stored in context — use the variable name as "field" in a downstream If/Then.</div>';
         } else if (node.subtype === 'assign_agent') {
             h += '<div class="wfb-config-field"><label class="wfb-config-label">User ID</label>' +
-                '<input class="wfb-config-input" id="cfgAssignTo" value="' + _esc(c.assigned_to || '') + '" placeholder="GHL user ID"></div>';
+                '<input class="wfb-config-input" id="cfgAssignTo" value="' + _esc(c.assigned_to || '') + '" placeholder="LeadConnector user ID"></div>';
         } else if (node.subtype === 'move_stage') {
             h += '<div class="wfb-config-field"><label class="wfb-config-label">Pipeline ID</label>' +
-                '<input class="wfb-config-input" id="cfgPipelineId" value="' + _esc(c.pipeline_id || '') + '" placeholder="GHL pipeline ID"></div>';
+                '<input class="wfb-config-input" id="cfgPipelineId" value="' + _esc(c.pipeline_id || '') + '" placeholder="LeadConnector pipeline ID"></div>';
             h += '<div class="wfb-config-field"><label class="wfb-config-label">Stage ID</label>' +
-                '<input class="wfb-config-input" id="cfgStageId" value="' + _esc(c.stage_id || '') + '" placeholder="GHL stage ID"></div>';
+                '<input class="wfb-config-input" id="cfgStageId" value="' + _esc(c.stage_id || '') + '" placeholder="LeadConnector stage ID"></div>';
         } else if (node.subtype === 'custom') {
             h += '<div class="wfb-config-field"><label class="wfb-config-label">Action Name</label>' +
                 '<input class="wfb-config-input" id="cfgCustomName" value="' + _esc(c.action_name || '') + '" placeholder="e.g. timezone-aware-text"></div>';

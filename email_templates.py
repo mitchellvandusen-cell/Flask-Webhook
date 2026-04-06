@@ -152,7 +152,7 @@ def _build_uninstall_feedback_email(name: str, domain_url: str, feedback_id: int
 <td style="padding: 20px 40px 10px;">
     <p style="margin: 0; font-size: 14px; color: #888; line-height: 1.7; text-align: center;">
         Changed your mind? You can always reinstall from the
-        <a href="https://marketplace.gohighlevel.com/" style="color: #00c853; text-decoration: none; font-weight: 600;">GHL Marketplace</a>
+        <a href="https://marketplace.gohighlevel.com/" style="color: #00c853; text-decoration: none; font-weight: 600;">LeadConnector Marketplace</a>
         &mdash; your settings will be waiting.
     </p>
 </td>
@@ -773,7 +773,7 @@ def _build_agency_owner_welcome_email(user_name: str, dashboard_link: str, domai
 <td style="padding: 25px 40px 15px;">
     <p style="margin: 0; font-size: 16px; color: #ddd; line-height: 1.7;">Hi {user_name},</p>
     <p style="margin: 12px 0 0; font-size: 15px; color: #bbb; line-height: 1.7;">
-        Your agency account is set up. The app is now visible on your agents' GoHighLevel sidebar.
+        Your agency account is set up. The app is now visible on your agents' LeadConnector sidebar.
         As they subscribe, they'll automatically appear in your agency dashboard.
     </p>
 </td>
@@ -1018,7 +1018,7 @@ def build_app_update_email(domain_url: str, update_notes: str = "", recipient_em
         <span style="font-size: 12px; font-weight: 700; color: #a5b4fc; text-transform: uppercase; letter-spacing: 1px;">App Update Available</span>
     </div>
     <h1 style="margin: 0 0 12px; font-size: 28px; font-weight: 800; color: #ffffff; line-height: 1.25;">A New Version of Omnisconn<br>is Ready to Install</h1>
-    <p style="margin: 0; font-size: 16px; color: #8892a4; line-height: 1.6;">We've pushed an update to the GoHighLevel Marketplace. To keep your bot running with the latest features and fixes, please update the app in your Lead Connector account — it only takes 30 seconds.</p>
+    <p style="margin: 0; font-size: 16px; color: #8892a4; line-height: 1.6;">We've pushed an update to the LeadConnector Marketplace. To keep your bot running with the latest features and fixes, please update the app in your Lead Connector account — it only takes 30 seconds.</p>
 </td>
 </tr>
 
@@ -1105,7 +1105,7 @@ def build_app_update_email(domain_url: str, update_notes: str = "", recipient_em
 
     text_body = (
         "Omnisconn — App Update Available\n\n"
-        "A new version of Omnisconn has been published to the GoHighLevel Marketplace.\n"
+        "A new version of Omnisconn has been published to the LeadConnector Marketplace.\n"
         "Please update the app in Lead Connector to stay current.\n\n"
         + (f"What's New:\n{update_notes}\n\n" if update_notes else "")
         + "How to Update:\n"

@@ -407,7 +407,7 @@ async function igbSecA2p(c) {
     c.appendChild(title);
     c.appendChild(igbMakeElement('div', 'igb-cfg-desc',
         'A2P 10DLC registers your brand and use case with mobile carriers for business SMS. '
-        + 'This is optional -your SMS bot uses GHL by default. '
+        + 'This is optional -your SMS bot uses LeadConnector by default. '
         + 'Register if you want to send SMS directly through your own Twilio numbers.'));
     if (data.registered) {
         c.innerHTML += igbBadge('Registered', true);
@@ -417,7 +417,7 @@ async function igbSecA2p(c) {
         c.appendChild(info);
     } else {
         c.innerHTML += igbBadge('Not Registered', false);
-        c.appendChild(igbMakeElement('div', 'igb-cfg-desc', 'Your SMS bot currently sends through GHL (GoHighLevel). A2P registration is only needed if you switch to direct Twilio SMS.'));
+        c.appendChild(igbMakeElement('div', 'igb-cfg-desc', 'Your SMS bot currently sends through LeadConnector. A2P registration is only needed if you switch to direct Twilio SMS.'));
         c.innerHTML += igbDashLink('Set Up A2P Registration', 'voice', 'a2p');
     }
 }
@@ -512,11 +512,11 @@ async function igbSecSms(c) {
         + '<input class="' + igbCssInput + '" id="igb-sc-tz" type="text" value="' + igbSafeText(data.timezone || 'America/Chicago') + '" placeholder="America/Chicago" maxlength="50">';
     form.innerHTML += '<label class="' + igbCssLabel + '">SMS Send Via</label>'
         + '<select class="' + igbCssSelect + '" id="igb-sc-via">'
-        + '<option value="ghl"' + (data.sms_send_via === 'ghl' || !data.sms_send_via ? ' selected' : '') + '>GHL (GoHighLevel) -Default</option>'
+        + '<option value="ghl"' + (data.sms_send_via === 'ghl' || !data.sms_send_via ? ' selected' : '') + '>LeadConnector - Default</option>'
         + '<option value="twilio"' + (data.sms_send_via && data.sms_send_via.startsWith('+') ? ' selected' : '') + '>Twilio (Direct) -Requires A2P</option>'
         + '</select>';
     c.appendChild(igbMakeElement('div', 'igb-cfg-desc',
-        'Your SMS bot sends through GHL by default -no extra setup needed. '
+        'Your SMS bot sends through LeadConnector by default -no extra setup needed. '
         + 'Switch to Twilio only if you need direct number control '
         + 'with A2P 10DLC registration.'));
     form.innerHTML += '<label class="' + igbCssLabel + '">Initial Greeting Message</label>'

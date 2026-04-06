@@ -135,7 +135,7 @@
                 el.className = 'sms-channel-option';
                 el.style.cssText = 'display:flex;align-items:center;gap:12px;padding:12px 16px;background:' + _tc.surface + ';border:1px solid ' + _tc.border + ';border-radius:10px;cursor:pointer;transition:all .15s;' + (isChecked ? 'border-color:' + _themeColor('rgba(0,255,136,0.3)', 'rgba(0,136,74,0.3)') + ';background:' + _tc.accentBg + ';' : '') + (isDisabled ? 'opacity:0.4;cursor:not-allowed;' : '');
 
-                const desc = num.label && num.label !== num.number ? num.label : (num.source === 'ghl' ? 'GoHighLevel / LeadConnector number' : 'Omnisconn number');
+                const desc = num.label && num.label !== num.number ? num.label : (num.source === 'ghl' ? 'LeadConnector number' : 'Omnisconn number');
 
                 const iconHtml = num.source === 'ghl'
                     ? `<img src="https://images.leadconnectorhq.com/image/f_webp/q_80/r_1200/u_https://assets.cdn.filesafe.space/WDJNKXKiQj2XODO7jYzV/media/66be66f4b5e9ba05e7a7c191.png" alt="LC" style="width:22px;height:22px;border-radius:4px;flex-shrink:0;" onerror="this.style.display='none'">`

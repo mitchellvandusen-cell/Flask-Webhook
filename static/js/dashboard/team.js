@@ -165,7 +165,7 @@ function teamCheckGhlUsers() {
     var syncBtn = document.getElementById('teamGhlSyncBtn');
     // Always show the banner so user can scan for GHL users
     if (banner) banner.style.display = 'block';
-    if (text) text.textContent = 'Scanning GHL for users...';
+    if (text) text.textContent = 'Scanning LeadConnector for users...';
     if (syncBtn) syncBtn.disabled = true;
 
     fetch('/api/team/ghl-users')
@@ -173,7 +173,7 @@ function teamCheckGhlUsers() {
         .then(function(data) {
             if (syncBtn) syncBtn.disabled = false;
             if (data.error || !data.users) {
-                if (text) text.textContent = 'Could not reach GHL. Click Scan to retry.';
+                if (text) text.textContent = 'Could not reach LeadConnector. Click Scan to retry.';
                 return;
             }
             _teamGhlUsers = data.users;
@@ -187,19 +187,19 @@ function teamCheckGhlUsers() {
                 if (otherUsers.length > 0) {
                     var names = otherUsers.map(function(u) { return u.name || u.email; });
                     var nameStr = names.length <= 3 ? names.join(', ') : names.slice(0, 3).join(', ') + ' +' + (names.length - 3) + ' more';
-                    if (text) text.innerHTML = '<strong>' + otherUsers.length + ' user' + (otherUsers.length > 1 ? 's' : '') + '</strong> found on this GHL location: ' + nameStr + '. You can invite them as seat users.';
+                    if (text) text.innerHTML = '<strong>' + otherUsers.length + ' user' + (otherUsers.length > 1 ? 's' : '') + '</strong> found on this LeadConnector location: ' + nameStr + '. You can invite them as seat users.';
                 } else {
                     var available = data.count - 1;
-                    if (text) text.textContent = available + ' other user' + (available > 1 ? 's' : '') + ' found on this GHL location (already invited). Add more users in GHL, then click Scan.';
+                    if (text) text.textContent = available + ' other user' + (available > 1 ? 's' : '') + ' found on this LeadConnector location (already invited). Add more users in LeadConnector, then click Scan.';
                 }
             } else {
-                if (text) text.textContent = 'No other users found on this GHL location. Add users in GHL, then click Scan.';
+                if (text) text.textContent = 'No other users found on this LeadConnector location. Add users in LeadConnector, then click Scan.';
             }
             teamPopulateGhlDropdown();
         })
         .catch(function() {
             if (syncBtn) syncBtn.disabled = false;
-            if (text) text.textContent = 'Could not reach GHL. Click Scan to retry.';
+            if (text) text.textContent = 'Could not reach LeadConnector. Click Scan to retry.';
         });
 }
 
@@ -212,7 +212,7 @@ function teamPopulateGhlDropdown() {
     _teamMembers.forEach(function(m) { existingEmails[m.email.toLowerCase()] = true; });
     var myEmail = (window.DASHBOARD_BOOT?.userEmail || '').toLowerCase();
 
-    var options = '<option value="">-- Choose a GHL user or enter manually --</option>';
+    var options = '<option value="">-- Choose a LeadConnector user or enter manually --</option>';
     _teamGhlUsers.forEach(function(u) {
         if (existingEmails[u.email.toLowerCase()] || u.email.toLowerCase() === myEmail) return;
         options += '<option value="' + u.id + '" data-email="' + u.email + '" data-name="' + u.name + '">' + u.name + ' (' + u.email + ')</option>';
