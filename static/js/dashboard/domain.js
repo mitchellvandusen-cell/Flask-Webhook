@@ -29,26 +29,33 @@
     }
 
     window.domainTabInit = function () {
+        console.log('[Domain] domainTabInit called');
         fetch('/api/domain/status')
             .then(function (r) {
                 if (!r.ok) throw new Error('HTTP ' + r.status);
                 return r.json();
             })
             .then(function (d) {
+                console.log('[Domain] status response:', JSON.stringify(d));
                 var loading = document.getElementById('domainLoading');
                 if (loading) loading.style.display = 'none';
                 if (d.has_domain && d.status === 'active') {
+                    console.log('[Domain] showing active domain');
                     _showActiveDomain(d);
                 } else if (d.has_domain && d.status === 'provisioning') {
+                    console.log('[Domain] showing provisioning');
                     var prov = document.getElementById('domainProvisioning');
                     if (prov) prov.style.display = 'block';
                 } else if (d.has_domain && d.status === 'error') {
+                    console.log('[Domain] showing error state');
                     _showActiveDomain(d);
                 } else {
+                    console.log('[Domain] showing setup form');
                     _showSetup();
                 }
             })
-            .catch(function () {
+            .catch(function (err) {
+                console.error('[Domain] fetch failed:', err);
                 _showSetup();
             });
     };
