@@ -2507,6 +2507,9 @@ def submit_trust_hub_registration(email: str) -> dict:
             website=trust_hub.get('website', ''),
             contact_title=trust_hub.get('contact_title', ''),
             existing_profile_sid=trust_hub.get('profile_sid', ''),
+            ein_document_data=trust_hub.get('ein_document_data', ''),
+            ein_document_type=trust_hub.get('ein_document_type', ''),
+            ein_document_name=trust_hub.get('ein_document_name', ''),
         )
 
         # ── Process results ──
@@ -2551,6 +2554,14 @@ def submit_trust_hub_registration(email: str) -> dict:
         end_user_sid = results.get('end_user_sid', '')
         if end_user_sid:
             fresh_th['end_user_sid'] = end_user_sid
+        ein_doc_sid = results.get('ein_document_sid', '')
+        if ein_doc_sid:
+            fresh_th['ein_document_sid'] = ein_doc_sid
+
+        # Clear base64 document data from DB after successful upload (saves ~MB per subscriber)
+        if ein_doc_sid and fresh_th.get('ein_document_data'):
+            del fresh_th['ein_document_data']
+            fresh_th['ein_document_uploaded_to_twilio'] = True
 
         fresh_vc['trust_hub'] = fresh_th
         cur.execute("UPDATE subscribers SET voice_config = %s WHERE email = %s",
