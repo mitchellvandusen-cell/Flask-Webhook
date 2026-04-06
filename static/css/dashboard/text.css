@@ -226,10 +226,10 @@ small.text-muted { color: #666666; }
    ONBOARDING BANNER
    ================================================================ */
 [data-theme="light"] .onboarding-banner {
-    background: rgba(255,152,0,0.05) !important;
-    border-color: rgba(255,152,0,0.22) !important;
+    background: rgba(5,150,105,0.05) !important;
+    border-color: rgba(5,150,105,0.22) !important;
 }
-[data-theme="light"] .onboarding-banner .banner-body h4 { color: #b45309 !important; }
+[data-theme="light"] .onboarding-banner .banner-body h4 { color: #059669 !important; }
 [data-theme="light"] .onboarding-banner .banner-body p { color: #444444 !important; }
 [data-theme="light"] .onboarding-banner .banner-dismiss { color: #999999 !important; }
 [data-theme="light"] .onboarding-banner .banner-dismiss:hover { color: #111111 !important; }

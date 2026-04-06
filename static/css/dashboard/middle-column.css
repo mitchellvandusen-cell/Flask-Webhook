@@ -768,8 +768,8 @@ body.light-theme .dash-main [style*="linear-gradient(135deg, #3b82f6"] {
 [data-theme="light"] .form-control { color: #111111 !important; }
 
 /* ── Onboarding banner ── */
-[data-theme="light"] .onboarding-banner { background: rgba(255,152,0,0.06) !important; border-color: rgba(255,152,0,0.25) !important; }
-[data-theme="light"] .onboarding-banner .banner-body h4 { color: #b45309 !important; }
+[data-theme="light"] .onboarding-banner { background: rgba(5,150,105,0.05) !important; border-color: rgba(5,150,105,0.22) !important; }
+[data-theme="light"] .onboarding-banner .banner-body h4 { color: #059669 !important; }
 [data-theme="light"] .onboarding-banner .banner-body p  { color: #444444 !important; }
 [data-theme="light"] .onboarding-banner .banner-dismiss { color: #888888 !important; }
 [data-theme="light"] .onboarding-banner .banner-dismiss:hover { color: #111111 !important; }

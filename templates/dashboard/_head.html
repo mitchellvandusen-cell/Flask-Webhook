@@ -672,10 +672,10 @@
             margin-top: 6px;
         }
 
-        /* Onboarding issue banner */
+        /* Onboarding issue banner — single accent (was orange warning) */
         .onboarding-banner {
-            background: linear-gradient(135deg, rgba(255, 152, 0, 0.12) 0%, rgba(255, 193, 7, 0.08) 100%);
-            border: 1px solid rgba(255, 152, 0, 0.35);
+            background: rgba(0, 255, 136, 0.06);
+            border: 1px solid rgba(0, 255, 136, 0.25);
             border-radius: 14px;
             padding: 20px 24px;
             margin-bottom: 24px;
@@ -685,14 +685,14 @@
         }
         .onboarding-banner .banner-icon {
             font-size: 1.5rem;
-            color: #ff9800;
+            color: var(--accent);
             flex-shrink: 0;
             margin-top: 2px;
         }
         .onboarding-banner .banner-body h4 {
             font-size: 1rem;
             font-weight: 700;
-            color: #ffb74d;
+            color: var(--accent);
             margin: 0 0 6px 0;
         }
         .onboarding-banner .banner-body p {
@@ -703,19 +703,19 @@
         }
         .onboarding-banner .banner-link {
             display: inline-block;
-            background: rgba(255, 152, 0, 0.15);
-            border: 1px solid rgba(255, 152, 0, 0.3);
-            color: #ffb74d;
+            background: rgba(0, 255, 136, 0.10);
+            border: 1px solid rgba(0, 255, 136, 0.25);
+            color: var(--accent);
             padding: 8px 18px;
             border-radius: 8px;
             font-weight: 600;
             font-size: 0.85rem;
             text-decoration: none;
-            transition: all 0.2s;
+            transition: border-color 0.18s, background 0.18s;
         }
         .onboarding-banner .banner-link:hover {
-            background: rgba(255, 152, 0, 0.25);
-            border-color: rgba(255, 152, 0, 0.5);
+            background: rgba(0, 255, 136, 0.18);
+            border-color: rgba(0, 255, 136, 0.45);
             color: #fff;
         }
         .onboarding-banner .banner-dismiss {

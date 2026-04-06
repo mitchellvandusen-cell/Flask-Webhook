@@ -141,22 +141,24 @@
 .dlr-label-5            { color: rgba(255,255,255,0.18); }
 .dlr-label-faint-7      { color: #555555; }
 
-/* iOS app icon gradient backgrounds — same vibrant colors in both modes */
-.dlr-bg-ios-orange      { background: linear-gradient(180deg, #FF9500 0%, #FF6B00 100%); }
-.dlr-bg-ios-purple      { background: linear-gradient(180deg, #5856D6 0%, #AF52DE 100%); }
-.dlr-bg-ios-red         { background: linear-gradient(180deg, #FF3B30 0%, #FF2D55 100%); }
-.dlr-bg-discord         { background: linear-gradient(180deg, #5865f2 0%, #4752c4 100%); }
-.dlr-bg-slack           { background: linear-gradient(180deg, #611f69 0%, #4a154b 100%); }
-.dlr-bg-ios-cyan        { background: linear-gradient(180deg, #32D4DE 0%, #0AB4C5 100%); }
-.dlr-bg-ios-green       { background: linear-gradient(180deg, #65D66A 0%, #34C759 100%); }
-.dlr-bg-ios-orange-2    { background: linear-gradient(180deg, #FF9500 0%, #FF6B00 100%); }
-.dlr-bg-ios-purple-2    { background: linear-gradient(180deg, #5856D6 0%, #AF52DE 100%); }
-.dlr-bg-ios-red-2       { background: linear-gradient(180deg, #FF3B30 0%, #FF2D55 100%); }
+/* iOS app icon gradient backgrounds — monochrome green accent scale for non-platform icons
+   Discord + Slack keep their official brand gradients per user preference */
+.dlr-bg-ios-orange,
+.dlr-bg-ios-orange-2    { background: linear-gradient(180deg, #00ff88 0%, #00cc6a 100%); }
+.dlr-bg-ios-purple,
+.dlr-bg-ios-purple-2    { background: linear-gradient(180deg, #00e07a 0%, #00b862 100%); }
+.dlr-bg-ios-red,
+.dlr-bg-ios-red-2       { background: linear-gradient(180deg, #00cc6a 0%, #00a856 100%); }
+.dlr-bg-ios-cyan,
+.dlr-bg-ios-cyan-2      { background: linear-gradient(180deg, #00e88a 0%, #00cc6a 100%); }
+.dlr-bg-ios-green       { background: linear-gradient(180deg, #00ff88 0%, #00e07a 100%); }
+/* Discord + Slack — keep official brand gradients */
+.dlr-bg-discord,
 .dlr-bg-discord-2       { background: linear-gradient(180deg, #5865f2 0%, #4752c4 100%); }
+.dlr-bg-slack,
 .dlr-bg-slack-2         { background: linear-gradient(180deg, #611f69 0%, #4a154b 100%); }
-.dlr-bg-ios-cyan-2      { background: linear-gradient(180deg, #32D4DE 0%, #0AB4C5 100%); }
 
-.dlr-panel-10       { background: rgba(0,122,255,0.12); color: #007AFF; }
+.dlr-panel-10       { background: rgba(0,255,136,0.12); color: var(--accent); }
 .dlr-bg-bordered    { background: rgba(52,199,89,0.08); border-color: rgba(52,199,89,0.15); }
 .dlr-text-c34c759   { color: #34C759; }
 .dlr-vm-unread      { background: rgba(255,149,0,0.08); border-color: rgba(255,149,0,0.15); }
