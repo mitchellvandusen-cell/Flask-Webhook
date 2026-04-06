@@ -1,0 +1,33 @@
+                                    <!-- ═══ CALL INSIGHTS APP ═══ -->
+                                    <div class="ios-app-view" id="iosAppInsights" style="display:none;">
+                                        <div class="ios-nav-bar">
+                                            <button class="ios-back-btn" onclick="insightsDetailVisible ? insightsBackToList() : iosGoHome()">
+                                                <i class="fa-solid fa-chevron-left"></i><span class="ios-back-label">Back</span>
+                                            </button>
+                                            <div class="ios-nav-title">
+                                                <div class="insights-nav-heading">Call Insights</div>
+                                            </div>
+                                            <button onclick="iosInsightsInit()" class="ios-nav-action" title="Refresh">
+                                                <i class="fa-solid fa-arrows-rotate"></i>
+                                            </button>
+                                        </div>
+                                        <!-- Insights List View -->
+                                        <div id="insightsListView" class="ios-call-log-scroll">
+                                            <div id="insightsList" class="insights-list">
+                                                <div class="ios-empty-state insights-empty">
+                                                    <div class="ios-empty-icon dlr-bg-bordered">
+                                                        <i class="fa-solid fa-chart-line insights-empty-icon-color"></i>
+                                                    </div>
+                                                    <div class="ios-empty-title">No Insights Yet</div>
+                                                    <div class="ios-empty-sub">Call insights appear ~90s after each call ends</div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <!-- Insights Detail View (hidden by default) -->
+                                        <div id="insightsDetailView" class="insights-detail-scroll">
+                                            <div id="insightsDetailContent" class="insights-detail-content">
+                                            </div>
+                                        </div>
+                                        <div class="ios-home-indicator-bar"><div class="ios-home-indicator ios-home-indicator-dark"></div></div>
+                                    </div>
+

@@ -1,0 +1,95 @@
+                <script>
+                (function(){
+                    /* Toggle search/filter/queue popups on mobile */
+                    var _mobOpen = null;
+                    window.dlrMobToggle = function(which) {
+                        var panels = {
+                            search: 'dlrMobSearchPopup',
+                            filter: 'dlrMobFilterPopup',
+                            queue:  'dlrMobQueuePopup'
+                        };
+                        var btns = {
+                            search: 'dlrMobSearchBtn',
+                            filter: 'dlrMobFilterBtn',
+                            queue:  'dlrMobQueueBtn'
+                        };
+                        // Close current if same
+                        if (_mobOpen === which) {
+                            document.getElementById(panels[which]).classList.remove('open');
+                            document.getElementById(btns[which]).classList.remove('active');
+                            _mobOpen = null;
+                            return;
+                        }
+                        // Close any open
+                        Object.keys(panels).forEach(function(k){
+                            document.getElementById(panels[k]).classList.remove('open');
+                            document.getElementById(btns[k]).classList.remove('active');
+                        });
+                        // Open requested
+                        document.getElementById(panels[which]).classList.add('open');
+                        document.getElementById(btns[which]).classList.add('active');
+                        _mobOpen = which;
+                        // Focus search input
+                        if (which === 'search') {
+                            var inp = document.getElementById('dlrMobSearchInput');
+                            if (inp) setTimeout(function(){ inp.focus(); }, 100);
+                        }
+                    };
+
+                    /* Sync mobile search → desktop search */
+                    window.dlrMobSearchSync = function(val) {
+                        var desk = document.getElementById('dialerSearch');
+                        if (desk) { desk.value = val; }
+                        if (typeof dialerDebounceSearch === 'function') dialerDebounceSearch();
+                    };
+
+                    /* Sync mobile pipeline filter → desktop */
+                    window.dlrMobPipelineSync = function(val) {
+                        var desk = document.getElementById('dialerPipelineFilter');
+                        if (desk) { desk.value = val; desk.dispatchEvent(new Event('change')); }
+                    };
+
+                    /* Sync mobile stage filter → desktop */
+                    window.dlrMobStageSync = function(val) {
+                        var desk = document.getElementById('dialerStageFilter');
+                        if (desk) { desk.value = val; desk.dispatchEvent(new Event('change')); }
+                    };
+
+                    /* Keep mobile pipeline/stage selects in sync when desktop changes */
+                    function _syncSelects() {
+                        var dp = document.getElementById('dialerPipelineFilter');
+                        var mp = document.getElementById('dlrMobPipelineFilter');
+                        var ds = document.getElementById('dialerStageFilter');
+                        var ms = document.getElementById('dlrMobStageFilter');
+                        if (dp && mp) {
+                            // Clone options
+                            mp.innerHTML = dp.innerHTML;
+                            mp.value = dp.value;
+                        }
+                        if (ds && ms) {
+                            ms.innerHTML = ds.innerHTML;
+                            ms.value = ds.value;
+                            ms.disabled = ds.disabled;
+                        }
+                    }
+
+                    /* Observe desktop selects for option changes */
+                    var _syncInterval = setInterval(function(){
+                        if (window.innerWidth > 768) return;
+                        _syncSelects();
+                        /* Sync queue count badge */
+                        var dqc = document.getElementById('dialerQueueCount');
+                        var mqb = document.getElementById('dlrMobQueueBadge');
+                        var mqc = document.getElementById('dlrMobQueueCount');
+                        var mql = document.getElementById('dlrMobQueueList');
+                        var dql = document.getElementById('dialerQueueList');
+                        if (dqc && mqb) {
+                            var n = parseInt(dqc.textContent) || 0;
+                            mqb.style.display = n > 0 ? 'flex' : 'none';
+                            mqb.textContent = n;
+                            if (mqc) mqc.textContent = n;
+                        }
+                        if (dql && mql) mql.innerHTML = dql.innerHTML;
+                    }, 1500);
+                })();
+                </script>

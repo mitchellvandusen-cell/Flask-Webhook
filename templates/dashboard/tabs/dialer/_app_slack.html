@@ -1,0 +1,60 @@
+                                    <!-- ═══ SLACK APP ═══ -->
+                                    <div class="ios-app-view" id="iosAppSlack" style="display:none;">
+                                        <div class="dlr-misc-30 dlr-slack-nav">
+                                            <div class="dlr-misc-25 dlr-slack-nav-row">
+                                                <button class="ios-back-btn dlr-misc-31 dlr-slack-back-btn" onclick="_iosSlackActiveChannel ? _iosSlackBackToChannels() : iosGoHome()">
+                                                    <i class="fa-solid fa-chevron-left"></i><span class="ios-back-label">Back</span>
+                                                </button>
+                                                <i class="fa-solid fa-hashtag dlr-icon-cababad dlr-slack-hashtag"></i>
+                                                <span id="iosSlackChannelName" class="dlr-heading-9 dlr-slack-channel-name">Slack</span>
+                                                <span id="iosSlackWorkspaceName" class="dlr-label-ios-2 dlr-slack-workspace-name"></span>
+                                            </div>
+                                        </div>
+                                        <!-- Slack content area -->
+                                        <div id="iosSlackContent" class="dlr-misc-32 dlr-slack-content">
+                                            <!-- Not connected state -->
+                                            <div id="iosSlackNotConnected" class="dlr-slack-not-connected">
+                                                <div class="dlr-icon-box-slack dlr-slack-icon-circle">
+                                                    <i class="fa-brands fa-slack dlr-label-12 dlr-slack-icon-lg"></i>
+                                                </div>
+                                                <div class="dlr-heading-10 dlr-slack-connect-title">Connect Slack</div>
+                                                <div class="dlr-label-ios-3 dlr-slack-connect-desc">Link your Slack workspace to read and reply to team messages.</div>
+                                                <a href="/slack/connect" target="_top" class="dlr-panel-15 dlr-slack-connect-btn">
+                                                    <i class="fa-brands fa-slack me-1"></i> Connect
+                                                </a>
+                                            </div>
+                                            <!-- Connected: channel picker -->
+                                            <div id="iosSlackConnected" class="dlr-slack-connected" style="display:none;">
+                                                <!-- Workspace header -->
+                                                <div id="iosSlackWorkspaceHeader" class="dlr-misc-28 dlr-slack-ws-header">
+                                                    <div class="dlr-slack-ws-row">
+                                                        <div id="iosSlackWorkspaceIcon" class="dlr-icon-box-slack-2 dlr-slack-ws-icon"></div>
+                                                        <div class="dlr-slack-ws-info">
+                                                            <div id="iosSlackTeamDisplay" class="dlr-heading-11 dlr-slack-team-name"></div>
+                                                            <div id="iosSlackUserDisplay" class="dlr-label-ios-4 dlr-slack-user-name"></div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <!-- Channel list -->
+                                                <div id="iosSlackChannels" class="dlr-slack-channels">
+                                                    <div class="dlr-label-ios-5 dlr-slack-channels-label">Channels</div>
+                                                    <div id="iosSlackChannelList" class="dlr-slack-channel-list"></div>
+                                                </div>
+                                            </div>
+                                            <!-- Chat view -->
+                                            <div id="iosSlackChat" class="dlr-slack-chat" style="display:none;">
+                                                <div id="iosSlackMessages" class="dlr-slack-messages"></div>
+                                                <div class="dlr-misc-33 dlr-slack-composer">
+                                                    <div class="dlr-slack-composer-row">
+                                                        <textarea id="iosSlackReplyText" rows="1" placeholder="Message #channel" class="dlr-input-8 dlr-slack-textarea" onkeydown="if(event.key==='Enter'&&(event.ctrlKey||event.metaKey)){event.preventDefault();iosSlackSend();}" oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,80)+'px';"></textarea>
+                                                        <button onclick="iosSlackSend()" class="dlr-btn-slack-send dlr-slack-send-btn">
+                                                            <i class="fa-solid fa-paper-plane dlr-icon-cfff dlr-slack-send-icon"></i>
+                                                        </button>
+                                                    </div>
+                                                    <div class="dlr-label-ios-6 dlr-slack-hint">Ctrl+Enter to send</div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="ios-home-indicator-bar dlr-misc-30"><div class="ios-home-indicator"></div></div>
+                                    </div>
+

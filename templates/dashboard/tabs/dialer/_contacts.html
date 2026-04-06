@@ -1,0 +1,176 @@
+                <style>
+                    .dlr-contacts-layout { display:flex; gap:8px; height:calc(100vh - 220px); min-height:500px; }
+                    .dlr-contacts-col { width:30%; border-radius:12px; }
+                    .dlr-contacts-search-btn { background:none; border:none; border-radius:6px; padding:4px 9px; cursor:pointer; font-size:.85rem; color:#888; transition:color .15s; }
+                    .dlr-contacts-search-btn:hover { color:var(--accent); }
+                    .dlr-contacts-filter-wrap { padding:8px 12px; flex-shrink:0; }
+                    .dlr-contacts-search-row { margin-bottom:6px; }
+                    .dlr-contacts-search-input { width:100%; padding:8px 10px; font-size:0.85rem; }
+                    .dlr-contacts-pipeline { width:100%; padding:5px 8px; font-size:0.85rem; margin-bottom:4px; }
+                    .dlr-contacts-manual-wrap { margin-bottom:4px; }
+                    .dlr-contacts-manual-input { width:100%; padding:5px 8px; font-size:0.75rem; }
+                    .dlr-contacts-manual-help { font-size:0.75rem; margin-top:3px; line-height:1.3; }
+                    .dlr-contacts-manual-link { color:#00ff88; text-decoration:underline; }
+                    .dlr-contacts-manual-code { padding:0 3px; border-radius:3px; }
+                    .dlr-contacts-stage { width:100%; padding:5px 8px; font-size:0.75rem; }
+                    .dlr-contacts-cache { font-size:.75rem; padding:2px 0; display:flex; align-items:center; gap:4px; }
+                    .dlr-contacts-actions { padding:6px 12px; flex-shrink:0; }
+                    .dlr-contacts-select-label { font-size:0.75rem; cursor:pointer; display:flex; align-items:center; gap:4px; }
+                    .dlr-contacts-checkbox { accent-color:var(--accent); width:14px; height:14px; cursor:pointer; }
+                    .dlr-contacts-selected-count { font-weight:600; }
+                    .dlr-contacts-queue-wrap { padding:6px 12px; flex-shrink:0; position:relative; }
+                    .dlr-contacts-queue-btn { width:100%; display:flex; align-items:center; justify-content:space-between; padding:5px 10px; border-radius:6px; font-size:0.75rem; font-weight:700; cursor:pointer; }
+                    .dlr-contacts-queue-count { color:var(--accent); margin-left:4px; }
+                    .dlr-contacts-queue-chevron { font-size:0.65rem; color:#666; }
+                    .dlr-contacts-queue-body { margin-top:4px; border:1px solid var(--border); border-radius:6px; overflow:hidden; }
+                    .dlr-contacts-queue-list { max-height:160px; overflow-y:auto; padding:4px 8px; }
+                    .dlr-contacts-queue-empty { text-align:center; padding:10px; font-size:0.75rem; }
+                    .dlr-contacts-queue-footer { display:flex; gap:4px; padding:6px 8px; border-top:1px solid var(--border); }
+                    .dlr-contacts-autodial-btn { flex:1; padding:6px; border-radius:6px; border:none; font-weight:700; font-size:0.75rem; cursor:pointer; }
+                    .dlr-contacts-clear-btn { padding:6px 10px; border-radius:6px; font-weight:600; font-size:0.75rem; cursor:pointer; }
+                    .dlr-contacts-mob-search-label { font-size:0.72rem; letter-spacing:-0.3px; }
+                    .dlr-contacts-mob-queue-label { font-size:0.72rem; letter-spacing:-0.5px; }
+                    .dlr-contacts-mob-spacer { flex:1; }
+                    .dlr-contacts-mob-cache { font-size:0.65rem; display:flex; align-items:center; gap:3px; }
+                    .dlr-contacts-mob-queue-hdr { padding:6px 10px; display:flex; align-items:center; justify-content:space-between; }
+                    .dlr-contacts-mob-queue-title { font-size:0.75rem; font-weight:700; color:var(--accent); }
+                    .dlr-contacts-mob-queue-list { max-height:160px; overflow-y:auto; padding:4px 8px; }
+                    .dlr-contacts-mob-queue-footer { display:flex; gap:4px; padding:6px 8px; }
+                    .dlr-contacts-empty { text-align:center; padding:30px 16px; }
+                    .dlr-contacts-empty-icon { width:52px; height:52px; margin:0 auto 14px; border-radius:12px; display:flex; align-items:center; justify-content:center; }
+                    .dlr-contacts-empty-icon i { font-size:1.4rem; }
+                    .dlr-contacts-empty-title { font-weight:600; font-size:0.82rem; margin-bottom:5px; }
+                    .dlr-contacts-empty-sub { font-size:0.75rem; }
+                    .dlr-contacts-empty-cta { color:var(--accent); font-weight:600; }
+                    [data-theme="light"] .dlr-contacts-search-btn { color:#999; }
+                    [data-theme="light"] .dlr-contacts-search-btn:hover { color:var(--lt-accent, #059669); }
+                    [data-theme="light"] .dlr-contacts-manual-link { color:var(--lt-accent, #059669); }
+                    [data-theme="light"] .dlr-contacts-queue-chevron { color:#999; }
+                    [data-theme="light"] .dlr-contacts-empty-cta { color:var(--lt-accent, #059669); }
+                </style>
+                <!-- ═══ 3-Column Layout ═══ -->
+                <div class="dlr-3col-layout dlr-contacts-layout" id="dlr3colLayout">
+
+                    <!-- ── LEFT: Contacts ── -->
+                    <div class="dlr-col dlr-mobile-active dlr-contacts-col" id="dlrColContacts">
+                        <div class="dlr-col-hdr">
+                            <h6>Contacts</h6>
+                            <button id="dlrSearchToggleBtn" onclick="dlrToggleSearch()" class="dlr-contacts-search-btn" title="Search contacts">
+                                <i class="fa-solid fa-magnifying-glass"></i>
+                            </button>
+                        </div>
+                        <!-- Quick Dial moved to header -->
+                        <!-- Search + Filters -->
+                        <div id="dialerFilterWrap" class="dlr-misc-7 dlr-contacts-filter-wrap">
+                            <div id="dlrSearchRow" class="dlr-contacts-search-row" style="display:none;">
+                                <input type="text" id="dialerSearch" class="form-control dlr-contacts-search-input" placeholder="Search contacts..." oninput="dialerDebounceSearch()">
+                            </div>
+                            <select id="dialerPipelineFilter" class="form-select dlr-contacts-pipeline" onchange="dialerOnPipelineChange()">
+                                <option value="">All Contacts</option>
+                                <option value="" disabled class="dlr-text-dim">Loading pipelines...</option>
+                            </select>
+                            <!-- Fallback: shown when opportunities.readonly scope is pending approval -->
+                            <div id="dialerPipelineManual" class="dlr-contacts-manual-wrap" style="display:none;">
+                                <input type="text" id="dialerPipelineManualInput" class="form-control dlr-label-3 dlr-contacts-manual-input" placeholder="Paste Pipeline ID from LeadConnector URL..."
+                                    oninput="dialerOnManualPipelineInput()">
+                                <div class="dlr-label-amber dlr-contacts-manual-help">
+                                    <i class="fa-solid fa-link me-1"></i><a href="/oauth/initiate" class="dlr-contacts-manual-link">Reconnect your CRM</a> to enable pipeline filtering, or paste your Pipeline ID below.
+                                    Find it in LeadConnector &rarr; Opportunities &rarr; copy the <code class="dlr-panel-9 dlr-contacts-manual-code">pipelineId=</code> value from the URL.
+                                </div>
+                            </div>
+                            <select id="dialerStageFilter" class="form-select dlr-contacts-stage" onchange="dialerFetchContacts()" style="display:none;" disabled>
+                                <option value="">All Stages (select a pipeline first)</option>
+                            </select>
+                            <!-- Cache status indicator -->
+                            <div id="dialerCacheStatus" class="dlr-label-faint-4 dlr-contacts-cache" style="display:none;">
+                            </div>
+                        </div>
+                        <!-- Select Actions + Dial Queue (merged) -->
+                        <div id="dialerActionsBar" class="dlr-misc-8 dlr-contacts-actions" style="display:none;">
+                            <div class="d-flex align-items-center justify-content-between">
+                                <label class="dlr-label-light dlr-contacts-select-label">
+                                    <input type="checkbox" id="dialerSelectAll" onchange="dialerToggleSelectAll()" class="dlr-misc-9 dlr-contacts-checkbox">
+                                    All <span id="dialerSelectedCount" class="dlr-label-cyan-2 dlr-contacts-selected-count"></span>
+                                </label>
+                                <div class="d-flex gap-2">
+                                    <button id="dialerAddSelectedBtn" onclick="dialerAddSelectedToQueue()" class="dlr-btn-cyan-outline-3 dlr-action-btn-equal" disabled>
+                                        <i class="fa-solid fa-plus me-1"></i>Add to Queue
+                                    </button>
+                                    <button id="dialerMoveSelectedBtn" onclick="_mvpOpen()" class="dlr-move-bulk-btn dlr-action-btn-equal" disabled>Move Pipeline</button>
+                                </div>
+                            </div>
+                        </div>
+                        <!-- Dial Queue Button (replaces floating queue dropdown) -->
+                        <div class="dlr-contacts-queue-wrap" id="dialerQueueWrap">
+                            <button onclick="document.getElementById('dialerQueueBody').style.display=document.getElementById('dialerQueueBody').style.display==='none'?'block':'none'" class="dlr-btn-ghost-7 dlr-contacts-queue-btn">
+                                <span><i class="fa-solid fa-list-ol me-1"></i>Dial Queue <span id="dialerQueueCount" class="dlr-contacts-queue-count">0</span></span>
+                                <i class="fa-solid fa-chevron-down dlr-contacts-queue-chevron"></i>
+                            </button>
+                            <div id="dialerQueueBody" class="dlr-contacts-queue-body" style="display:none;">
+                                <div id="dialerQueueList" class="dlr-contacts-queue-list">
+                                    <div class="dlr-label-faint-5 dlr-contacts-queue-empty">Empty queue</div>
+                                </div>
+                                <div class="dlr-contacts-queue-footer">
+                                    <button id="dialerStartBtn" onclick="dialerToggleQueue()" disabled class="dlr-btn-accent-2 dlr-contacts-autodial-btn">
+                                        <i class="fa-solid fa-play me-1"></i>Auto-Dial
+                                    </button>
+                                    <button onclick="dialerClearQueue()" class="dlr-btn-ghost-7 dlr-contacts-clear-btn">Clear</button>
+                                </div>
+                            </div>
+                        </div>
+                        <!-- Campaign History moved to Call History phone app -->
+                        <!-- ═══ Mobile Compact Toolbar (search/filter/queue as icons) ═══ -->
+                        <div class="dlr-mobile-toolbar" id="dlrMobileToolbar" style="display:none;">
+                            <button class="dlr-mob-tool-btn" id="dlrMobSearchBtn" onclick="dlrMobToggle('search')" title="Search contacts">
+                                <span class="dlr-contacts-mob-search-label">Search</span>
+                            </button>
+                            <button class="dlr-mob-tool-btn" id="dlrMobFilterBtn" onclick="dlrMobToggle('filter')" title="Filter contacts">
+                                <i class="fa-solid fa-filter"></i>
+                            </button>
+                            <button class="dlr-mob-tool-btn" id="dlrMobQueueBtn" onclick="dlrMobToggle('queue')" title="Queue">
+                                <span class="dlr-contacts-mob-queue-label">Qu+</span>
+                                <span class="dlr-mob-tool-badge" id="dlrMobQueueBadge" style="display:none;">0</span>
+                            </button>
+                            <div class="dlr-contacts-mob-spacer"></div>
+                            <div id="dlrMobCacheStatus" class="dlr-label-faint-6 dlr-contacts-mob-cache"></div>
+                        </div>
+                        <!-- Mobile Search Popup -->
+                        <div class="dlr-mob-search-popup" id="dlrMobSearchPopup">
+                            <input type="text" id="dlrMobSearchInput" placeholder="Search contacts..." oninput="dlrMobSearchSync(this.value)">
+                        </div>
+                        <!-- Mobile Filter Popup -->
+                        <div class="dlr-mob-filter-popup" id="dlrMobFilterPopup">
+                            <select id="dlrMobPipelineFilter" onchange="dlrMobPipelineSync(this.value)">
+                                <option value="">All Contacts</option>
+                            </select>
+                            <select id="dlrMobStageFilter" onchange="dlrMobStageSync(this.value)">
+                                <option value="">All Stages (select a pipeline first)</option>
+                            </select>
+                        </div>
+                        <!-- Mobile Queue Popup -->
+                        <div class="dlr-mob-queue-popup" id="dlrMobQueuePopup">
+                            <div class="dlr-contacts-mob-queue-hdr">
+                                <span class="dlr-contacts-mob-queue-title"><i class="fa-solid fa-list-ol me-1"></i>Queue <span id="dlrMobQueueCount">0</span></span>
+                            </div>
+                            <div id="dlrMobQueueList" class="dlr-contacts-mob-queue-list">
+                                <div class="dlr-label-faint-5 dlr-contacts-queue-empty">Empty queue</div>
+                            </div>
+                            <div class="dlr-contacts-mob-queue-footer">
+                                <button onclick="dialerToggleQueue()" class="dlr-btn-accent-2 dlr-contacts-autodial-btn">
+                                    <i class="fa-solid fa-play me-1"></i>Auto-Dial
+                                </button>
+                                <button onclick="dialerClearQueue()" class="dlr-btn-ghost-7 dlr-contacts-clear-btn">Clear</button>
+                            </div>
+                        </div>
+                        <!-- Contact List -->
+                        <div id="dialerContactList" class="dlr-col-body">
+                            <div class="dlr-contacts-empty">
+                                <div class="dlr-icon-box-accent dlr-contacts-empty-icon">
+                                    <i class="fa-solid fa-address-book dlr-label-4"></i>
+                                </div>
+                                <div class="dlr-label-gray dlr-contacts-empty-title">No contacts loaded</div>
+                                <div class="dlr-label-dark dlr-contacts-empty-sub">Click <strong class="dlr-contacts-empty-cta">Get Contacts</strong> to load your pipeline</div>
+                            </div>
+                        </div>
+                    </div>
+

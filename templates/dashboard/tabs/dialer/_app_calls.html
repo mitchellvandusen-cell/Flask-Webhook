@@ -1,0 +1,180 @@
+                                    <style>
+                                        /* Call History / Recents App layout classes */
+                                        .dlr-chr-nav-title { font-weight:700; font-size:0.95rem; }
+                                        .dlr-chr-nav-actions { display:flex; gap:4px; align-items:center; }
+                                        .dlr-chr-scope-btn { font-size:0.75rem; padding:3px 8px; border-radius:12px; }
+                                        .dlr-chr-scope-label { font-weight:600; }
+                                        .dlr-chr-list-reset { padding:0; }
+                                        .dlr-chr-empty-pad { padding-top:60px; }
+                                        .dlr-chr-campaign-pad { padding:4px 8px; }
+                                        .dlr-chr-vm-scroll { flex:1; overflow-y:auto; -webkit-overflow-scrolling:touch; }
+                                        .dlr-chr-vm-greeting-icon { font-size:0.8rem; color:var(--accent); }
+                                        .dlr-chr-vm-greeting-label { font-size:0.78rem; }
+                                        .dlr-chr-vm-greeting-label-color { color:#aaa; }
+                                        [data-theme="light"] .dlr-chr-vm-greeting-label-color { color:#666; }
+                                        .dlr-chr-vm-btn-row { display:flex; gap:6px; }
+                                        .dlr-chr-vm-rec-icon { font-size:0.8rem; }
+                                        .dlr-chr-vm-rec-icon-color { color:#ff453a; }
+                                        .dlr-chr-vm-upload-icon { font-size:0.8rem; }
+                                        .dlr-chr-vm-rec-bar-inner { display:flex; align-items:center; gap:8px; }
+                                        .dlr-chr-vm-rec-time { font-size:0.82rem; font-weight:700; font-family:monospace; }
+                                        .dlr-chr-vm-rec-time-color { color:#fff; }
+                                        [data-theme="light"] .dlr-chr-vm-rec-time-color { color:#1a1a1a; }
+                                        .dlr-chr-vm-rec-label { font-size:0.72rem; }
+                                        .dlr-chr-vm-rec-label-color { color:#888; }
+                                        [data-theme="light"] .dlr-chr-vm-rec-label-color { color:#666; }
+                                        .dlr-chr-vm-rec-actions { display:flex; gap:6px; }
+                                        .dlr-chr-vm-rec-cancel { padding:4px 10px; border-radius:8px; font-size:0.72rem; cursor:pointer; }
+                                        .dlr-chr-vm-rec-cancel-colors { background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.12); color:#aaa; }
+                                        [data-theme="light"] .dlr-chr-vm-rec-cancel-colors { background:rgba(0,0,0,0.05); border:1px solid rgba(0,0,0,0.12); color:#666; }
+                                        .dlr-chr-vm-rec-save { padding:4px 10px; border-radius:8px; font-size:0.72rem; font-weight:700; cursor:pointer; }
+                                        .dlr-chr-vm-rec-save-colors { background:rgba(0,255,136,0.15); border:1px solid rgba(0,255,136,0.3); color:#00ff88; }
+                                        [data-theme="light"] .dlr-chr-vm-rec-save-colors { background:rgba(5,150,105,0.1); border:1px solid rgba(5,150,105,0.3); color:#059669; }
+                                        .dlr-chr-vm-player { padding:10px 14px; flex-shrink:0; border-top:1px solid rgba(255,255,255,0.06); }
+                                        .dlr-chr-vm-player-bg { background:rgba(14,14,14,0.98); }
+                                        [data-theme="light"] .dlr-chr-vm-player-bg { background:rgba(255,255,255,0.98); border-top-color:rgba(0,0,0,0.08); }
+                                        .dlr-chr-filter-inline { display:inline-flex; }
+                                        .dlr-chr-vm-tab-col { flex-direction:column; }
+                                    </style>
+                                    <!-- ═══ PHONE APP (Call History + Voicemail) ═══ -->
+                                    <div class="ios-app-view" id="iosAppCalls" style="display:none;">
+                                        <!-- Nav bar -->
+                                        <div class="ios-nav-bar">
+                                            <button class="ios-back-btn" onclick="iosGoHome()">
+                                                <i class="fa-solid fa-chevron-left"></i><span class="ios-back-label">Back</span>
+                                            </button>
+                                            <div class="ios-nav-title">
+                                                <div id="iosCallsNavTitle" class="dlr-chr-nav-title">Recents</div>
+                                            </div>
+                                            <div class="dlr-chr-nav-actions">
+                                                <!-- Filter icon (Recents tab only: smart date/duration filter) -->
+                                                <button id="dialerCallsFilterBtn" class="ios-nav-action ios-rec-filter-btn dlr-chr-filter-inline" onclick="toggleDialerCallsFilter()" title="Filter">
+                                                    <i class="fa-solid fa-sliders"></i>
+                                                </button>
+                                                <!-- Scope toggle -->
+                                                <button id="dialerCallsViewAllBtn" onclick="dialerToggleCallHistoryScope()" class="ios-nav-action dlr-panel-10 dlr-chr-scope-btn" style="display:none;">
+                                                    <span id="dialerCallsLabel" class="dlr-chr-scope-label">All</span>
+                                                </button>
+                                                <!-- Refresh -->
+                                                <button id="iosCallsRefreshBtn" onclick="iosCallsRefresh()" class="ios-nav-action" title="Refresh">
+                                                    <i class="fa-solid fa-arrows-rotate"></i>
+                                                </button>
+                                            </div>
+                                        </div>
+
+                                        <!-- Smart filter panel (Recents tab) — collapsed by default -->
+                                        <div id="dialerCallsFilterPanel" class="ios-rec-filter-panel">
+                                            <div class="ios-rec-filter-row">
+                                                <label class="ios-rec-filter-label">Filter By</label>
+                                                <select class="ios-rec-filter-select" id="dialerCallsFilterType" onchange="dialerCallsOnFilterTypeChange()">
+                                                    <option value="none">None</option>
+                                                    <option value="date">Date</option>
+                                                    <option value="duration">Duration</option>
+                                                </select>
+                                            </div>
+                                            <!-- Date row — shown when filter=date -->
+                                            <div class="ios-rec-filter-row" id="dialerCallsDateRow" style="display:none;">
+                                                <label class="ios-rec-filter-label">Date</label>
+                                                <input type="date" class="ios-rec-filter-select" id="dialerCallsDateFilter" onchange="dialerLoadAllCallHistory()" style="color-scheme:dark;">
+                                            </div>
+                                            <!-- Duration row — shown when filter=duration -->
+                                            <div class="ios-rec-filter-row" id="dialerCallsDurationRow" style="display:none;">
+                                                <label class="ios-rec-filter-label">Duration</label>
+                                                <select class="ios-rec-filter-select" id="dialerCallsDurationFilter" onchange="dialerLoadAllCallHistory()">
+                                                    <option value="">All</option>
+                                                    <option value="0-1">0–1 min</option>
+                                                    <option value="1-2">1–2 min</option>
+                                                    <option value="2-5">2–5 min</option>
+                                                    <option value="5+">5+ min</option>
+                                                </select>
+                                            </div>
+                                        </div>
+
+                                        <!-- 3-tab bar -->
+                                        <div class="ios-calls-tab-bar">
+                                            <button id="iosCallsTabSingle"    class="ios-calls-tab active" onclick="iosCallsSetTab('single')">Recents</button>
+                                            <button id="iosCallsTabCampaigns" class="ios-calls-tab"        onclick="iosCallsSetTab('campaigns')">Campaigns</button>
+                                            <button id="iosCallsTabVoicemail" class="ios-calls-tab"        onclick="iosCallsSetTab('voicemail')">Voicemail</button>
+                                        </div>
+
+                                        <!-- ── TAB: Recents (call history with audio scrubbers) ── -->
+                                        <div id="dlrHistoryCalls" class="ios-call-log-scroll">
+                                            <div id="dialerHistoryList" class="dlr-chr-list-reset">
+                                                <div class="ios-empty-state dlr-chr-empty-pad">
+                                                    <div class="ios-empty-icon dlr-bg-bordered">
+                                                        <i class="fa-solid fa-phone dlr-text-c34c759"></i>
+                                                    </div>
+                                                    <div class="ios-empty-title">No Recent Calls</div>
+                                                    <div class="ios-empty-sub">Your call history will appear here</div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- ── TAB: Campaigns ── -->
+                                        <div id="dlrHistoryCampaigns" class="ios-call-log-scroll" style="display:none;">
+                                            <div id="dlrCampaignHistory" class="dlr-chr-campaign-pad">
+                                                <div class="ios-empty-state dlr-chr-empty-pad">
+                                                    <div class="ios-empty-icon dlr-bg-bordered">
+                                                        <i class="fa-solid fa-clock-rotate-left dlr-text-c34c759"></i>
+                                                    </div>
+                                                    <div class="ios-empty-title">No Campaigns Yet</div>
+                                                    <div class="ios-empty-sub">Campaign history will appear here</div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- ── TAB: Voicemail ── -->
+                                        <div id="dlrTabVoicemail" class="ios-call-log-scroll dlr-chr-vm-tab-col" style="display:none;">
+                                            <!-- Greeting management bar -->
+                                            <div class="ios-vm-greeting-bar">
+                                                <div class="ios-vm-greeting-left">
+                                                    <i class="fa-solid fa-microphone-lines dlr-chr-vm-greeting-icon"></i>
+                                                    <span id="ios-vm-greeting-label" class="dlr-chr-vm-greeting-label dlr-chr-vm-greeting-label-color">No greeting set</span>
+                                                </div>
+                                                <div class="dlr-chr-vm-btn-row">
+                                                    <button class="ios-vm-greeting-btn" id="iosVmRecordBtn" onclick="iosVmToggleRecord()" title="Record greeting via microphone">
+                                                        <i class="fa-solid fa-circle-dot dlr-chr-vm-rec-icon dlr-chr-vm-rec-icon-color"></i>
+                                                        <span>Record</span>
+                                                    </button>
+                                                    <button class="ios-vm-greeting-btn" onclick="document.getElementById('iosVmGreetingFile').click()" title="Upload greeting file">
+                                                        <i class="fa-solid fa-arrow-up-from-bracket dlr-chr-vm-upload-icon"></i>
+                                                        <span>Upload</span>
+                                                    </button>
+                                                </div>
+                                            </div>
+                                            <!-- Live recording indicator (hidden until recording) -->
+                                            <div id="iosVmRecordingBar" style="display:none;" class="ios-vm-recording-bar">
+                                                <div class="dlr-chr-vm-rec-bar-inner">
+                                                    <span id="iosVmRecDot" class="ios-vm-rec-dot"></span>
+                                                    <span id="iosVmRecTime" class="dlr-chr-vm-rec-time dlr-chr-vm-rec-time-color">0:00</span>
+                                                    <span class="dlr-chr-vm-rec-label dlr-chr-vm-rec-label-color">Recording...</span>
+                                                </div>
+                                                <div class="dlr-chr-vm-rec-actions">
+                                                    <button onclick="iosVmStopRecord(false)" class="dlr-chr-vm-rec-cancel dlr-chr-vm-rec-cancel-colors">Cancel</button>
+                                                    <button onclick="iosVmStopRecord(true)" class="dlr-chr-vm-rec-save dlr-chr-vm-rec-save-colors">Save</button>
+                                                </div>
+                                            </div>
+                                            <!-- Hidden file input -->
+                                            <input type="file" id="iosVmGreetingFile" accept="audio/*,.mp3,.wav,.m4a,.ogg" style="display:none;" onchange="iosVmHandleGreetingFile(this)">
+                                            <!-- Voicemail list -->
+                                            <div class="dlr-chr-vm-scroll">
+                                                <div id="vmList" class="dlr-chr-list-reset">
+                                                    <div class="ios-empty-state dlr-chr-empty-pad">
+                                                        <div class="ios-empty-icon dlr-vm-unread">
+                                                            <i class="fa-solid fa-voicemail dlr-text-ios-orange"></i>
+                                                        </div>
+                                                        <div class="ios-empty-title">No Voicemail</div>
+                                                        <div class="ios-empty-sub">Missed calls with messages will appear here</div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <!-- Voicemail audio player bar -->
+                                            <div id="vmPlayerBar" class="dlr-chr-vm-player dlr-chr-vm-player-bg" style="display:none;">
+                                                <div id="vmPlayerContent"></div>
+                                                <audio id="vmAudioPlayer" style="display:none;"></audio>
+                                            </div>
+                                        </div>
+
+                                        <div class="ios-home-indicator-bar"><div class="ios-home-indicator ios-home-indicator-dark"></div></div>
+                                    </div>
+

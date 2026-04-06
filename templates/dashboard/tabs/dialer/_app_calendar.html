@@ -1,0 +1,256 @@
+                                    <style>
+                                        /* Calendar App layout classes */
+                                        .dlr-cal-nav-title { font-weight:700; font-size:0.95rem; }
+                                        .dlr-cal-nav-actions { display:flex; gap:4px; align-items:center; }
+                                        .dlr-cal-nav-btn { font-size:0.75rem; padding:4px 7px; border-radius:6px; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:all 0.15s; }
+                                        .dlr-cal-month-header { display:flex; align-items:center; justify-content:space-between; padding:10px 16px 4px; flex-shrink:0; }
+                                        .dlr-cal-month-nav { background:none; border:none; font-size:0.85rem; cursor:pointer; padding:4px 8px; }
+                                        .dlr-cal-month-title { font-size:0.9rem; font-weight:700; }
+                                        .dlr-cal-dow-grid { display:grid; grid-template-columns:repeat(7,1fr); padding:2px 12px; flex-shrink:0; }
+                                        .dlr-cal-dow-cell { text-align:center; font-size:0.7rem; font-weight:600; }
+                                        .dlr-cal-grid { display:grid; grid-template-columns:repeat(7,1fr); padding:0 12px 8px; gap:2px; flex-shrink:0; }
+                                        .dlr-cal-slot-area { flex:1; overflow-y:auto; padding:0 16px 8px; }
+                                        .dlr-cal-date-header { padding:8px 0 6px; }
+                                        .dlr-cal-date-label { font-size:0.75rem; font-weight:700; text-transform:uppercase; letter-spacing:0.3px; }
+                                        .dlr-cal-empty-pad { padding-top:24px; }
+                                        .dlr-cal-legend { display:inline-flex; align-items:center; gap:4px; margin-top:6px; }
+                                        .dlr-cal-legend-dot { width:6px; height:6px; border-radius:50%; display:inline-block; }
+                                        .dlr-cal-legend-dot--red { background:#FF3B30; }
+                                        .dlr-cal-legend-dot--blue { background:#4285F4; }
+                                        .dlr-cal-legend-dot--green { background:#00ff88; }
+                                        .dlr-cal-legend-dot-spaced { margin-left:6px; }
+                                        .dlr-cal-overlay { position:absolute; inset:0; z-index:10; flex-direction:column; align-items:center; justify-content:center; padding:24px; }
+                                        .dlr-cal-overlay-center { text-align:center; margin-bottom:20px; }
+                                        .dlr-cal-overlay-center-sm { text-align:center; margin-bottom:16px; }
+                                        .dlr-cal-icon-circle { width:56px; height:56px; border-radius:50%; display:flex; align-items:center; justify-content:center; margin:0 auto 12px; }
+                                        .dlr-cal-icon-circle-lg { width:64px; height:64px; border-radius:50%; display:flex; align-items:center; justify-content:center; margin:0 auto 16px; }
+                                        .dlr-cal-icon-inner { font-size:1.3rem; }
+                                        .dlr-cal-icon-inner-lg { font-size:1.5rem; }
+                                        .dlr-cal-section-title { font-size:0.95rem; font-weight:700; }
+                                        .dlr-cal-detail-panel { border-radius:12px; padding:14px; margin-bottom:20px; }
+                                        .dlr-cal-detail-panel-sm { border-radius:12px; padding:14px; margin-bottom:16px; }
+                                        .dlr-cal-detail-row { display:flex; align-items:center; gap:8px; margin-bottom:8px; }
+                                        .dlr-cal-detail-row-last { display:flex; align-items:center; gap:8px; }
+                                        .dlr-cal-detail-icon { font-size:0.75rem; width:14px; text-align:center; }
+                                        .dlr-cal-detail-text { font-size:0.82rem; }
+                                        .dlr-cal-confirm-btn { width:100%; padding:12px; border:none; border-radius:10px; font-weight:700; font-size:0.88rem; cursor:pointer; transition:all 0.15s; }
+                                        .dlr-cal-cancel-btn { width:100%; padding:10px; border:none; background:none; font-size:0.78rem; cursor:pointer; margin-top:8px; }
+                                        .dlr-cal-detail-view { width:100%; max-width:320px; }
+                                        .dlr-cal-form-group { margin-bottom:12px; }
+                                        .dlr-cal-form-group-lg { margin-bottom:16px; }
+                                        .dlr-cal-form-label { font-size:0.75rem; font-weight:600; text-transform:uppercase; letter-spacing:0.3px; display:block; margin-bottom:4px; }
+                                        .dlr-cal-form-select { width:100%; padding:10px 12px; border-radius:8px; font-size:0.82rem; outline:none; }
+                                        .dlr-cal-form-textarea { width:100%; padding:10px 12px; border-radius:8px; font-size:0.82rem; resize:none; outline:none; font-family:inherit; box-sizing:border-box; }
+                                        .dlr-cal-form-input { width:100%; padding:10px 12px; border-radius:8px; font-size:0.82rem; outline:none; box-sizing:border-box; }
+                                        .dlr-cal-action-row { display:flex; gap:8px; }
+                                        .dlr-cal-save-btn { flex:1; padding:12px; border:none; border-radius:10px; font-weight:700; font-size:0.84rem; cursor:pointer; }
+                                        .dlr-cal-delete-btn { padding:12px 14px; border:none; border-radius:10px; font-weight:700; font-size:0.84rem; cursor:pointer; }
+                                        .dlr-cal-result-title { font-size:1rem; font-weight:700; margin-bottom:4px; }
+                                        .dlr-cal-result-msg { font-size:0.82rem; margin-bottom:20px; }
+                                        .dlr-cal-done-btn { padding:10px 24px; border:none; border-radius:8px; font-weight:600; font-size:0.82rem; cursor:pointer; }
+                                        .dlr-cal-create-fields { display:flex; flex-direction:column; gap:12px; }
+                                        .dlr-cal-contact-box { padding:10px 12px; border-radius:8px; font-size:0.82rem; }
+                                        .dlr-cal-time-row { display:flex; gap:8px; }
+                                        .dlr-cal-time-col { flex:1; }
+                                        .dlr-cal-create-submit { width:100%; padding:12px; border:none; border-radius:10px; font-weight:700; font-size:0.88rem; cursor:pointer; margin-top:16px; transition:all 0.15s; }
+                                    </style>
+                                    <!-- ═══ CALENDAR APP (LeadConnector Appointments) ═══ -->
+                                    <div class="ios-app-view" id="iosAppCalendar" style="display:none;">
+                                        <div class="ios-nav-bar dlr-misc-18" >
+                                            <button class="ios-back-btn" onclick="iosGoHome()">
+                                                <i class="fa-solid fa-chevron-left"></i><span class="ios-back-label">Back</span>
+                                            </button>
+                                            <div class="ios-nav-title">
+                                                <div class="dlr-cal-nav-title">Calendar</div>
+                                            </div>
+                                            <div class="dlr-cal-nav-actions">
+                                                <button id="iosCalGoogleBtn" title="Connect Google Calendar" class="dlr-btn-3 dlr-cal-nav-btn">
+                                                    <i class="fa-brands fa-google"></i>
+                                                </button>
+                                                <button id="iosCalAddBtn" title="Add Event" onclick="calendarShowCreateForm()" class="dlr-btn-ios-delete dlr-cal-nav-btn">
+                                                    <i class="fa-solid fa-plus"></i>
+                                                </button>
+                                            </div>
+                                        </div>
+                                        <div class="ios-cal-picker-bar">
+                                            <i class="fa-solid fa-calendar-days ios-cal-picker-icon"></i>
+                                            <select id="iosCalendarPicker" onchange="calendarSwitchCalendar()" class="ios-cal-picker-select">
+                                                <option value="">Select Calendar</option>
+                                            </select>
+                                        </div>
+
+                                        <!-- Month Header -->
+                                        <div class="dlr-cal-month-header">
+                                            <button onclick="calendarPrevMonth()" class="dlr-btn-ios-delete-2 dlr-cal-month-nav"><i class="fa-solid fa-chevron-left"></i></button>
+                                            <div id="iosCalMonthTitle" class="dlr-heading-6 dlr-cal-month-title"></div>
+                                            <button onclick="calendarNextMonth()" class="dlr-btn-ios-delete-2 dlr-cal-month-nav"><i class="fa-solid fa-chevron-right"></i></button>
+                                        </div>
+
+                                        <!-- Day-of-week headers -->
+                                        <div class="dlr-cal-dow-grid">
+                                            <div class="dlr-label-dim-2 dlr-cal-dow-cell">SUN</div>
+                                            <div class="dlr-label-dim-2 dlr-cal-dow-cell">MON</div>
+                                            <div class="dlr-label-dim-2 dlr-cal-dow-cell">TUE</div>
+                                            <div class="dlr-label-dim-2 dlr-cal-dow-cell">WED</div>
+                                            <div class="dlr-label-dim-2 dlr-cal-dow-cell">THU</div>
+                                            <div class="dlr-label-dim-2 dlr-cal-dow-cell">FRI</div>
+                                            <div class="dlr-label-dim-2 dlr-cal-dow-cell">SAT</div>
+                                        </div>
+
+                                        <!-- Month grid -->
+                                        <div id="iosCalGrid" class="dlr-cal-grid"></div>
+
+                                        <!-- Slot list (scrollable) -->
+                                        <div class="dlr-cal-slot-area" id="iosCalSlotArea">
+                                            <!-- Selected date header -->
+                                            <div id="iosCalDateHeader" class="dlr-misc-19 dlr-cal-date-header" style="display:none;">
+                                                <div class="dlr-label-red dlr-cal-date-label" id="iosCalDateLabel"></div>
+                                            </div>
+                                            <!-- Slot list -->
+                                            <div id="iosCalSlots"></div>
+                                            <!-- Empty state -->
+                                            <div id="iosCalEmpty" class="ios-empty-state dlr-cal-empty-pad">
+                                                <div class="ios-empty-icon dlr-bg-bordered-3" >
+                                                    <i class="fa-solid fa-calendar-day dlr-text-ios-red" ></i>
+                                                </div>
+                                                <div class="ios-empty-title">Select a Date</div>
+                                                <div class="ios-empty-sub dlr-misc-22 dlr-misc-21 dlr-misc-20">Tap any date to see events and available times<br><span class="dlr-cal-legend"><span class="dlr-cal-legend-dot dlr-cal-legend-dot--red"></span> Appointments <span class="dlr-cal-legend-dot dlr-cal-legend-dot--blue dlr-cal-legend-dot-spaced"></span> Google <span class="dlr-cal-legend-dot dlr-cal-legend-dot--green dlr-cal-legend-dot-spaced"></span> Open slots</span></div>
+                                            </div>
+                                        </div>
+
+                                        <!-- Calendar overlay (booking confirm + event detail + success/error) -->
+                                        <div id="iosCalConfirm" class="dlr-misc-23 dlr-cal-overlay" style="display:none;">
+                                            <!-- Booking confirm state -->
+                                            <div id="iosCalConfirmContent">
+                                                <div class="dlr-cal-overlay-center">
+                                                    <div class="dlr-icon-box-red dlr-cal-icon-circle">
+                                                        <i class="fa-solid fa-calendar-check dlr-icon-ios-red dlr-cal-icon-inner"></i>
+                                                    </div>
+                                                    <div class="dlr-heading-7 dlr-cal-section-title">Confirm Appointment</div>
+                                                </div>
+                                                <div class="dlr-panel-11 dlr-cal-detail-panel">
+                                                    <div class="dlr-cal-detail-row">
+                                                        <i class="fa-solid fa-user dlr-label-muted-9 dlr-cal-detail-icon"></i>
+                                                        <span id="iosCalConfirmName" class="dlr-label-light-2 dlr-cal-detail-text"></span>
+                                                    </div>
+                                                    <div class="dlr-cal-detail-row">
+                                                        <i class="fa-solid fa-calendar dlr-label-muted-9 dlr-cal-detail-icon"></i>
+                                                        <span id="iosCalConfirmDate" class="dlr-label-light-2 dlr-cal-detail-text"></span>
+                                                    </div>
+                                                    <div class="dlr-cal-detail-row-last">
+                                                        <i class="fa-solid fa-clock dlr-label-muted-9 dlr-cal-detail-icon"></i>
+                                                        <span id="iosCalConfirmTime" class="dlr-label-light-2 dlr-cal-detail-text"></span>
+                                                    </div>
+                                                </div>
+                                                <button id="iosCalConfirmBtn" onclick="calendarConfirmBooking()" class="dlr-btn-ios-red dlr-cal-confirm-btn">
+                                                    <i class="fa-solid fa-check me-1"></i> Book Appointment
+                                                </button>
+                                                <button onclick="calendarDismissConfirm()" class="dlr-btn-ghost-8 dlr-cal-cancel-btn">Cancel</button>
+                                            </div>
+                                            <!-- Event detail/edit state -->
+                                            <div id="iosCalEventDetail" class="dlr-cal-detail-view" style="display:none;">
+                                                <div class="dlr-cal-overlay-center-sm">
+                                                    <div class="dlr-icon-box dlr-cal-icon-circle">
+                                                        <i class="fa-solid fa-calendar-day dlr-icon-c34c759 dlr-cal-icon-inner"></i>
+                                                    </div>
+                                                    <div id="iosCalEvTitle" class="dlr-heading-7 dlr-cal-section-title"></div>
+                                                </div>
+                                                <div class="dlr-panel-12 dlr-cal-detail-panel-sm">
+                                                    <div class="dlr-cal-detail-row">
+                                                        <i class="fa-solid fa-calendar dlr-label-muted-9 dlr-cal-detail-icon"></i>
+                                                        <span id="iosCalEvDate" class="dlr-label-light-2 dlr-cal-detail-text"></span>
+                                                    </div>
+                                                    <div class="dlr-cal-detail-row-last">
+                                                        <i class="fa-solid fa-clock dlr-label-muted-9 dlr-cal-detail-icon"></i>
+                                                        <span id="iosCalEvTime" class="dlr-label-light-2 dlr-cal-detail-text"></span>
+                                                    </div>
+                                                </div>
+                                                <!-- Editable fields -->
+                                                <div class="dlr-cal-form-group">
+                                                    <label class="dlr-label-muted-10 dlr-cal-form-label">Status</label>
+                                                    <select id="iosCalEvStatus" class="dlr-input-4 dlr-cal-form-select">
+                                                        <option value="new">New</option>
+                                                        <option value="confirmed">Confirmed</option>
+                                                        <option value="showed">Showed</option>
+                                                        <option value="noshow">No Show</option>
+                                                        <option value="cancelled">Cancelled</option>
+                                                    </select>
+                                                </div>
+                                                <div class="dlr-cal-form-group-lg">
+                                                    <label class="dlr-label-muted-10 dlr-cal-form-label">Notes</label>
+                                                    <textarea id="iosCalEvNotes" rows="3" placeholder="Add notes..." class="dlr-input-5 dlr-cal-form-textarea"></textarea>
+                                                </div>
+                                                <!-- Action buttons -->
+                                                <div class="dlr-cal-action-row">
+                                                    <button id="iosCalEvSaveBtn" onclick="calendarSaveEvent()" class="dlr-btn-4 dlr-cal-save-btn">
+                                                        <i class="fa-solid fa-check me-1"></i> Save Changes
+                                                    </button>
+                                                    <button id="iosCalEvDeleteBtn" onclick="calendarDeleteEvent()" class="dlr-btn-ios-delete-3 dlr-cal-delete-btn">
+                                                        <i class="fa-solid fa-trash"></i>
+                                                    </button>
+                                                </div>
+                                                <button onclick="calendarDismissConfirm()" class="dlr-btn-ghost-8 dlr-cal-cancel-btn">Close</button>
+                                            </div>
+                                            <!-- Success state -->
+                                            <div id="iosCalSuccessContent" style="display:none;" class="dlr-cal-overlay-center-sm">
+                                                <div class="dlr-icon-box-2 dlr-cal-icon-circle-lg">
+                                                    <i class="fa-solid fa-check dlr-icon-c34c759-2 dlr-cal-icon-inner-lg"></i>
+                                                </div>
+                                                <div class="dlr-heading-8 dlr-cal-result-title">Booked!</div>
+                                                <div id="iosCalSuccessMsg" class="dlr-label-muted-11 dlr-cal-result-msg"></div>
+                                                <button onclick="calendarDismissConfirm()" class="dlr-btn-5 dlr-cal-done-btn">Done</button>
+                                            </div>
+                                            <!-- Error state -->
+                                            <div id="iosCalErrorContent" style="display:none;" class="dlr-cal-overlay-center-sm">
+                                                <div class="dlr-icon-box-red-2 dlr-cal-icon-circle-lg">
+                                                    <i class="fa-solid fa-xmark dlr-icon-ios-red-2 dlr-cal-icon-inner-lg"></i>
+                                                </div>
+                                                <div class="dlr-heading-8 dlr-cal-result-title">Booking Failed</div>
+                                                <div id="iosCalErrorMsg" class="dlr-label-muted-11 dlr-cal-result-msg"></div>
+                                                <button onclick="calendarDismissConfirm()" class="dlr-btn-ghost-9 dlr-cal-done-btn">Close</button>
+                                            </div>
+                                            <!-- Create Event Form -->
+                                            <div id="iosCalCreateForm" class="dlr-cal-detail-view" style="display:none;">
+                                                <div class="dlr-cal-overlay-center-sm">
+                                                    <div class="dlr-icon-box-red dlr-cal-icon-circle">
+                                                        <i class="fa-solid fa-calendar-plus dlr-icon-ios-red dlr-cal-icon-inner"></i>
+                                                    </div>
+                                                    <div class="dlr-heading-7 dlr-cal-section-title">New Event</div>
+                                                </div>
+                                                <div class="dlr-cal-create-fields">
+                                                    <div>
+                                                        <label class="dlr-label-muted-10 dlr-cal-form-label">Title</label>
+                                                        <input id="iosCalCreateTitle" type="text" placeholder="Event title" class="dlr-input-6 dlr-cal-form-input">
+                                                    </div>
+                                                    <div>
+                                                        <label class="dlr-label-muted-10 dlr-cal-form-label">Contact</label>
+                                                        <div id="iosCalCreateContact" class="dlr-panel-13 dlr-cal-contact-box"></div>
+                                                    </div>
+                                                    <div>
+                                                        <label class="dlr-label-muted-10 dlr-cal-form-label">Date</label>
+                                                        <input id="iosCalCreateDate" type="date" class="dlr-input-6 dlr-cal-form-input">
+                                                    </div>
+                                                    <div class="dlr-cal-time-row">
+                                                        <div class="dlr-cal-time-col">
+                                                            <label class="dlr-label-muted-10 dlr-cal-form-label">Start Time</label>
+                                                            <input id="iosCalCreateStart" type="time" class="dlr-input-6 dlr-cal-form-input">
+                                                        </div>
+                                                        <div class="dlr-cal-time-col">
+                                                            <label class="dlr-label-muted-10 dlr-cal-form-label">End Time</label>
+                                                            <input id="iosCalCreateEnd" type="time" class="dlr-input-6 dlr-cal-form-input">
+                                                        </div>
+                                                    </div>
+                                                    <div>
+                                                        <label class="dlr-label-muted-10 dlr-cal-form-label">Notes</label>
+                                                        <textarea id="iosCalCreateNotes" rows="2" placeholder="Optional notes..." class="dlr-input-5 dlr-cal-form-textarea"></textarea>
+                                                    </div>
+                                                </div>
+                                                <button id="iosCalCreateBtn" onclick="calendarCreateEvent()" class="dlr-btn-ios-red-2 dlr-cal-create-submit">
+                                                    <i class="fa-solid fa-plus me-1"></i> Create Event
+                                                </button>
+                                                <button onclick="calendarDismissConfirm()" class="dlr-btn-ghost-8 dlr-cal-cancel-btn">Cancel</button>
+                                            </div>
+                                        </div>
+
+                                        <div class="ios-home-indicator-bar"><div class="ios-home-indicator ios-home-indicator-dark"></div></div>
+                                    </div>

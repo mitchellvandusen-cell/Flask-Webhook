@@ -1,0 +1,87 @@
+                                    <!-- ═══ NOTIFICATION BANNER ═══ -->
+                                    <div id="iosNotificationBanner" class="dlr-btn-8 dlr-notif-banner" style="display:none;">
+                                        <div class="dlr-notif-row">
+                                            <div class="dlr-icon-box-notif dlr-notif-icon">
+                                                <i class="fa-solid fa-message dlr-icon-cfff-2 dlr-notif-icon-inner"></i>
+                                            </div>
+                                            <div class="dlr-notif-body">
+                                                <div id="iosNotifTitle" class="dlr-heading-12 dlr-notif-title">Messages</div>
+                                                <div id="iosNotifBody" class="dlr-label-subtle-5 dlr-notif-text"></div>
+                                            </div>
+                                            <span id="iosNotifTime" class="dlr-label-dim-3 dlr-notif-time">now</span>
+                                        </div>
+                                    </div>
+
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- ═══ Mobile Action Bar (below contacts/intel) ═══ -->
+                <div class="dlr-mobile-action-bar" id="dlrMobileActionBar" style="display:none;">
+                    <button class="dlr-mobile-action-btn active" id="dlrMobBtnContacts" onclick="dlrMobileSwitch('contacts')">
+                        <i class="fa-solid fa-address-book"></i> Contacts
+                    </button>
+                    <button class="dlr-mobile-action-btn" id="dlrMobBtnIntel" onclick="dlrMobileSwitch('intel')">
+                        <i class="fa-solid fa-crosshairs"></i> Intel
+                    </button>
+                    <button class="dlr-mobile-action-btn" id="dlrMobBtnMessages" onclick="dlrMobileOpenApp('messages')">
+                        <i class="fa-solid fa-comment-dots"></i> Messages
+                    </button>
+                    <button class="dlr-mobile-action-btn" id="dlrMobBtnSettings" onclick="toggleDialerSettings()">
+                        <i class="fa-solid fa-gear"></i>
+                    </button>
+                    <button class="dlr-mobile-action-btn" id="dlrMobBtnApps" onclick="dlrMobileToggleApps()">
+                        <i class="fa-solid fa-grip"></i> Apps
+                    </button>
+                </div>
+
+                <!-- Mobile Apps Popup -->
+                <div class="dlr-mobile-apps-overlay" id="dlrMobileAppsOverlay" onclick="dlrMobileToggleApps()"></div>
+                <div class="dlr-mobile-apps-popup" id="dlrMobileAppsPopup">
+                    <div class="dlr-notif-apps-hdr">
+                        <span class="dlr-label-light-3 dlr-notif-apps-title">Apps</span>
+                        <button onclick="dlrMobileToggleApps()" class="dlr-btn-9 dlr-notif-apps-close"><i class="fa-solid fa-xmark"></i></button>
+                    </div>
+                    <div class="dlr-mobile-apps-popup-grid">
+                        <button class="dlr-mobile-apps-popup-item" onclick="dlrMobileOpenApp('messages')">
+                            <div class="dlr-mapp-icon dlr-bg-ios-green"><i class="fa-solid fa-comment-dots"></i></div>
+                            <span class="dlr-mapp-label">Messages</span>
+                        </button>
+                        <button class="dlr-mobile-apps-popup-item" onclick="dlrMobileOpenApp('calls')">
+                            <div class="dlr-mapp-icon dlr-bg-ios-green"><i class="fa-solid fa-phone"></i></div>
+                            <span class="dlr-mapp-label">Call History</span>
+                        </button>
+                        <button class="dlr-mobile-apps-popup-item" onclick="dlrMobileOpenApp('voicemail')">
+                            <div class="dlr-mapp-icon dlr-bg-ios-orange-2"><i class="fa-solid fa-voicemail"></i></div>
+                            <span class="dlr-mapp-label">Voicemail</span>
+                        </button>
+                        <button class="dlr-mobile-apps-popup-item" onclick="dlrMobileOpenApp('recordings')">
+                            <div class="dlr-mapp-icon dlr-bg-ios-orange-2"><i class="fa-solid fa-record-vinyl"></i></div>
+                            <span class="dlr-mapp-label">Recordings</span>
+                        </button>
+                        <button class="dlr-mobile-apps-popup-item" onclick="dlrMobileOpenApp('inbox')">
+                            <div class="dlr-mapp-icon dlr-bg-ios-purple-2"><i class="fa-solid fa-inbox"></i></div>
+                            <span class="dlr-mapp-label">Inbox</span>
+                        </button>
+                        <button class="dlr-mobile-apps-popup-item" onclick="dlrMobileOpenApp('calendar')">
+                            <div class="dlr-mapp-icon dlr-bg-ios-red-2"><i class="fa-solid fa-calendar"></i></div>
+                            <span class="dlr-mapp-label">Calendar</span>
+                        </button>
+                        <button class="dlr-mobile-apps-popup-item dlr-mob-hide-app" id="dlrMobAppDiscord" onclick="dlrMobileOpenApp('discord')">
+                            <div class="dlr-mapp-icon dlr-bg-discord-2"><i class="fa-brands fa-discord"></i></div>
+                            <span class="dlr-mapp-label">Discord</span>
+                        </button>
+                        <button class="dlr-mobile-apps-popup-item dlr-mob-hide-app" id="dlrMobAppSlack" onclick="dlrMobileOpenApp('slack')">
+                            <div class="dlr-mapp-icon dlr-bg-slack-2"><i class="fa-brands fa-slack"></i></div>
+                            <span class="dlr-mapp-label">Slack</span>
+                        </button>
+                        <button class="dlr-mobile-apps-popup-item" onclick="dlrMobileOpenApp('insights')">
+                            <div class="dlr-mapp-icon dlr-bg-ios-cyan-2"><i class="fa-solid fa-chart-line"></i></div>
+                            <span class="dlr-mapp-label">Insights</span>
+                        </button>
+                    </div>
+                </div>
+

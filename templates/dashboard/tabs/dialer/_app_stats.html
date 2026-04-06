@@ -1,0 +1,61 @@
+                                    <style>
+                                        /* Stats App layout classes */
+                                        .dlr-stats-nav-title { font-weight:700; font-size:0.95rem; }
+                                        .dlr-stats-nav-actions { display:flex; gap:4px; align-items:center; }
+                                        .dlr-stats-content { flex:1; overflow-y:auto; -webkit-overflow-scrolling:touch; padding:10px 12px; }
+                                        .dlr-stats-loading { text-align:center; padding:40px; }
+                                        .dlr-stats-spinner { font-size:1.4rem; }
+                                        .dlr-stats-spinner-color { color:#00ff88; }
+                                        [data-theme="light"] .dlr-stats-spinner-color { color:#059669; }
+                                    </style>
+                                    <!-- ═══ STATS APP ═══ -->
+                                    <div class="ios-app-view" id="iosAppStats" style="display:none;">
+                                        <div class="ios-nav-bar">
+                                            <button class="ios-back-btn" onclick="iosGoHome()">
+                                                <i class="fa-solid fa-chevron-left"></i><span class="ios-back-label">Back</span>
+                                            </button>
+                                            <div class="ios-nav-title dlr-stats-nav-title">Statistics</div>
+                                            <div class="dlr-stats-nav-actions">
+                                                <!-- Period filter button -->
+                                                <button id="iosStatsFilterBtn" class="ios-nav-action ios-rec-filter-btn" onclick="iosStatsToggleFilter()" title="Filter Period">
+                                                    <i class="fa-solid fa-sliders"></i>
+                                                </button>
+                                                <button onclick="iosStatsRefresh()" class="ios-nav-action" title="Refresh">
+                                                    <i class="fa-solid fa-arrows-rotate" id="iosStatsRefreshIcon"></i>
+                                                </button>
+                                            </div>
+                                        </div>
+                                        <!-- Period filter panel (collapsed by default) -->
+                                        <div id="iosStatsFilterPanel" class="ios-rec-filter-panel">
+                                            <div class="ios-rec-filter-row">
+                                                <label class="ios-rec-filter-label">Period</label>
+                                                <select id="iosStatsPeriodSelect" class="ios-rec-filter-select" onchange="iosStatsOnPeriodChange()">
+                                                    <option value="today" selected>Today</option>
+                                                    <option value="yesterday">Yesterday</option>
+                                                    <option value="two_days_ago">Two Days Ago</option>
+                                                    <option value="this_week">This Week</option>
+                                                    <option value="last_week">Last Week</option>
+                                                    <option value="month">Last 30 Days</option>
+                                                    <option value="all">All Time</option>
+                                                    <option value="custom">Custom Range</option>
+                                                </select>
+                                            </div>
+                                            <!-- Custom date range rows (hidden unless custom selected) -->
+                                            <div id="iosStatsCustomStart" class="ios-rec-filter-row" style="display:none;">
+                                                <label class="ios-rec-filter-label">From</label>
+                                                <input type="date" id="iosStatsDateStart" class="ios-rec-filter-select" style="color-scheme:dark;" onchange="iosStatsLoad()">
+                                            </div>
+                                            <div id="iosStatsCustomEnd" class="ios-rec-filter-row" style="display:none;">
+                                                <label class="ios-rec-filter-label">To</label>
+                                                <input type="date" id="iosStatsDateEnd" class="ios-rec-filter-select" style="color-scheme:dark;" onchange="iosStatsLoad()">
+                                            </div>
+                                        </div>
+                                        <!-- Active period badge -->
+                                        <div id="iosStatsPeriodBadge" class="ios-stats-period-badge">Today</div>
+                                        <!-- Stats content -->
+                                        <div id="iosStatsContent" class="dlr-stats-content">
+                                            <div class="dlr-stats-loading"><i class="fa-solid fa-spinner fa-spin dlr-stats-spinner dlr-stats-spinner-color"></i></div>
+                                        </div>
+                                        <div class="ios-home-indicator-bar"><div class="ios-home-indicator ios-home-indicator-dark"></div></div>
+                                    </div>
+

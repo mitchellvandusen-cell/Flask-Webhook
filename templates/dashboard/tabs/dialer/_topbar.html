@@ -1,0 +1,440 @@
+<style>
+/* ── _topbar.html layout classes (extracted from inline styles) ── */
+.dlr-topbar-wrap          { margin-bottom:12px; border-radius:14px; overflow:hidden; }
+.dlr-topbar-header        { display:flex; align-items:center; gap:12px; padding:10px 16px; cursor:pointer; user-select:none; }
+.dlr-topbar-icon          { width:32px; height:32px; border-radius:8px; display:flex; align-items:center; justify-content:center; }
+.dlr-topbar-icon-sm       { font-size:0.88rem; }
+.dlr-topbar-title         { margin:0; font-weight:700; font-size:1.1rem; white-space:nowrap; flex:1; }
+.dlr-topbar-minutes       { align-items:center; gap:4px; padding:3px 10px; border-radius:12px; font-size:0.78rem; font-weight:600; cursor:pointer; transition:all .2s; }
+.dlr-topbar-body          { align-items:center; gap:12px; padding:0 16px 12px; }
+.dlr-topbar-body-inner    { flex:1; display:flex; align-items:center; gap:10px; }
+.dlr-quick-dial           { display:flex; flex-direction:column; gap:4px; flex:1; max-width:300px; position:relative; }
+.dlr-tab-toggle           { display:flex; gap:2px; border-radius:6px; padding:2px; width:fit-content; }
+.dlr-tab-btn              { padding:2px 10px; border-radius:4px; border:none; font-size:0.75rem; font-weight:600; cursor:pointer; transition:all .15s; }
+.dlr-tab-icon             { font-size:0.75rem; }
+.dlr-type-row             { display:flex; gap:4px; }
+.dlr-type-input           { flex:1; padding:5px 10px; border-radius:6px; font-size:0.88rem; outline:none; min-width:120px; }
+.dlr-type-call-btn        { padding:5px 12px; border-radius:6px; border:none; font-weight:700; font-size:0.88rem; cursor:pointer; white-space:nowrap; }
+.dlr-keypad-wrap          { flex-direction:column; gap:3px; border-radius:8px; padding:8px; }
+.dlr-keypad-display       { padding:6px 10px; border-radius:6px; font-size:1rem; font-family:'JetBrains Mono',monospace; text-align:center; min-height:32px; letter-spacing:2px; }
+.dlr-keypad-grid          { display:grid; grid-template-columns:repeat(3,1fr); gap:4px; margin-top:2px; }
+.dlr-keypad-actions       { display:grid; grid-template-columns:1fr 1fr; gap:4px; margin-top:2px; }
+.dlr-keypad-back          { border-radius:8px; padding:7px; font-size:0.8rem; cursor:pointer; }
+.dlr-keypad-call          { border:none; border-radius:8px; padding:7px; font-size:0.85rem; font-weight:700; cursor:pointer; }
+.dlr-mode-toggle          { gap:2px; border-radius:8px; padding:2px; }
+.dlr-mode-btn             { padding:6px 14px; border-radius:6px; border:none; font-weight:700; font-size:0.88rem; cursor:pointer; transition:all .2s; }
+.dlr-pro-badge            { font-size:0.68rem; font-weight:800; padding:3px 8px; border-radius:5px; letter-spacing:0.5px; }
+.dlr-lines-toggle         { align-items:center; gap:6px; }
+.dlr-lines-label          { font-size:0.78rem; }
+.dlr-lines-select         { border-radius:5px; padding:2px 6px; font-size:0.82rem; font-weight:700; }
+.dlr-ai-timer             { font-family:monospace; font-size:1rem; color:var(--accent); font-weight:700; }
+.dlr-voip-badge           { border-radius:6px; padding:3px 8px; font-size:0.82rem; font-weight:600; }
+.dlr-voip-dot             { font-size:0.4rem; vertical-align:middle; }
+.dlr-stats-btn            { border-radius:8px; padding:6px 12px; font-size:0.88rem; font-weight:600; cursor:pointer; transition:all .2s; }
+.dlr-settings-btn         { border-radius:8px; padding:6px 12px; font-size:0.88rem; font-weight:600; cursor:pointer; transition:all .2s; }
+.dlr-banner-pad           { border-radius:10px; padding:10px 14px; margin-bottom:10px; }
+.dlr-banner-flex-inner    { flex:1; }
+.dlr-banner-text          { font-size:0.82rem; }
+.dlr-banner-substatus     { font-size:0.75rem; margin-top:4px; }
+.dlr-setup-btn            { border:none; border-radius:6px; padding:5px 14px; font-weight:700; font-size:0.78rem; cursor:pointer; white-space:nowrap; }
+.dlr-call-banner-flex     { display:flex; align-items:center; gap:10px; }
+.dlr-call-dot             { width:10px; height:10px; border-radius:50%; animation:dialerPulse 1.5s infinite; flex-shrink:0; }
+.dlr-call-name            { font-weight:700; font-size:1rem; cursor:pointer; }
+.dlr-call-status-row      { display:flex; align-items:center; gap:8px; }
+.dlr-call-status          { font-size:0.88rem; }
+.dlr-call-from            { font-size:0.72rem; }
+.dlr-call-from-color      { color:#555; }
+[data-theme="light"] .dlr-call-from-color { color:#999; }
+.dlr-banner-timer         { font-family:monospace; font-size:0.88rem; color:var(--accent); font-weight:700; }
+.dlr-hangup-btn           { border-radius:6px; padding:4px 10px; font-size:0.75rem; font-weight:600; cursor:pointer; }
+.dlr-call-ctrls           { display:flex; align-items:center; gap:6px; margin-top:8px; padding-top:8px; }
+.dlr-ctrl-btn-layout      { display:flex; align-items:center; gap:4px; width:auto; height:32px; border-radius:6px; cursor:not-allowed; font-size:0.85rem; padding:0 10px; transition:all .2s; }
+.dlr-ctrl-btn-bold        { display:flex; align-items:center; gap:4px; width:auto; height:32px; border-radius:6px; cursor:not-allowed; font-size:0.85rem; font-weight:600; padding:0 10px; transition:all .2s; }
+.dlr-disp-label           { font-size:0.88rem; font-weight:600; white-space:nowrap; }
+.dlr-disp-row             { display:flex; gap:4px; flex-wrap:wrap; flex:1; }
+.dlr-disp-btn             { border-radius:5px; padding:3px 10px; font-size:0.85rem; cursor:pointer; }
+.dlr-disp-icon            { font-size:.75rem; }
+.dlr-dismiss-bare         { background:none; border:none; cursor:pointer; font-size:0.75rem; }
+.dlr-pred-flex             { display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+.dlr-pred-label            { font-size:0.78rem; font-weight:700; }
+.dlr-pred-stat             { font-size:0.75rem; }
+.dlr-pred-val              { font-weight:700; }
+.dlr-pred-algo             { font-size:0.7rem; }
+.dlr-erlang-pad            { margin-top:8px; padding-top:8px; }
+.dlr-erlang-stat           { font-size:0.72rem; }
+.dlr-erlang-val            { font-weight:700; }
+.dlr-throttle-tag          { font-size:0.68rem; padding:2px 8px; border-radius:8px; font-weight:700; }
+.dlr-compliance-flex       { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+.dlr-compliance-icon       { font-size:1rem; }
+.dlr-compliance-label      { font-size:0.78rem; font-weight:700; }
+.dlr-compliance-rate       { font-size:0.75rem; }
+.dlr-compliance-score      { font-size:0.72rem; margin-left:auto; }
+.dlr-agent-flex            { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+.dlr-agent-status-label    { font-size:0.75rem; font-weight:600; }
+.dlr-agent-select          { border-radius:6px; padding:4px 8px; font-size:0.78rem; }
+.dlr-agent-dot             { width:8px; height:8px; border-radius:50%; }
+.dlr-agent-duration        { font-size:0.72rem; font-family:monospace; }
+.dlr-agent-wrapup          { font-size:0.72rem; font-family:monospace; font-weight:700; }
+.dlr-agent-pad             { border-radius:10px; padding:8px 12px; margin-bottom:10px; }
+.dlr-cb-badge-wrap         { border-radius:10px; padding:8px 14px; margin-bottom:10px; cursor:pointer; }
+.dlr-cb-flex               { display:flex; align-items:center; gap:8px; }
+.dlr-cb-label              { font-size:0.78rem; }
+.dlr-cb-count              { font-size:0.82rem; font-weight:700; }
+.dlr-cb-due                { font-size:0.68rem; padding:2px 8px; border-radius:8px; font-weight:700; }
+.dlr-cb-arrow              { font-size:0.7rem; }
+.dlr-consent-flex          { display:flex; align-items:center; gap:8px; }
+.dlr-consent-text          { font-size:0.78rem; }
+.dlr-consent-dismiss       { background:none; border:none; cursor:pointer; margin-left:auto; }
+.dlr-voip-icon-wrap        { width:36px; height:36px; border-radius:50%; display:flex; align-items:center; justify-content:center; }
+.dlr-voip-phone-pulse      { color:var(--accent); animation:dialerPulse 1.5s infinite; }
+.dlr-voip-name             { font-weight:700; font-size:0.88rem; }
+.dlr-voip-phone-text       { font-size:0.75rem; }
+.dlr-voip-timer            { font-family:monospace; font-size:1rem; color:var(--accent); font-weight:700; }
+.dlr-voip-round-btn        { width:36px; height:36px; border-radius:50%; cursor:pointer; font-size:0.8rem; }
+.dlr-voip-transfer-accent  { color:#00ff88; }
+[data-theme="light"] .dlr-voip-transfer-accent { color:#059669; }
+.dlr-voip-end-btn          { width:44px; height:36px; border-radius:18px; border:none; cursor:pointer; font-size:0.8rem; font-weight:700; }
+.dlr-voip-keypad-wrap      { max-width:200px; margin:8px auto 0; }
+.dlr-voip-keypad-grid      { display:grid; grid-template-columns:repeat(3,1fr); gap:4px; }
+</style>
+
+                <!-- Top Bar -->
+                <div class="dlr-top-bar dlr-topbar-wrap">
+                    <!-- Collapsed header: always visible, click to expand -->
+                    <div id="dlrTopBarHeader" onclick="document.getElementById('dlrTopBarBody').style.display=document.getElementById('dlrTopBarBody').style.display==='none'?'flex':'none';this.querySelector('.dlr-topbar-chevron').classList.toggle('open')" class="dlr-topbar-header">
+                        <div class="dlr-icon-box-cyan dlr-topbar-icon">
+                            <i class="fa-solid fa-phone-volume dlr-icon-cyan dlr-topbar-icon-sm"></i>
+                        </div>
+                        <h5 id="dialerTierTitle" class="dlr-topbar-title">Power Dialer</h5>
+                        <span id="dialerMinutesChip" class="dialer-minutes-chip dlr-topbar-minutes" style="display:none" onclick="event.stopPropagation();document.querySelector('[data-tab=\'aiminutes\']')?.click()" title="AI Minutes remaining — click to buy more"></span>
+                        <i class="fa-solid fa-chevron-down dlr-topbar-chevron"></i>
+                    </div>
+                    <!-- Expandable body: hidden by default -->
+                    <div id="dlrTopBarBody" class="dlr-topbar-body" style="display:none">
+                        <div class="dlr-topbar-body-inner">
+                        <!-- Inline Quick Dial -->
+                        <div class="quick-dial-group dlr-quick-dial">
+                            <!-- View toggle tabs -->
+                            <div class="dlr-panel dlr-tab-toggle">
+                                <button id="dialKbdTabType" onclick="dialerSetInputMode('type')"
+                                    class="dlr-btn-cyan-outline dlr-tab-btn">
+                                    <i class="fa-solid fa-keyboard me-1 dlr-tab-icon"></i>Type
+                                </button>
+                                <button id="dialKbdTabKeypad" onclick="dialerSetInputMode('keypad')"
+                                    class="dlr-btn-tab-off dlr-tab-btn">
+                                    <i class="fa-solid fa-grid-2 me-1 dlr-tab-icon"></i>Keypad
+                                </button>
+                            </div>
+                            <!-- Type mode -->
+                            <div id="dialModeType" class="dlr-type-row">
+                                <input type="text" id="dialerManualPhone" placeholder="+1 (555) 123-4567" onkeydown="if(event.key==='Enter')dialerManualCall()"
+                                    class="dlr-input dlr-type-input">
+                                <button onclick="dialerManualCall()" class="dlr-btn-cyan dlr-type-call-btn">
+                                    <i class="fa-solid fa-phone"></i>
+                                </button>
+                            </div>
+                            <!-- Keypad mode (hidden by default) -->
+                            <div id="dialModeKeypad" class="dlr-panel-cyan dlr-keypad-wrap" style="display:none">
+                                <div id="dialKbdDisplay" class="dlr-panel-cyan-2 dlr-keypad-display">&#8203;</div>
+                                <div class="dlr-keypad-grid">
+                                    <button class="dlr-kbd-key" onclick="dialKbdPress('1')"><span>1</span></button>
+                                    <button class="dlr-kbd-key" onclick="dialKbdPress('2')"><span>2</span><sub>ABC</sub></button>
+                                    <button class="dlr-kbd-key" onclick="dialKbdPress('3')"><span>3</span><sub>DEF</sub></button>
+                                    <button class="dlr-kbd-key" onclick="dialKbdPress('4')"><span>4</span><sub>GHI</sub></button>
+                                    <button class="dlr-kbd-key" onclick="dialKbdPress('5')"><span>5</span><sub>JKL</sub></button>
+                                    <button class="dlr-kbd-key" onclick="dialKbdPress('6')"><span>6</span><sub>MNO</sub></button>
+                                    <button class="dlr-kbd-key" onclick="dialKbdPress('7')"><span>7</span><sub>PQRS</sub></button>
+                                    <button class="dlr-kbd-key" onclick="dialKbdPress('8')"><span>8</span><sub>TUV</sub></button>
+                                    <button class="dlr-kbd-key" onclick="dialKbdPress('9')"><span>9</span><sub>WXYZ</sub></button>
+                                    <button class="dlr-kbd-key" onclick="dialKbdPress('*')"><span>*</span></button>
+                                    <button class="dlr-kbd-key" onclick="dialKbdPress('0')"><span>0</span><sub>+</sub></button>
+                                    <button class="dlr-kbd-key" onclick="dialKbdPress('#')"><span>#</span></button>
+                                </div>
+                                <div class="dlr-keypad-actions">
+                                    <button onclick="dialKbdBackspace()" class="dlr-btn-ghost dlr-keypad-back"><i class="fa-solid fa-delete-left"></i></button>
+                                    <button onclick="dialerManualCall()" class="dlr-btn-cyan-2 dlr-keypad-call"><i class="fa-solid fa-phone"></i></button>
+                                </div>
+                            </div>
+                            <!-- Caller Number Picker (below keypad) — Liquid Glass dropdown -->
+                            <div id="dialerFromNumberWrap" class="dialer-from-number-wrap" style="display:none;">
+                                <i class="fa-solid fa-phone-flip dialer-from-number-icon"></i>
+                                <span class="dialer-from-number-label">Calling from:</span>
+                                <div id="dfnTrigger" class="dfn-trigger" onclick="_dfnToggle()">
+                                    <span id="dfnTriggerText" class="dfn-trigger-text">Auto (Smart Rotation)</span>
+                                    <i class="fa-solid fa-chevron-down dfn-trigger-arrow"></i>
+                                </div>
+                                <div id="dfnMenu" class="dfn-menu"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Mode Toggle (hidden — moved to phone island dynamic island) -->
+                    <div class="dlr-panel-2 dlr-mode-toggle" style="display:none">
+                        <button id="modeAiBtn" onclick="setDialerMode('ai')" class="dlr-btn-mode-off dlr-mode-btn">
+                            <i class="fa-solid fa-robot me-1"></i>AI
+                        </button>
+                        <button id="modeHumanBtn" onclick="setDialerMode('human')" class="dlr-btn-cyan-3 dlr-mode-btn">
+                            <i class="fa-solid fa-headset me-1"></i>Human
+                        </button>
+                    </div>
+                    <!-- Multi-Line Badge (shown for pro_dialer tier) -->
+                    <span id="multiLineBadge" class="dlr-panel-3 dlr-pro-badge" style="display:none">PRO</span>
+                    <!-- Multi-Line Toggle (shown for pro_dialer tier) -->
+                    <div id="multiLineToggle" class="dlr-lines-toggle" style="display:none">
+                        <span class="dlr-label-muted dlr-lines-label">Lines:</span>
+                        <select id="multiLineCount" onchange="_multiLineMaxLines=parseInt(this.value)" class="dlr-panel-4 dlr-lines-select">
+                            <option value="1">1</option>
+                            <option value="2">2</option>
+                            <option value="3" selected>3</option>
+                            <option value="4">4</option>
+                        </select>
+                    </div>
+                    <!-- AI Call Timer -->
+                    <div id="dialerAiTimer" class="dlr-ai-timer" style="display:none">00:00</div>
+                    <div id="voipStatus" class="dlr-panel-5 dlr-voip-badge" style="display:none">
+                        <i class="fa-solid fa-circle me-1 dlr-voip-dot"></i>Ready
+                    </div>
+                    <!-- Stats button (hidden — stats is now a phone app) -->
+                    <button id="dialerStatsToggle" onclick="dialerToggleStats()" class="dlr-btn-ghost-2 dlr-stats-btn" style="display:none" title="Call Statistics">
+                        <i class="fa-solid fa-chart-bar"></i>
+                    </button>
+                    <!-- Settings toggle -->
+                    <button id="dialerSettingsToggle" onclick="event.stopPropagation();navTo('voice');setTimeout(()=>switchVoicePanel('dialer'),100);" class="dlr-btn-ghost-2 dlr-settings-btn" title="Dialer Settings">
+                        <i class="fa-solid fa-gear"></i>
+                    </button>
+                    </div><!-- /dlrTopBarBody -->
+                </div><!-- /dlr-top-bar -->
+
+                <!-- VoIP Setup Banner -->
+                <div id="voipSetupBanner" class="dlr-banner-warning dlr-banner-pad" style="display:none">
+                    <div class="d-flex align-items-center gap-3">
+                        <i class="fa-solid fa-triangle-exclamation dlr-text-orange" ></i>
+                        <div class="dlr-banner-flex-inner">
+                            <div class="dlr-banner-text"><strong>Browser calling requires one-time setup</strong> <span class="dlr-text-muted">— creates a secure credential for VoIP</span></div>
+                            <div id="voipSetupStatus" class="dlr-label-muted-2 dlr-banner-substatus" style="display:none"></div>
+                        </div>
+                        <button onclick="setupVoIP()" id="voipSetupBtn" class="dlr-btn-orange dlr-setup-btn">
+                            <i class="fa-solid fa-gear me-1"></i>Setup VoIP
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Active Call Banner (AI mode) -->
+                <div id="dialerCallBanner" class="dlr-banner-info dlr-banner-pad" style="display:none">
+                    <div class="dlr-call-banner-flex">
+                        <div id="dialerCallDot" class="dlr-misc dlr-call-dot"></div>
+                        <div class="dlr-banner-flex-inner">
+                            <div id="dialerCallName" onclick="dialerJumpToContact()" class="dlr-call-name" title="Jump to this contact">-</div>
+                            <div class="dlr-call-status-row">
+                                <span id="dialerCallStatus" class="dlr-label-cyan dlr-call-status">Connecting...</span>
+                                <span id="dialerCallFrom" class="dlr-call-from dlr-call-from-color" style="display:none"></span>
+                            </div>
+                        </div>
+                        <div id="dialerBannerTimer" class="dlr-banner-timer" style="display:none">00:00</div>
+                        <button onclick="dialerStopQueue()" class="dlr-btn-red dlr-hangup-btn">
+                            <i class="fa-solid fa-phone-slash me-1"></i>Hang Up
+                        </button>
+                    </div>
+                    <!-- In-call controls: always visible, disabled until connected -->
+                    <div id="dialerCallControls" class="dlr-misc-2 dlr-call-ctrls">
+                        <!-- Live Listen -->
+                        <button id="dialerListenBtn" onclick="dialerToggleListen()" disabled class="dialer-ctrl-btn dlr-panel-6 dlr-ctrl-btn-layout" title="Live Listen">
+                            <i class="fa-solid fa-volume-high"></i><span>Listen</span>
+                        </button>
+                        <!-- Mute AI (mutes call audio you hear) -->
+                        <button id="dialerMuteBtn" onclick="dialerToggleMuteAI()" disabled class="dialer-ctrl-btn dlr-panel-6 dlr-ctrl-btn-layout" title="Mute call audio (what you hear)">
+                            <i class="fa-solid fa-volume-xmark"></i><span>Mute AI</span>
+                        </button>
+                        <!-- Mute Mic (mutes your microphone after intercept) -->
+                        <button id="dialerMuteMicBtn" onclick="dialerToggleMuteMic()" disabled class="dialer-ctrl-btn dlr-panel-6 dlr-ctrl-btn-layout" title="Mute your microphone (after intercept)">
+                            <i class="fa-solid fa-microphone"></i><span>Mute Mic</span>
+                        </button>
+                        <!-- Takeover / Human Intercept -->
+                        <button id="dialerTakeoverBtn" onclick="dialerTakeover()" disabled class="dialer-ctrl-btn dlr-panel-orange dlr-ctrl-btn-bold" title="Take over this AI call (Human Intercept)">
+                            <i class="fa-solid fa-hand"></i><span>Intercept</span>
+                        </button>
+                        <!-- Live Transfer (Warm) -->
+                        <div class="position-relative">
+                            <button id="dialerTransferBtn" onclick="_toggleWarmTransferPopover()" disabled class="dialer-ctrl-btn dlr-panel-cyan-3 dlr-ctrl-btn-bold" title="Warm transfer call">
+                                <i class="fa-solid fa-arrow-right-arrow-left"></i><span>Transfer</span>
+                            </button>
+                            <!-- Warm Transfer Popover -->
+                            <div id="warmXferPopover" class="warm-xfer-popover">
+                                <!-- Dial state (initial) -->
+                                <div id="warmXferDialState">
+                                    <div class="warm-xfer-popover-title">Warm Transfer</div>
+                                    <div id="warmXferPresets" class="warm-xfer-presets"></div>
+                                    <div id="warmXferDivider" class="warm-xfer-divider">or enter number</div>
+                                    <input type="tel" id="warmXferInput" class="warm-xfer-input" placeholder="+1 (555) 123-4567" maxlength="20" autocomplete="off">
+                                    <div id="warmXferKeypad" class="warm-xfer-keypad">
+                                        <button type="button" class="warm-xfer-keypad-btn" onclick="_warmXferKey('1')">1</button>
+                                        <button type="button" class="warm-xfer-keypad-btn" onclick="_warmXferKey('2')">2</button>
+                                        <button type="button" class="warm-xfer-keypad-btn" onclick="_warmXferKey('3')">3</button>
+                                        <button type="button" class="warm-xfer-keypad-btn" onclick="_warmXferKey('4')">4</button>
+                                        <button type="button" class="warm-xfer-keypad-btn" onclick="_warmXferKey('5')">5</button>
+                                        <button type="button" class="warm-xfer-keypad-btn" onclick="_warmXferKey('6')">6</button>
+                                        <button type="button" class="warm-xfer-keypad-btn" onclick="_warmXferKey('7')">7</button>
+                                        <button type="button" class="warm-xfer-keypad-btn" onclick="_warmXferKey('8')">8</button>
+                                        <button type="button" class="warm-xfer-keypad-btn" onclick="_warmXferKey('9')">9</button>
+                                        <button type="button" class="warm-xfer-keypad-btn" onclick="_warmXferKey('+')">+</button>
+                                        <button type="button" class="warm-xfer-keypad-btn" onclick="_warmXferKey('0')">0</button>
+                                        <button type="button" class="warm-xfer-keypad-btn" onclick="_warmXferBackspace()"><i class="fa-solid fa-delete-left"></i></button>
+                                    </div>
+                                    <div class="warm-xfer-actions">
+                                        <button type="button" id="warmXferDialBtn" class="warm-xfer-dial-btn" onclick="_warmXferDial()">
+                                            <i class="fa-solid fa-phone"></i> Dial
+                                        </button>
+                                        <button type="button" class="warm-xfer-close-btn" onclick="_closeWarmXferPopover()">Cancel</button>
+                                    </div>
+                                </div>
+                                <!-- Consulting state -->
+                                <div id="warmXferConsultState" class="warm-xfer-consulting" style="display:none">
+                                    <div class="warm-xfer-consulting-label">Consulting...</div>
+                                    <div id="warmXferConsultTarget" class="warm-xfer-consulting-target"></div>
+                                    <div id="warmXferConsultTimer" class="warm-xfer-consulting-timer">0:00</div>
+                                    <div class="warm-xfer-actions">
+                                        <button type="button" id="warmXferCompleteBtn" class="warm-xfer-complete-btn" onclick="_warmXferComplete()">
+                                            <i class="fa-solid fa-check"></i> Complete Transfer
+                                        </button>
+                                        <button type="button" id="warmXferCancelBtn" class="warm-xfer-cancel-btn" onclick="_warmXferCancel()">
+                                            <i class="fa-solid fa-xmark"></i> Cancel
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <!-- Start Meet + Screen Share (during live call) -->
+                        <button id="dialerMeetBtn" onclick="dialerStartMeet()" disabled class="dialer-ctrl-btn dlr-panel-6 dlr-ctrl-btn-layout" title="Start Google Meet — video call + screen share">
+                            <i class="fa-solid fa-video"></i><span>Meet</span>
+                        </button>
+                    </div>
+                </div>
+                <!-- Call Disposition (shown after call ends) -->
+                <div id="dialerDisposition" class="dlr-banner-warning-2 dlr-banner-pad" style="display:none">
+                    <div class="d-flex align-items-center gap-3">
+                        <span class="dlr-label-subtle dlr-disp-label">Disposition:</span>
+                        <div class="dlr-disp-row">
+                            <button onclick="dialerSetDisposition('interested')" class="disp-btn dlr-btn-green dlr-disp-btn"><i class="fa-solid fa-thumbs-up me-1 dlr-disp-icon"></i>Interested</button>
+                            <button onclick="dialerSetDisposition('callback')" class="disp-btn dlr-btn-blue dlr-disp-btn"><i class="fa-solid fa-phone-arrow-down-left me-1 dlr-disp-icon"></i>Callback</button>
+                            <button onclick="dialerSetDisposition('not_interested')" class="disp-btn dlr-btn-red-2 dlr-disp-btn"><i class="fa-solid fa-thumbs-down me-1 dlr-disp-icon"></i>Not Interested</button>
+                            <button onclick="dialerSetDisposition('not_answered')" class="disp-btn dlr-btn-ghost-3 dlr-disp-btn">No Answer</button>
+                            <button onclick="dialerSetDisposition('left_voicemail')" class="disp-btn dlr-btn-ghost-3 dlr-disp-btn">Left VM</button>
+                            <button onclick="dialerSetDisposition('hung_up')" class="disp-btn dlr-btn-ghost-3 dlr-disp-btn">Hung Up</button>
+                        </div>
+                        <button onclick="dialerDismissDisposition()" class="dlr-btn-dismiss dlr-dismiss-bare"><i class="fa-solid fa-xmark"></i></button>
+                    </div>
+                </div>
+
+                <!-- Multi-Line Dialer Banner -->
+                <div id="multiLineBanner" class="dlr-banner-pro dlr-banner-pad" style="display:none"></div>
+
+                <!-- Predictive Dialer Stats Panel -->
+                <div id="predictiveStatsPanel" class="dlr-banner dlr-banner-pad" style="display:none">
+                    <div class="dlr-pred-flex">
+                        <div class="dlr-label-pro dlr-pred-label"><i class="fa-solid fa-chart-line me-1"></i>Predictive</div>
+                        <div class="dlr-label-subtle-2 dlr-pred-stat">Connect Rate: <span id="predictiveConnectRate" class="dlr-heading dlr-pred-val">--</span></div>
+                        <div class="dlr-label-subtle-2 dlr-pred-stat">AI Lines: <span id="predictiveRecommendedLines" class="dlr-label-pro-2 dlr-pred-val">--</span></div>
+                        <div class="dlr-label-subtle-2 dlr-pred-stat">Ratio: <span id="predictiveDialRatio" class="dlr-heading dlr-pred-val">--</span></div>
+                        <div id="predictiveAlgorithm" class="dlr-label-faint dlr-pred-algo" style="display:none"></div>
+                    </div>
+                    <!-- Erlang-C extended metrics (solo_predictive tier) -->
+                    <div id="erlangCMetrics" class="dlr-misc-3 dlr-erlang-pad" style="display:none">
+                        <div class="dlr-pred-flex">
+                            <div class="dlr-label-muted-3 dlr-erlang-stat">Abandon Rate: <span id="predictiveAbandonRate" class="dlr-erlang-val">--</span></div>
+                            <div class="dlr-label-muted-3 dlr-erlang-stat">Erlang-C P(wait): <span id="predictiveErlangC" class="dlr-label-subtle-3 dlr-erlang-val">--</span></div>
+                            <div id="predictiveThrottleTag" class="dlr-panel-red dlr-throttle-tag" style="display:none">THROTTLED</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- TCPA Compliance Banner (solo_predictive tier) -->
+                <div id="complianceBanner" class="dlr-banner-pad" style="display:none">
+                    <div class="dlr-compliance-flex">
+                        <span id="complianceIcon" class="dlr-compliance-icon"></span>
+                        <span id="complianceLabel" class="dlr-compliance-label"></span>
+                        <span id="complianceRate" class="dlr-label-subtle-2 dlr-compliance-rate"></span>
+                        <span id="complianceScore" class="dlr-compliance-score"></span>
+                    </div>
+                </div>
+
+                <!-- Agent State Selector (solo_predictive tier) -->
+                <div id="agentStatePanel" class="dlr-banner-2 dlr-agent-pad" style="display:none">
+                    <div class="dlr-agent-flex">
+                        <span class="dlr-label-muted-4 dlr-agent-status-label"><i class="fa-solid fa-user-clock me-1"></i>Status:</span>
+                        <select id="agentStateSelect" onchange="pdSetAgentState(this.value)" class="dlr-panel-7 dlr-agent-select">
+                            <option value="ready" class="dlr-bg-option">Ready</option>
+                            <option value="not_ready" class="dlr-bg-option">Not Ready</option>
+                            <option value="break" class="dlr-bg-option">Break</option>
+                            <option value="extended_away" class="dlr-bg-option">Extended Away</option>
+                        </select>
+                        <span id="agentStateDot" class="dlr-misc-4 dlr-agent-dot"></span>
+                        <span id="agentStateDuration" class="dlr-label-faint-2 dlr-agent-duration"></span>
+                        <span id="agentWrapUpTimer" class="dlr-label-pro-3 dlr-agent-wrapup" style="display:none"></span>
+                    </div>
+                </div>
+
+                <!-- Callback Queue Badge (solo_predictive tier) -->
+                <div id="callbackQueueBanner" class="dlr-btn dlr-cb-badge-wrap" style="display:none" onclick="pdShowCallbackQueue()">
+                    <div class="dlr-cb-flex">
+                        <i class="fa-solid fa-clock-rotate-left dlr-text-violet" ></i>
+                        <span class="dlr-label-subtle-4 dlr-cb-label">Callback Queue:</span>
+                        <span id="callbackQueueCount" class="dlr-label-violet dlr-cb-count">0</span>
+                        <span id="callbackDueCount" class="dlr-panel-red dlr-cb-due" style="display:none">0 due</span>
+                        <i class="fa-solid fa-chevron-right ms-auto dlr-label-faint-3 dlr-cb-arrow"></i>
+                    </div>
+                </div>
+
+                <!-- Recording Consent Warning (shown before calls to 2-party states) -->
+                <div id="recordingConsentBanner" class="dlr-banner-amber dlr-banner-pad" style="display:none">
+                    <div class="dlr-consent-flex">
+                        <i class="fa-solid fa-shield-halved dlr-text-yellow" ></i>
+                        <span class="dlr-label-text dlr-consent-text"><strong>Two-Party Consent:</strong> <span id="consentStateName">--</span> requires all-party recording consent.</span>
+                        <button onclick="document.getElementById('recordingConsentBanner').style.display='none'" class="dlr-btn-dismiss-2 dlr-consent-dismiss"><i class="fa-solid fa-xmark"></i></button>
+                    </div>
+                </div>
+
+                <!-- Jump to Contact Pill (appears when navigated away from active call) -->
+                <div id="jtcPill" onclick="dialerJumpToContact()">
+                    <span class="jtc-dot"></span>
+                    <span class="jtc-name" id="jtcPillName">-</span>
+                    <span class="jtc-status" id="jtcPillStatus">Ringing...</span>
+                    <i class="fa-solid fa-arrow-up-right-from-square jtc-icon"></i>
+                </div>
+
+                <!-- VoIP In-Call Bar -->
+                <div id="voipCallPanel" class="dlr-banner-success dlr-banner-pad" style="display:none">
+                    <div class="d-flex align-items-center gap-3">
+                        <div class="dlr-icon-box-green dlr-voip-icon-wrap">
+                            <i class="fa-solid fa-phone dlr-voip-phone-pulse"></i>
+                        </div>
+                        <div class="dlr-banner-flex-inner">
+                            <div id="voipCallName" class="dlr-voip-name">-</div>
+                            <div id="voipCallPhone" class="dlr-label-muted-5 dlr-voip-phone-text">-</div>
+                        </div>
+                        <div id="voipCallTimer" class="dlr-voip-timer">00:00</div>
+                        <button id="voipMuteBtn" onclick="voipToggleMute()" class="dlr-btn-ghost-4 dlr-voip-round-btn" title="Mute">
+                            <i class="fa-solid fa-microphone"></i>
+                        </button>
+                        <button onclick="voipToggleKeypad()" class="dlr-btn-ghost-4 dlr-voip-round-btn" title="Keypad">
+                            <i class="fa-solid fa-grip"></i>
+                        </button>
+                        <button id="voipTransferBtn" onclick="voipTransfer()" class="dlr-btn-ghost-4 dlr-voip-round-btn dlr-voip-transfer-accent" title="Transfer call">
+                            <i class="fa-solid fa-arrow-right-arrow-left"></i>
+                        </button>
+                        <button id="voipMeetBtn" onclick="dialerStartMeet()" class="dlr-btn-ghost-4 dlr-voip-round-btn" title="Start Google Meet — video + screen share">
+                            <i class="fa-solid fa-video"></i>
+                        </button>
+                        <button onclick="voipHangup()" class="dlr-btn-danger dlr-voip-end-btn" title="End Call">
+                            <i class="fa-solid fa-phone-slash"></i>
+                        </button>
+                    </div>
+                    <!-- DTMF Keypad (hidden) -->
+                    <div id="voipKeypad" class="dlr-voip-keypad-wrap" style="display:none">
+                        <div class="dlr-voip-keypad-grid">
+                            <button onclick="voipSendDTMF('1')" class="dtmf-key">1</button><button onclick="voipSendDTMF('2')" class="dtmf-key">2</button><button onclick="voipSendDTMF('3')" class="dtmf-key">3</button>
+                            <button onclick="voipSendDTMF('4')" class="dtmf-key">4</button><button onclick="voipSendDTMF('5')" class="dtmf-key">5</button><button onclick="voipSendDTMF('6')" class="dtmf-key">6</button>
+                            <button onclick="voipSendDTMF('7')" class="dtmf-key">7</button><button onclick="voipSendDTMF('8')" class="dtmf-key">8</button><button onclick="voipSendDTMF('9')" class="dtmf-key">9</button>
+                            <button onclick="voipSendDTMF('*')" class="dtmf-key">*</button><button onclick="voipSendDTMF('0')" class="dtmf-key">0</button><button onclick="voipSendDTMF('#')" class="dtmf-key">#</button>
+                        </div>
+                    </div>
+                </div>
+

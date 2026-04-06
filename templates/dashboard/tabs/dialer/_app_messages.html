@@ -1,0 +1,145 @@
+                                    <style>
+                                        .dlr-msg-list-view { display:flex; flex-direction:column; flex:1; min-height:0; }
+                                        .dlr-msg-list-header { padding:56px 16px 0; flex-shrink:0; }
+                                        .dlr-msg-list-top { display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; }
+                                        .dlr-msg-back-btn { margin:0; }
+                                        .dlr-msg-title { font-weight:800; font-size:1.15rem; letter-spacing:-0.3px; }
+                                        .dlr-msg-refresh-btn { margin:0; }
+                                        .dlr-msg-search-wrap { margin-bottom:8px; }
+                                        .dlr-msg-search-input { width:100%; box-sizing:border-box; padding:8px 10px; border:none; border-radius:10px; font-size:0.8rem; outline:none; }
+                                        .dlr-msg-filter-row { display:flex; gap:4px; padding-bottom:8px; }
+                                        .dlr-msg-conversation-list { flex:1; min-height:0; overflow-y:auto; -webkit-overflow-scrolling:touch; padding:0; }
+                                        .dlr-msg-unread-badge { background:rgba(0,122,255,0.2); border-radius:8px; padding:0 5px; font-size:0.7rem; margin-left:2px; }
+                                        .dlr-msg-empty-top { padding-top:50px; }
+                                        .dlr-msg-empty-icon-accent { color:#00ff88; }
+                                        .dlr-msg-thread-view { flex-direction:column; flex:1; min-height:0; }
+                                        .dlr-msg-thread-scroll { padding:10px 10px 6px; }
+                                        [data-theme="light"] .dlr-msg-empty-icon-accent { color:var(--lt-accent, #059669); }
+                                    </style>
+                                    <!-- ═══ MESSAGES APP ═══ -->
+                                    <div class="ios-app-view" id="iosAppMessages" style="display:none;">
+
+                                        <!-- ── LIST VIEW: All conversations ── -->
+                                        <div id="dlrMsgListView" class="dlr-msg-list-view">
+                                            <div class="dlr-misc-14 dlr-msg-list-header">
+                                                <div class="dlr-msg-list-top">
+                                                    <button class="ios-back-btn dlr-msg-back-btn" onclick="iosGoHome()">
+                                                        <i class="fa-solid fa-chevron-left"></i><span class="ios-back-label">Back</span>
+                                                    </button>
+                                                    <div class="dlr-label-6 dlr-msg-title">Messages</div>
+                                                    <button onclick="inboxRefresh()" class="ios-nav-action dlr-msg-refresh-btn" title="Refresh">
+                                                        <i class="fa-solid fa-arrows-rotate" id="inboxRefreshIcon"></i>
+                                                    </button>
+                                                </div>
+                                                <div class="dlr-msg-search-wrap">
+                                                    <input type="text" id="inboxSearchInput" placeholder="Search by name, number, or message..." oninput="inboxDebounceSearch()"
+                                                        class="dlr-input-2 dlr-msg-search-input">
+                                                </div>
+                                                <div class="dlr-msg-filter-row" id="inboxFilterRow">
+                                                    <button class="imsg-filter-pill active" onclick="inboxSetFilter('all')" data-filter="all">All</button>
+                                                    <button class="imsg-filter-pill" onclick="inboxSetFilter('unread')" data-filter="unread">New <span id="inboxUnreadCount" class="dlr-msg-unread-badge" style="display:none;"></span></button>
+                                                    <button class="imsg-filter-pill" onclick="inboxSetFilter('needs_reply')" data-filter="needs_reply">Needs Reply</button>
+                                                </div>
+                                            </div>
+                                            <div id="inboxConversationList" class="dlr-misc-15 dlr-msg-conversation-list">
+                                                <div class="ios-empty-state dlr-msg-empty-top">
+                                                    <div class="ios-empty-icon dlr-bg-bordered-2">
+                                                        <i class="fa-solid fa-comment-dots dlr-msg-empty-icon-accent"></i>
+                                                    </div>
+                                                    <div class="ios-empty-title">No Messages</div>
+                                                    <div class="ios-empty-sub">Conversations will appear here</div>
+                                                </div>
+                                            </div>
+                                            <div class="ios-home-indicator-bar"><div class="ios-home-indicator ios-home-indicator-dark"></div></div>
+                                        </div>
+
+                                        <!-- ── THREAD VIEW: Single conversation ── -->
+                                        <div id="dlrMsgThreadView" class="dlr-msg-thread-view" style="display:none;">
+                                            <div class="ios-nav-bar">
+                                                <button class="ios-back-btn" onclick="dlrMsgBack()">
+                                                    <i class="fa-solid fa-chevron-left"></i><span class="ios-back-label">Messages</span>
+                                                </button>
+                                                <div class="ios-nav-title">
+                                                    <div id="iosMsgAvatar" class="ios-contact-avatar-sm">?</div>
+                                                    <div>
+                                                        <div id="iosMsgContactName" class="ios-nav-name">Contact</div>
+                                                        <div id="iosMsgContactPhone" class="ios-nav-subtitle"></div>
+                                                    </div>
+                                                </div>
+                                                <button class="ios-nav-action" onclick="dlrRefreshMessages()" title="Refresh">
+                                                    <i class="fa-solid fa-arrows-rotate"></i>
+                                                </button>
+                                            </div>
+                                            <div id="dlrMessagesList" class="ios-thread-scroll dlr-msg-thread-scroll">
+                                                <div id="dlrMsgEmptyState" class="ios-empty-state">
+                                                    <div class="ios-empty-icon">
+                                                        <i class="fa-solid fa-message"></i>
+                                                    </div>
+                                                    <div class="ios-empty-title">No Messages</div>
+                                                    <div class="ios-empty-sub">Select a contact to view conversation</div>
+                                                </div>
+                                            </div>
+                                            <!-- iMessage-style composer: [+] [pill input .......... 🎤/↑] -->
+                                            <div id="dlrSmsComposer" style="display:none;" class="ios-composer">
+                                                <div class="ios-compose-row">
+                                                    <!-- Plus button — opens menu with AI Reply, Quick Options, channel, char count -->
+                                                    <button type="button" id="dlrComposePlus" class="ios-compose-plus" onclick="dlrTogglePlusMenu(event)" title="AI, quick replies, options">
+                                                        <i class="fa-solid fa-plus"></i>
+                                                    </button>
+
+                                                    <!-- Plus menu — absolutely positioned above the + button -->
+                                                    <div id="dlrPlusMenu" class="ios-plus-menu">
+                                                        <button type="button" id="dlrAiDraftBtn" onclick="dlrAiSuggest();dlrClosePlusMenu();">
+                                                            <i class="fa-solid fa-robot"></i>
+                                                            <span id="dlrAiDraftLabel">AI Reply</span>
+                                                        </button>
+                                                        <div class="ios-plus-menu-divider"></div>
+                                                        <button type="button" onclick="dlrQuickOption('Following up — did you have a chance to review the options I sent over?');dlrClosePlusMenu();">
+                                                            <i class="fa-solid fa-reply"></i><span>Follow-up</span>
+                                                        </button>
+                                                        <button type="button" onclick="dlrQuickOption('Hi! I wanted to make sure you got everything you needed. Any questions?');dlrClosePlusMenu();">
+                                                            <i class="fa-solid fa-circle-check"></i><span>Check-in</span>
+                                                        </button>
+                                                        <button type="button" onclick="dlrQuickOption('Ready to go over your coverage options when you are — just reply here to get started.');dlrClosePlusMenu();">
+                                                            <i class="fa-solid fa-shield-halved"></i><span>Coverage</span>
+                                                        </button>
+                                                        <button type="button" onclick="dlrQuickOption('Are you available for a quick 10-minute call today or tomorrow?');dlrClosePlusMenu();">
+                                                            <i class="fa-solid fa-calendar"></i><span>Schedule</span>
+                                                        </button>
+                                                        <div id="dlrChannelRow" class="ios-plus-menu-channel" style="display:none;">
+                                                            <span>Send via</span>
+                                                            <select id="dlrChannelSelect" onchange="dlrOnChannelChange()">
+                                                                <option value="ghl">GHL</option>
+                                                            </select>
+                                                        </div>
+                                                        <div class="ios-plus-menu-meta">
+                                                            <span id="dlrSmsStatus" class="ios-sms-status"></span>
+                                                            <span id="dlrCharCount" class="ios-char-count">0 / 160</span>
+                                                        </div>
+                                                    </div>
+
+                                                    <!-- Pill input wrap with trailing mic/send swap button -->
+                                                    <div class="ios-compose-input-wrap">
+                                                        <textarea id="dlrSmsText"
+                                                            placeholder="iMessage"
+                                                            rows="1"
+                                                            class="ios-compose-input"
+                                                            oninput="dlrAutoGrow(this);dlrUpdateCharCount(this.value);dlrToggleSendMode(this.value)"
+                                                            onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();dialerSendSms();}"
+                                                        ></textarea>
+                                                        <!-- Mic (idle) — speech-to-text dictation -->
+                                                        <button type="button" id="dlrComposeMic" class="ios-compose-mic" onclick="dlrToggleDictation()" title="Dictate (speech to text)">
+                                                            <i class="fa-solid fa-microphone"></i>
+                                                        </button>
+                                                        <!-- Send (when text present) — matches mic footprint, green iMessage tint -->
+                                                        <button type="button" id="dlrSmsSendBtn" class="ios-compose-send" onclick="dialerSendSms()" style="display:none;" title="Send">
+                                                            <i class="fa-solid fa-arrow-up"></i>
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div class="ios-home-indicator-bar"><div class="ios-home-indicator ios-home-indicator-dark"></div></div>
+                                        </div>
+
+                                    </div>
+

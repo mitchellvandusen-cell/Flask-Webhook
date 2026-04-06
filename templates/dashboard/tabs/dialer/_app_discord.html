@@ -1,0 +1,57 @@
+                                    <!-- ═══ DISCORD APP ═══ -->
+                                    <div class="ios-app-view" id="iosAppDiscord" style="display:none;">
+                                        <div class="dlr-misc-24 dlr-discord-nav">
+                                            <div class="dlr-misc-25 dlr-discord-nav-row">
+                                                <button class="ios-back-btn dlr-misc-26 dlr-discord-back-btn" onclick="_iosDiscordActiveChannel ? _iosDiscordBackToServers() : iosGoHome()">
+                                                    <i class="fa-solid fa-chevron-left"></i><span class="ios-back-label">Back</span>
+                                                </button>
+                                                <i class="fa-solid fa-hashtag dlr-icon-c72767d dlr-discord-hashtag"></i>
+                                                <span id="iosDiscordChannelName" class="dlr-heading-9 dlr-discord-channel-name">Discord</span>
+                                                <span id="iosDiscordServerName" class="dlr-label-7 dlr-discord-server-name"></span>
+                                            </div>
+                                        </div>
+                                        <!-- Discord content area -->
+                                        <div id="iosDiscordContent" class="dlr-misc-27 dlr-discord-content">
+                                            <!-- Not connected state -->
+                                            <div id="iosDiscordNotConnected" class="dlr-discord-not-connected">
+                                                <div class="dlr-icon-box-3 dlr-discord-icon-circle">
+                                                    <i class="fa-brands fa-discord dlr-label-8 dlr-discord-icon-lg"></i>
+                                                </div>
+                                                <div class="dlr-heading-10 dlr-discord-connect-title">Connect Discord</div>
+                                                <div class="dlr-label-9 dlr-discord-connect-desc">Link your Discord account to read and reply to team messages.</div>
+                                                <a href="/discord/connect" target="_top" class="dlr-panel-14 dlr-discord-connect-btn">
+                                                    <i class="fa-brands fa-discord me-1"></i> Connect
+                                                </a>
+                                            </div>
+                                            <!-- Connected: server/channel picker -->
+                                            <div id="iosDiscordConnected" class="dlr-discord-connected" style="display:none;">
+                                                <!-- Server selector -->
+                                                <div id="iosDiscordServerPicker" class="dlr-misc-28 dlr-discord-server-picker">
+                                                    <div class="dlr-discord-server-hdr">
+                                                        <span class="dlr-label-10 dlr-discord-server-label">Servers</span>
+                                                        <button onclick="openServerModal()" class="dlr-btn-6 dlr-discord-add-btn">
+                                                            <i class="fa-solid fa-plus"></i> Add
+                                                        </button>
+                                                    </div>
+                                                    <div id="iosDiscordServers" class="dlr-discord-server-list"></div>
+                                                </div>
+                                                <!-- Channel list -->
+                                                <div id="iosDiscordChannels" class="dlr-discord-channels"></div>
+                                            </div>
+                                            <!-- Chat view (shown when a channel is selected) -->
+                                            <div id="iosDiscordChat" class="dlr-discord-chat" style="display:none;">
+                                                <div id="iosDiscordMessages" class="dlr-discord-messages"></div>
+                                                <div class="dlr-misc-29 dlr-discord-composer">
+                                                    <div class="dlr-discord-composer-row">
+                                                        <textarea id="iosDiscordReplyText" rows="1" placeholder="Message #channel" class="dlr-input-7 dlr-discord-textarea" onkeydown="if(event.key==='Enter'&&(event.ctrlKey||event.metaKey)){event.preventDefault();iosDiscordSend();}" oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,80)+'px';"></textarea>
+                                                        <button onclick="iosDiscordSend()" class="dlr-btn-7 dlr-discord-send-btn">
+                                                            <i class="fa-solid fa-paper-plane dlr-icon-cfff dlr-discord-send-icon"></i>
+                                                        </button>
+                                                    </div>
+                                                    <div class="dlr-label-11 dlr-discord-hint">Ctrl+Enter to send</div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="ios-home-indicator-bar dlr-misc-24"><div class="ios-home-indicator"></div></div>
+                                    </div>
+

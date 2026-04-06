@@ -1,0 +1,27 @@
+                    <style>
+                        .dlr-detail-col { width:35%; border-radius:12px; }
+                        .dlr-detail-actions { }
+                        .dlr-detail-body { padding:16px; }
+                        .dlr-detail-empty { text-align:center; padding:40px 20px; }
+                        .dlr-detail-empty-icon { width:44px; height:44px; margin:0 auto 12px; border-radius:10px; display:flex; align-items:center; justify-content:center; }
+                        .dlr-detail-empty-icon i { font-size:1.2rem; }
+                        .dlr-detail-empty-hint { font-size:0.8rem; font-weight:500; }
+                    </style>
+                    <!-- ── MIDDLE: Contact Information ── -->
+                    <div class="dlr-col dlr-col-intel-hidden dlr-detail-col" id="dlrColIntel">
+                        <div class="dlr-col-hdr">
+                            <button class="dlr-col-hide-btn" id="dlrHideIntelBtn" onclick="dlrToggleIntelCol()" title="Hide panel"><i class="fa-solid fa-chevron-left"></i></button>
+                            <h6><i class="fa-solid fa-address-card me-1"></i>Contact Information</h6>
+                            <div id="dlrDetailActions" class="dlr-detail-actions" style="display:none;">
+                            </div>
+                        </div>
+                        <div id="dlrDetailContent" class="dlr-col-body dlr-detail-body">
+                            <div class="dlr-detail-empty">
+                                <div class="dlr-icon-box-neutral dlr-detail-empty-icon">
+                                    <i class="fa-solid fa-file-lines dlr-label-5"></i>
+                                </div>
+                                <div class="dlr-label-faint-7 dlr-detail-empty-hint">Select a contact to review their profile</div>
+                            </div>
+                        </div>
+                    </div>
+

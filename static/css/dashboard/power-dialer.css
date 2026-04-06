@@ -928,3 +928,111 @@
     -webkit-backdrop-filter: none !important;
     color: #ffffff !important;
 }
+
+
+/* ══════════════════════════════════════════════
+   Discord App — layout classes
+   ══════════════════════════════════════════════ */
+
+.dlr-discord-nav              { padding: 58px 0 0; flex-shrink: 0; }
+.dlr-discord-nav-row          { display: flex; align-items: center; gap: 10px; padding: 0 16px 10px; }
+.dlr-discord-back-btn         { margin: 0; }
+.dlr-discord-hashtag          { font-size: 0.85rem; }
+.dlr-discord-channel-name     { font-weight: 700; font-size: 0.95rem; flex: 1; }
+.dlr-discord-server-name      { font-size: 0.75rem; }
+.dlr-discord-content          { flex: 1; overflow-y: auto; display: flex; flex-direction: column; }
+.dlr-discord-not-connected    { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 24px; text-align: center; }
+.dlr-discord-icon-circle      { width: 64px; height: 64px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-bottom: 16px; }
+.dlr-discord-icon-lg          { font-size: 1.6rem; }
+.dlr-discord-connect-title    { font-weight: 700; font-size: 0.95rem; margin-bottom: 6px; }
+.dlr-discord-connect-desc     { font-size: 0.78rem; margin-bottom: 16px; line-height: 1.4; }
+.dlr-discord-connect-btn      { padding: 10px 24px; border-radius: 8px; font-weight: 700; font-size: 0.82rem; text-decoration: none; display: inline-block; }
+.dlr-discord-connected        { flex: 1; flex-direction: column; overflow-y: auto; }
+.dlr-discord-server-picker    { padding: 12px 16px; }
+.dlr-discord-server-hdr       { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.dlr-discord-server-label     { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 700; }
+.dlr-discord-add-btn          { border-radius: 6px; padding: 3px 8px; font-size: 0.7rem; cursor: pointer; font-weight: 600; }
+.dlr-discord-server-list      { display: flex; flex-direction: column; gap: 4px; }
+.dlr-discord-channels         { padding: 8px 16px; flex: 1; overflow-y: auto; }
+.dlr-discord-chat             { flex: 1; flex-direction: column; overflow: hidden; }
+.dlr-discord-messages         { flex: 1; overflow-y: auto; padding: 12px 16px; display: flex; flex-direction: column; gap: 2px; }
+.dlr-discord-composer         { padding: 8px 12px; }
+.dlr-discord-composer-row     { display: flex; gap: 8px; align-items: flex-end; }
+.dlr-discord-textarea         { flex: 1; border: none; border-radius: 8px; padding: 8px 12px; font-size: 0.8rem; resize: none; outline: none; font-family: inherit; max-height: 80px; }
+.dlr-discord-send-btn         { border: none; border-radius: 8px; width: 34px; height: 34px; display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0; }
+.dlr-discord-send-icon        { font-size: 0.75rem; }
+.dlr-discord-hint             { font-size: 0.65rem; margin-top: 4px; }
+
+
+/* ══════════════════════════════════════════════
+   Slack App — layout classes
+   ══════════════════════════════════════════════ */
+
+.dlr-slack-nav                { padding: 58px 0 0; flex-shrink: 0; }
+.dlr-slack-nav-row            { display: flex; align-items: center; gap: 10px; padding: 0 16px 10px; }
+.dlr-slack-back-btn           { margin: 0; }
+.dlr-slack-hashtag            { font-size: 0.85rem; }
+.dlr-slack-channel-name       { font-weight: 700; font-size: 0.95rem; flex: 1; }
+.dlr-slack-workspace-name     { font-size: 0.75rem; }
+.dlr-slack-content            { flex: 1; overflow-y: auto; display: flex; flex-direction: column; }
+.dlr-slack-not-connected      { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 24px; text-align: center; }
+.dlr-slack-icon-circle        { width: 64px; height: 64px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-bottom: 16px; }
+.dlr-slack-icon-lg            { font-size: 1.6rem; }
+.dlr-slack-connect-title      { font-weight: 700; font-size: 0.95rem; margin-bottom: 6px; }
+.dlr-slack-connect-desc       { font-size: 0.78rem; margin-bottom: 16px; line-height: 1.4; }
+.dlr-slack-connect-btn        { padding: 10px 24px; border-radius: 8px; font-weight: 700; font-size: 0.82rem; text-decoration: none; display: inline-block; }
+.dlr-slack-connected          { flex: 1; flex-direction: column; overflow-y: auto; }
+.dlr-slack-ws-header          { padding: 12px 16px; }
+.dlr-slack-ws-row             { display: flex; align-items: center; gap: 8px; }
+.dlr-slack-ws-icon            { width: 28px; height: 28px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 0.75rem; font-weight: 800; flex-shrink: 0; }
+.dlr-slack-ws-info            { flex: 1; }
+.dlr-slack-team-name          { font-weight: 700; font-size: 0.85rem; }
+.dlr-slack-user-name          { font-size: 0.72rem; }
+.dlr-slack-channels           { padding: 8px 16px; flex: 1; overflow-y: auto; }
+.dlr-slack-channels-label     { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 700; padding: 8px 0 4px; }
+.dlr-slack-channel-list       { display: flex; flex-direction: column; gap: 2px; }
+.dlr-slack-chat               { flex: 1; flex-direction: column; overflow: hidden; }
+.dlr-slack-messages           { flex: 1; overflow-y: auto; padding: 12px 16px; display: flex; flex-direction: column; gap: 2px; }
+.dlr-slack-composer           { padding: 8px 12px; }
+.dlr-slack-composer-row       { display: flex; gap: 8px; align-items: flex-end; }
+.dlr-slack-textarea           { flex: 1; border: none; border-radius: 8px; padding: 8px 12px; font-size: 0.8rem; resize: none; outline: none; font-family: inherit; max-height: 80px; }
+.dlr-slack-send-btn           { border: none; border-radius: 8px; width: 34px; height: 34px; display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0; }
+.dlr-slack-send-icon          { font-size: 0.75rem; }
+.dlr-slack-hint               { font-size: 0.65rem; margin-top: 4px; }
+
+
+/* ══════════════════════════════════════════════
+   Export / Transcript / Contact Mgmt — layout classes
+   ══════════════════════════════════════════════ */
+
+.dlr-export-transcript-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 10000; align-items: center; justify-content: center; }
+.dlr-export-transcript-card   { border-radius: 16px; max-width: 600px; width: 90%; max-height: 80vh; overflow: hidden; display: flex; flex-direction: column; }
+.dlr-export-transcript-hdr    { padding: 16px 20px; display: flex; align-items: center; justify-content: space-between; }
+.dlr-export-transcript-title  { margin: 0; font-weight: 700; }
+.dlr-export-transcript-close  { background: none; border: none; cursor: pointer; font-size: 1.2rem; }
+.dlr-export-transcript-body   { padding: 16px 20px; overflow-y: auto; flex: 1; }
+.dlr-export-field-group       { margin-bottom: 14px; }
+.dlr-export-loading-text      { font-size: 0.75rem; }
+.dlr-export-date-row          { display: flex; gap: 10px; margin-bottom: 14px; }
+.dlr-export-date-col          { flex: 1; }
+.dlr-export-cm-close          { border-radius: 6px; padding: 4px 8px; font-size: 0.9rem; cursor: pointer; }
+.dlr-export-cm-body           { padding: 16px; display: flex; flex-direction: column; gap: 10px; }
+.dlr-export-cm-action         { width: 100%; text-align: left; border-radius: 8px; padding: 10px 14px; font-size: 0.88rem; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 10px; }
+.dlr-export-cm-icon           { width: 16px; }
+
+
+/* ══════════════════════════════════════════════
+   Notification Banner — layout classes
+   ══════════════════════════════════════════════ */
+
+.dlr-notif-banner             { position: absolute; top: 48px; left: 8px; right: 8px; z-index: 100; border-radius: 14px; padding: 12px 16px; cursor: pointer; transition: all 0.3s ease; opacity: 0; transform: translateY(-20px); }
+.dlr-notif-row                { display: flex; align-items: center; gap: 10px; }
+.dlr-notif-icon               { width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.dlr-notif-icon-inner         { font-size: 0.8rem; }
+.dlr-notif-body               { flex: 1; min-width: 0; }
+.dlr-notif-title              { font-size: 0.75rem; font-weight: 700; }
+.dlr-notif-text               { font-size: 0.75rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dlr-notif-time               { font-size: 0.7rem; flex-shrink: 0; }
+.dlr-notif-apps-hdr           { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; padding: 0 4px; }
+.dlr-notif-apps-title         { font-size: 0.82rem; font-weight: 700; }
+.dlr-notif-apps-close         { background: none; border: none; cursor: pointer; font-size: 1rem; }

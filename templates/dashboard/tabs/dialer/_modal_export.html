@@ -1,0 +1,114 @@
+
+                <!-- Transcript Modal -->
+                <div id="transcriptModal" class="dlr-modal-overlay dlr-export-transcript-overlay" style="display:none;">
+                    <div class="dlr-icon-box-neutral-2 dlr-export-transcript-card">
+                        <div class="dlr-misc-34 dlr-export-transcript-hdr">
+                            <h5 class="dlr-export-transcript-title"><i class="fa-solid fa-file-lines me-2 dlr-text-cyan"></i>Call Transcript</h5>
+                            <button onclick="closeTranscriptModal()" class="dlr-btn-ghost-10 dlr-export-transcript-close"><i class="fa-solid fa-xmark"></i></button>
+                        </div>
+                        <div id="transcriptContent" class="dlr-export-transcript-body"></div>
+                    </div>
+                </div>
+
+                <!-- ═══ EXPORT CONTACTS MODAL ═══ -->
+                <!-- Move Pipeline Panel -->
+                <div id="mvpOverlay" class="mvp-overlay" onclick="if(event.target===this)_mvpClose()">
+                    <div class="mvp-panel">
+                        <div class="mvp-header">
+                            <span class="mvp-title">Move to Pipeline</span>
+                            <span id="mvpCountLabel" class="mvp-count"></span>
+                        </div>
+                        <div class="mvp-search-wrap">
+                            <input id="mvpSearch" class="mvp-search" placeholder="Search pipelines..." oninput="_mvpFilter()" autocomplete="off">
+                        </div>
+                        <div id="mvpList" class="mvp-list"></div>
+                        <div class="mvp-footer">
+                            <span id="mvpDestLabel" class="mvp-dest"></span>
+                            <button class="mvp-cancel" onclick="_mvpClose()">Cancel</button>
+                            <button id="mvpMoveBtn" class="mvp-move" onclick="_mvpExecute()" disabled>Move</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="dlrExportModal" class="dlr-export-overlay" onclick="if(event.target===this)dlrExportClose()">
+                    <div class="dlr-export-card">
+                        <div class="dlr-export-hdr">
+                            <h5><i class="fa-solid fa-file-export me-2 dlr-text-cyan"></i>Export Contacts</h5>
+                            <button class="dlr-export-close" onclick="dlrExportClose()"><i class="fa-solid fa-xmark"></i></button>
+                        </div>
+                        <div class="dlr-export-body">
+                            <!-- Search filter -->
+                            <div class="dlr-export-field-group">
+                                <label class="dlr-export-label">Search</label>
+                                <input type="text" id="dlrExportSearch" class="dlr-export-input" placeholder="Filter by name, phone, or email...">
+                            </div>
+                            <!-- Tags filter -->
+                            <div class="dlr-export-field-group">
+                                <label class="dlr-export-label">Tags</label>
+                                <div id="dlrExportTags" class="dlr-export-tags-wrap">
+                                    <span class="dlr-icon-c555-2 dlr-export-loading-text">Loading tags...</span>
+                                </div>
+                            </div>
+                            <!-- Date range -->
+                            <div class="dlr-export-date-row">
+                                <div class="dlr-export-date-col">
+                                    <label class="dlr-export-label">Date From</label>
+                                    <input type="date" id="dlrExportDateFrom" class="dlr-export-input">
+                                </div>
+                                <div class="dlr-export-date-col">
+                                    <label class="dlr-export-label">Date To</label>
+                                    <input type="date" id="dlrExportDateTo" class="dlr-export-input">
+                                </div>
+                            </div>
+                            <!-- DND filter -->
+                            <div class="dlr-export-field-group">
+                                <label class="dlr-export-label">Do Not Disturb</label>
+                                <select id="dlrExportDnd" class="dlr-export-input dlr-export-select">
+                                    <option value="">All Contacts</option>
+                                    <option value="false">Exclude DND</option>
+                                    <option value="true">Only DND</option>
+                                </select>
+                            </div>
+                            <!-- Preview / count -->
+                            <div id="dlrExportPreview" class="dlr-export-info dlr-export-field-group">
+                                <span><i class="fa-solid fa-info-circle me-1"></i>All cached contacts will be exported with selected filters.</span>
+                            </div>
+                        </div>
+                        <!-- Footer -->
+                        <div class="dlr-export-footer">
+                            <button class="dlr-export-cancel" onclick="dlrExportClose()">Cancel</button>
+                            <button id="dlrExportBtn" class="dlr-export-submit" onclick="dlrExportDownload()">
+                                <i class="fa-solid fa-download me-1"></i>Export CSV
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Contact Management Modal -->
+            <div id="dlrContactMgmtModal" class="dlr-cm-overlay" style="display:none;">
+                <div class="dlr-cm-card">
+                    <div class="dlr-cm-header">
+                        <div class="dlr-cm-title">Contact Management</div>
+                        <button onclick="dlrCloseContactMgmt()" class="dlr-btn-ghost-2 dlr-export-cm-close">&times;</button>
+                    </div>
+                    <div class="dlr-export-cm-body">
+                        <button id="dlrCmSyncBtn" onclick="dialerSyncContacts();dlrCloseContactMgmt();" class="dlr-btn-ghost-6 dlr-export-cm-action">
+                            <i class="fa-solid fa-rotate dlr-text-cyan dlr-export-cm-icon"></i>
+                            <span>Sync from CRM</span>
+                        </button>
+                        <button onclick="dialerFetchContacts(true);dlrCloseContactMgmt();" class="dlr-btn-ghost-6 dlr-export-cm-action">
+                            <i class="fa-solid fa-download dlr-text-cyan dlr-export-cm-icon"></i>
+                            <span>Get Contacts</span>
+                        </button>
+                        <button onclick="ciOpen();dlrCloseContactMgmt();" class="dlr-btn-ghost-6 dlr-export-cm-action">
+                            <i class="fa-solid fa-file-import dlr-text-cyan dlr-export-cm-icon"></i>
+                            <span>Import from CSV / Excel</span>
+                        </button>
+                        <button onclick="dlrExportOpen();" class="dlr-btn-ghost-6 dlr-export-cm-action">
+                            <i class="fa-solid fa-file-export dlr-text-cyan dlr-export-cm-icon"></i>
+                            <span>Export to CSV</span>
+                        </button>
+                    </div>
+                </div>
+            </div>

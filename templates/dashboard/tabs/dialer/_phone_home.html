@@ -1,0 +1,105 @@
+                    <style>
+                        .dlr-phone-status-icon { font-size:0.7rem; }
+                        .dlr-phone-cal-day { font-size:0.65rem; font-weight:700; text-transform:uppercase; letter-spacing:0.5px; opacity:0.9; }
+                        .dlr-phone-cal-date { font-size:1.4rem; font-weight:300; margin-top:-2px; }
+                        .dlr-phone-cal-inner { display:flex; flex-direction:column; align-items:center; line-height:1; }
+                    </style>
+                    <!-- ── RIGHT: iPhone 15 Pro ── -->
+                    <div id="dlrColPhone">
+                        <!-- iPhone 15 Pro Frame -->
+                        <div class="iphone-frame">
+                            <!-- Titanium outer bezel -->
+                            <div class="iphone-bezel">
+                                <!-- Side button accents -->
+                                <div class="iphone-btn-right"></div>
+                                <div class="iphone-btn-left1"></div>
+                                <div class="iphone-btn-left2"></div>
+                                <!-- Screen -->
+                                <div class="iphone-screen">
+                                    <!-- Status Bar (always visible) -->
+                                    <div class="ios-status-bar">
+                                        <span class="ios-time" id="iosTime">9:41</span>
+                                        <div class="ios-dynamic-island"></div>
+                                        <div class="ios-status-icons">
+                                            <i class="fa-solid fa-signal dlr-phone-status-icon"></i>
+                                            <i class="fa-solid fa-wifi dlr-phone-status-icon"></i>
+                                            <i class="fa-solid fa-battery-full dlr-phone-status-icon"></i>
+                                        </div>
+                                    </div>
+
+                                    <!-- ═══ HOME SCREEN ═══ -->
+                                    <div class="ios-home" id="iosHome">
+                                        <div class="ios-wallpaper"></div>
+                                        <!-- Dial Mode toggle — between bezel and app icons -->
+                                        <div class="ios-dial-mode-bar">
+                                            <span class="ios-dm-label">Dial Mode</span>
+                                            <div class="ios-dm-tabs">
+                                                <button id="iosDmAi" onclick="setDialerMode('ai')" class="ios-dm-btn">AI</button>
+                                                <button id="iosDmHuman" onclick="setDialerMode('human')" class="ios-dm-btn ios-dm-active">Human</button>
+                                            </div>
+                                        </div>
+                                        <div class="ios-app-grid">
+                                            <!-- Message History App -->
+                                            <button class="ios-app-icon" onclick="iosOpenApp('messages')">
+                                                <div class="ios-icon ios-icon-messages">
+                                                    <i class="fa-solid fa-comment-dots"></i>
+                                                </div>
+                                                <span class="ios-app-label">SMS</span>
+                                                <span class="ios-badge" id="iosBadgeMsgs" style="display:none;">0</span>
+                                            </button>
+                                            <!-- Call History App -->
+                                            <button class="ios-app-icon" onclick="iosOpenApp('calls')">
+                                                <div class="ios-icon ios-icon-phone">
+                                                    <i class="fa-solid fa-phone"></i>
+                                                </div>
+                                                <span class="ios-app-label">Calls</span>
+                                                <span class="ios-badge" id="iosBadgeCalls" style="display:none;">0</span>
+                                            </button>
+                                            <!-- (Voicemail + Recordings now live inside Calls app tabs) -->
+                                            <!-- Calendar App (LeadConnector Appointments) -->
+                                            <button class="ios-app-icon" onclick="iosOpenApp('calendar')">
+                                                <div class="ios-icon dlr-bg-ios-red" >
+                                                    <div class="dlr-phone-cal-inner">
+                                                        <span class="dlr-phone-cal-day" id="iosCalIconDay"></span>
+                                                        <span class="dlr-phone-cal-date" id="iosCalIconDate"></span>
+                                                    </div>
+                                                </div>
+                                                <span class="ios-app-label">Calendar</span>
+                                            </button>
+                                            <!-- Discord App -->
+                                            <button class="ios-app-icon" onclick="iosOpenApp('discord')">
+                                                <div class="ios-icon dlr-bg-discord" >
+                                                    <i class="fa-brands fa-discord"></i>
+                                                </div>
+                                                <span class="ios-app-label">Discord</span>
+                                                <span class="ios-badge" id="iosBadgeDiscord" style="display:none;">0</span>
+                                            </button>
+                                            <!-- Slack App -->
+                                            <button class="ios-app-icon" onclick="iosOpenApp('slack')">
+                                                <div class="ios-icon dlr-bg-slack" >
+                                                    <i class="fa-brands fa-slack"></i>
+                                                </div>
+                                                <span class="ios-app-label">Slack</span>
+                                                <span class="ios-badge" id="iosBadgeSlack" style="display:none;">0</span>
+                                            </button>
+                                            <!-- Call Insights App -->
+                                            <button class="ios-app-icon" onclick="iosOpenApp('insights')">
+                                                <div class="ios-icon dlr-bg-ios-cyan">
+                                                    <i class="fa-solid fa-chart-line"></i>
+                                                </div>
+                                                <span class="ios-app-label">Insights</span>
+                                            </button>
+                                            <!-- Stats App -->
+                                            <button class="ios-app-icon" onclick="iosOpenApp('stats');">
+                                                <div class="ios-icon dlr-bg-ios-purple">
+                                                    <i class="fa-solid fa-chart-bar"></i>
+                                                </div>
+                                                <span class="ios-app-label">Stats</span>
+                                            </button>
+                                        </div>
+                                        <!-- Home Indicator -->
+                                        <div class="ios-home-indicator-bar">
+                                            <div class="ios-home-indicator"></div>
+                                        </div>
+                                    </div>
+
