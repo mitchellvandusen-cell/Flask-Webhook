@@ -7,6 +7,14 @@
 (function () {
     'use strict';
 
+    // Assign immediately so sidebar can call it even if later code throws
+    window.domainTabInit = function () {
+        var loading = document.getElementById('domainLoading');
+        var setup = document.getElementById('domainSetup');
+        if (loading) loading.style.display = 'none';
+        if (setup) setup.style.display = 'block';
+    };
+
     let _selectedDomain = '';
     let _selectedDba = '';
 
