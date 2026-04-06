@@ -741,6 +741,9 @@ class User(UserMixin):
         # SMS channel selection: 'ghl' (default) or '+1234567890' (Twilio number)
         self.sms_send_via = data.get('sms_send_via', 'ghl')
 
+        # Onboarding gate
+        self.business_profile_submitted = data.get('business_profile_submitted', False)
+
         # Two-factor authentication
         self.two_factor_enabled = data.get('two_factor_enabled', False)
         self.two_factor_phone = data.get('two_factor_phone')

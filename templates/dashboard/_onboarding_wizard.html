@@ -1,7 +1,7 @@
 <!-- ═══════════════════════════════════════════════════════════════
      ONBOARDING WIZARD
-     Intro → 4-Step Setup → Closing Tagline → Workspace
-     ══════��════════════════════════════���═══════════════════════════ -->
+     Intro → 5-Step Guided Setup → Closing Tagline → Workspace
+     ═══════════════════════════════════════════════════════════════ -->
 
 {% set wl_name = whitelabel.company_name if (whitelabel and whitelabel.get('enabled') and whitelabel.get('company_name')) else 'Omnisconn' %}
 
@@ -14,7 +14,7 @@
     </div>
 </div>
 
-<!-- ════════════════ SETUP FLOW ══════��═════════ -->
+<!-- ════════════════ SETUP FLOW ════════════════ -->
 <div class="onb-overlay" id="onboardingWizard" style="display:none;">
 
     <!-- ── Progress ── -->
@@ -24,80 +24,262 @@
             <span class="onb-dot" data-step="2"></span>
             <span class="onb-dot" data-step="3"></span>
             <span class="onb-dot" data-step="4"></span>
+            <span class="onb-dot" data-step="5"></span>
         </div>
-        <div class="onb-step-label">Step <span id="onbStepNum">1</span> of 4</div>
+        <div class="onb-step-label">Step <span id="onbStepNum">1</span> of 5</div>
     </div>
 
     <!-- ── Slide Viewport ── -->
     <div class="onb-viewport">
         <div class="onb-slides" id="onbSlides">
 
-            <!-- ════════════════ STEP 1: Business Identity ════════════════ -->
+            <!-- ════════════════ STEP 1: Business Structure ════════════════ -->
             <div class="onb-slide" data-step="1">
                 <div class="onb-card">
-                    <h2 class="onb-title">Let's set up your business</h2>
-                    <p class="onb-subtitle">This takes about 2 minutes and unlocks your full workspace.</p>
+                    <h2 class="onb-title">Your Business Structure</h2>
+                    <p class="onb-subtitle">This determines how you'll be registered with phone carriers for caller ID and messaging.</p>
 
-                    <div class="onb-field-group">
-                        <label class="onb-label">Business Name</label>
-                        <input type="text" id="onbBizName" class="onb-input" placeholder="ACME Insurance LLC" autocomplete="organization">
-                    </div>
+                    <p class="onb-question">Do you have an LLC or other business entity?</p>
 
-                    <div class="onb-field-group">
-                        <label class="onb-label">Business Type</label>
-                        <select id="onbBizType" class="onb-select">
-                            <option value="">Select type...</option>
-                            <option value="Corporation">Corporation</option>
-                            <option value="Limited Liability Company">LLC</option>
-                            <option value="Partnership">Partnership</option>
-                            <option value="Sole Proprietorship">Sole Proprietorship</option>
-                            <option value="Non-profit Corporation">Non-Profit</option>
-                        </select>
-                    </div>
-
-                    <div class="onb-field-group">
-                        <label class="onb-label">EIN (Employer Identification Number)</label>
-                        <input type="text" id="onbEIN" class="onb-input" placeholder="XX-XXXXXXX" maxlength="10" autocomplete="off">
-                        <button type="button" class="onb-expand-btn" onclick="onbToggle('onbEinHelp')">
-                            <i class="fa-solid fa-circle-question"></i> Don't have an EIN?
-                        </button>
-                        <div class="onb-help-panel" id="onbEinHelp">
-                            <h4 class="onb-help-title">What is an EIN?</h4>
-                            <p class="onb-info-text">A free 9-digit number from the IRS that identifies your business. Think of it like a Social Security number, but for your business.</p>
-
-                            <h4 class="onb-help-title">How to get one</h4>
-                            <ul class="onb-help-list">
-                                <li>Go to the <a href="https://www.irs.gov/businesses/small-businesses-self-employed/apply-for-an-employer-identification-number-ein-online" target="_blank" rel="noopener" class="onb-help-link">IRS online application</a></li>
-                                <li>Takes about 5 minutes to fill out</li>
-                                <li>You get your EIN immediately after submitting</li>
-                                <li>It's completely free</li>
-                            </ul>
-
-                            <h4 class="onb-help-title">What they'll ask</h4>
-                            <ul class="onb-help-list">
-                                <li>Your legal business name</li>
-                                <li>Business entity type (LLC, Corporation, etc.)</li>
-                                <li>Mailing address</li>
-                                <li>Responsible party's name and SSN</li>
-                            </ul>
-
-                            <p class="onb-help-note">
-                                <strong>Sole Proprietors:</strong> You can use your SSN instead of an EIN, but we strongly recommend getting an EIN for privacy and professionalism.
-                            </p>
+                    <div class="onb-yesno">
+                        <div class="onb-yesno-card" data-answer="yes" id="onbLlcYes" onclick="onbSetLlc(true)">
+                            <span class="onb-yesno-icon"><i class="fa-solid fa-building"></i></span>
+                            <span class="onb-yesno-label">Yes</span>
+                            <span class="onb-yesno-sub">I have an LLC, Corp, or other entity</span>
+                        </div>
+                        <div class="onb-yesno-card" data-answer="no" id="onbLlcNo" onclick="onbSetLlc(false)">
+                            <span class="onb-yesno-icon"><i class="fa-solid fa-user"></i></span>
+                            <span class="onb-yesno-label">No</span>
+                            <span class="onb-yesno-sub">I'm an independent agent</span>
                         </div>
                     </div>
 
-                    <button class="onb-continue-btn" onclick="onbNext()">
+                    <!-- LLC fields (shown when Yes) -->
+                    <div id="onbLlcFields" class="onb-conditional">
+                        <div class="onb-field-group">
+                            <label class="onb-label">Legal Business Name</label>
+                            <input type="text" id="onbBizName" class="onb-input" placeholder="ACME Insurance LLC" autocomplete="organization">
+                            <span class="onb-field-hint">Your registered LLC name — exactly as it appears on your formation documents.</span>
+                        </div>
+                        <div class="onb-field-group">
+                            <label class="onb-label">Entity Type</label>
+                            <select id="onbBizType" class="onb-select">
+                                <option value="">Select type...</option>
+                                <option value="Corporation">Corporation</option>
+                                <option value="Limited Liability Company">LLC</option>
+                                <option value="Partnership">Partnership</option>
+                                <option value="Non-profit Corporation">Non-Profit</option>
+                                <option value="Co-operative">Co-operative</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Sole Prop message (shown when No) -->
+                    <div id="onbSolePropMsg" class="onb-conditional">
+                        <div class="onb-info">
+                            <i class="fa-solid fa-circle-check onb-info-icon"></i>
+                            <div class="onb-info-text">
+                                No problem — you'll register as a <strong>Sole Proprietorship</strong>. Your legal name will be used for carrier verification.
+                            </div>
+                        </div>
+                        <div class="onb-field-group">
+                            <label class="onb-label">Your Legal Name</label>
+                            <input type="text" id="onbSolePropName" class="onb-input" placeholder="John Doe" value="{{ current_user.full_name or '' }}" autocomplete="name">
+                            <span class="onb-field-hint">Your full legal name — this is used for business verification.</span>
+                        </div>
+                    </div>
+
+                    <button class="onb-continue-btn" id="onbStep1Btn" onclick="onbNext()" disabled>
                         Continue <i class="fa-solid fa-arrow-right"></i>
                     </button>
                 </div>
             </div>
 
-            <!-- ════════════════ STEP 2: Address & Contact ═════════���══════ -->
+            <!-- ════════════════ STEP 2: EIN Verification ════════════════ -->
             <div class="onb-slide" data-step="2">
                 <div class="onb-card">
+                    <h2 class="onb-title">EIN Verification</h2>
+                    <p class="onb-subtitle">An Employer Identification Number (EIN) is required for carrier verification of your business identity.</p>
+
+                    <p class="onb-question">Do you have an EIN?</p>
+
+                    <div class="onb-yesno">
+                        <div class="onb-yesno-card" data-answer="yes" id="onbEinYes" onclick="onbSetHasEin(true)">
+                            <span class="onb-yesno-icon"><i class="fa-solid fa-file-invoice"></i></span>
+                            <span class="onb-yesno-label">Yes</span>
+                            <span class="onb-yesno-sub">I have my EIN</span>
+                        </div>
+                        <div class="onb-yesno-card" data-answer="no" id="onbEinNo" onclick="onbSetHasEin(false)">
+                            <span class="onb-yesno-icon"><i class="fa-solid fa-circle-question"></i></span>
+                            <span class="onb-yesno-label">No</span>
+                            <span class="onb-yesno-sub">I need to get one</span>
+                        </div>
+                    </div>
+
+                    <!-- EIN input fields (shown when Yes) -->
+                    <div id="onbEinFields" class="onb-conditional">
+                        <div class="onb-field-group">
+                            <label class="onb-label">EIN (Employer Identification Number)</label>
+                            <input type="text" id="onbEIN" class="onb-input" placeholder="XX-XXXXXXX" maxlength="10" autocomplete="off">
+                        </div>
+
+                        <!-- 30-day question (sole prop only) -->
+                        <div id="onbEinAgeQuestion" class="onb-conditional">
+                            <p class="onb-question onb-question-sub">Did you get your EIN within the last 30 days?</p>
+                            <div class="onb-yesno onb-yesno-sm">
+                                <div class="onb-yesno-card" data-answer="yes" id="onbEinNewYes" onclick="onbSetEinNew(true)">
+                                    <span class="onb-yesno-label">Yes</span>
+                                </div>
+                                <div class="onb-yesno-card" data-answer="no" id="onbEinNewNo" onclick="onbSetEinNew(false)">
+                                    <span class="onb-yesno-label">No</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Upload area (shown for sole prop with new EIN) -->
+                        <div id="onbEinUpload" class="onb-conditional">
+                            <div class="onb-upload-area" id="onbUploadArea" onclick="document.getElementById('onbEinFile').click()">
+                                <i class="fa-solid fa-cloud-arrow-up onb-upload-icon"></i>
+                                <div class="onb-upload-text">Upload your EIN confirmation letter</div>
+                                <div class="onb-upload-hint">IRS letter CP 575 or 147C — image or PDF, max 5 MB</div>
+                                <div class="onb-upload-hint">Phone carriers can't verify brand-new EINs yet — this document lets us fast-track your verification if needed.</div>
+                            </div>
+                            <input type="file" id="onbEinFile" accept="image/*,application/pdf" class="onb-file-input" onchange="onbFileSelected(this)">
+                            <div id="onbFilePreview" class="onb-file-preview onb-conditional">
+                                <i class="fa-solid fa-file"></i>
+                                <span id="onbFileName"></span>
+                                <span id="onbFileSize" class="onb-file-size"></span>
+                                <button type="button" class="onb-file-remove" onclick="onbRemoveFile()"><i class="fa-solid fa-xmark"></i></button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- No EIN: IRS guide (shown when No) -->
+                    <div id="onbNoEinGuide" class="onb-conditional">
+                        <div class="onb-info">
+                            <i class="fa-solid fa-lightbulb onb-info-icon"></i>
+                            <div class="onb-info-text">
+                                Getting an EIN is <strong>free and takes about 5 minutes</strong>. You'll receive it immediately.
+                            </div>
+                        </div>
+
+                        <h4 class="onb-help-title">How to get your EIN</h4>
+                        <ul class="onb-help-list">
+                            <li>Go to the <a href="https://www.irs.gov/businesses/small-businesses-self-employed/apply-for-an-employer-identification-number-ein-online" target="_blank" rel="noopener" class="onb-help-link">IRS online application</a></li>
+                            <li>Fill out the form (about 5 minutes)</li>
+                            <li>You get your EIN immediately after submitting</li>
+                            <li>Save or screenshot the confirmation letter they give you</li>
+                        </ul>
+
+                        <h4 class="onb-help-title">What they'll ask for</h4>
+                        <ul class="onb-help-list">
+                            <li>Your legal name (or LLC name)</li>
+                            <li>Business entity type</li>
+                            <li>Mailing address</li>
+                            <li>Responsible party's name and SSN</li>
+                        </ul>
+
+                        <button type="button" class="onb-continue-btn onb-got-ein-btn" id="onbGotEinBtn" onclick="onbGotEin()">
+                            <i class="fa-solid fa-check"></i> I just got my EIN
+                        </button>
+                    </div>
+
+                    <div class="onb-nav-row" id="onbStep2Nav">
+                        <button class="onb-back-btn" onclick="onbPrev()"><i class="fa-solid fa-arrow-left"></i> Back</button>
+                        <button class="onb-continue-btn" id="onbStep2Btn" onclick="onbNext()" disabled>Continue <i class="fa-solid fa-arrow-right"></i></button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ════════════════ STEP 3: Website & Domain ════════════════ -->
+            <div class="onb-slide" data-step="3">
+                <div class="onb-card">
+                    <h2 class="onb-title">Your Business Website</h2>
+                    <p class="onb-subtitle">Carrier networks verify your business identity through your online presence. This keeps your calls trusted and your caller ID displaying correctly.</p>
+
+                    <p class="onb-question">Do you have a business website with your own domain?</p>
+
+                    <div class="onb-yesno">
+                        <div class="onb-yesno-card" data-answer="yes" id="onbWebYes" onclick="onbSetHasWeb(true)">
+                            <span class="onb-yesno-icon"><i class="fa-solid fa-globe"></i></span>
+                            <span class="onb-yesno-label">Yes</span>
+                            <span class="onb-yesno-sub">I have a website</span>
+                        </div>
+                        <div class="onb-yesno-card" data-answer="no" id="onbWebNo" onclick="onbSetHasWeb(false)">
+                            <span class="onb-yesno-icon"><i class="fa-solid fa-wand-magic-sparkles"></i></span>
+                            <span class="onb-yesno-label">No</span>
+                            <span class="onb-yesno-sub">I need a website</span>
+                        </div>
+                    </div>
+
+                    <!-- Has website -->
+                    <div id="onbWebHave" class="onb-conditional">
+                        <div class="onb-field-group">
+                            <label class="onb-label">Website URL</label>
+                            <input type="url" id="onbWebsite" class="onb-input" placeholder="https://www.yourbusiness.com">
+                        </div>
+                    </div>
+
+                    <!-- Needs website -->
+                    <div id="onbWebNeed" class="onb-conditional">
+                        <div class="onb-info">
+                            <i class="fa-solid fa-sparkles onb-info-icon"></i>
+                            <div class="onb-info-text">
+                                Get a professional business website with your own domain, landing page, and business email — all set up automatically.
+                            </div>
+                        </div>
+
+                        <ul class="onb-domain-features">
+                            <li>Professional landing page with your name, bio, and contact form</li>
+                            <li>Your own domain (yourbusiness.com)</li>
+                            <li>Business email (you@yourbusiness.com)</li>
+                            <li>Carrier-verified online presence for trusted caller ID</li>
+                            <li>Set up in under 2 minutes</li>
+                        </ul>
+
+                        <div class="onb-domain-price">$10<span class="onb-domain-price-period">/month</span></div>
+
+                        <div class="onb-domain-search-row">
+                            <input type="text" id="onbDomainSearch" class="onb-input" placeholder="Search for a domain (e.g. smithinsurance)">
+                            <button class="onb-domain-search-btn" onclick="onbSearchDomain()">
+                                <i class="fa-solid fa-magnifying-glass"></i> Search
+                            </button>
+                        </div>
+
+                        <div id="onbDomainResults" class="onb-domain-results"></div>
+                        <input type="hidden" id="onbSelectedDomain" value="">
+
+                        <span class="onb-skip-link" onclick="onbSkipDomain()">Skip for now — I'll set this up later</span>
+                    </div>
+
+                    <div class="onb-nav-row">
+                        <button class="onb-back-btn" onclick="onbPrev()"><i class="fa-solid fa-arrow-left"></i> Back</button>
+                        <button class="onb-continue-btn" id="onbStep3Btn" onclick="onbNext()" disabled>Continue <i class="fa-solid fa-arrow-right"></i></button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ════════════════ STEP 4: Address & Contact ════════════════ -->
+            <div class="onb-slide" data-step="4">
+                <div class="onb-card">
                     <h2 class="onb-title">Business Address & Contact</h2>
-                    <p class="onb-subtitle">This must match your IRS registration. Used for carrier verification.</p>
+                    <p class="onb-subtitle">This must match your IRS registration. Used for carrier verification of your business identity.</p>
+
+                    <!-- Pre-filled read-only summary -->
+                    <div class="onb-prefilled-row">
+                        <div class="onb-prefilled-item">
+                            <span class="onb-prefilled-label">Business Name</span>
+                            <span class="onb-prefilled-value" id="onbPrefillName">—</span>
+                        </div>
+                        <div class="onb-prefilled-item">
+                            <span class="onb-prefilled-label">EIN</span>
+                            <span class="onb-prefilled-value" id="onbPrefillEin">—</span>
+                        </div>
+                        <div class="onb-prefilled-item" id="onbPrefillWebWrap">
+                            <span class="onb-prefilled-label">Website</span>
+                            <span class="onb-prefilled-value" id="onbPrefillWeb">—</span>
+                        </div>
+                    </div>
 
                     <div class="onb-field-group">
                         <label class="onb-label">Street Address</label>
@@ -109,7 +291,7 @@
                             <label class="onb-label">City</label>
                             <input type="text" id="onbCity" class="onb-input" placeholder="Dallas" autocomplete="address-level2">
                         </div>
-                        <div class="onb-field-group" style="max-width: 120px;">
+                        <div class="onb-field-group onb-field-state">
                             <label class="onb-label">State</label>
                             <select id="onbState" class="onb-select">
                                 <option value="">--</option>
@@ -132,7 +314,7 @@
                                 <option value="WI">WI</option><option value="WY">WY</option><option value="DC">DC</option>
                             </select>
                         </div>
-                        <div class="onb-field-group" style="max-width: 140px;">
+                        <div class="onb-field-group onb-field-zip">
                             <label class="onb-label">ZIP</label>
                             <input type="text" id="onbZip" class="onb-input" placeholder="75001" maxlength="10" autocomplete="postal-code">
                         </div>
@@ -143,7 +325,7 @@
                             <label class="onb-label">Your Name</label>
                             <input type="text" id="onbContactName" class="onb-input" placeholder="John Doe" autocomplete="name">
                         </div>
-                        <div class="onb-field-group" style="max-width: 160px;">
+                        <div class="onb-field-group onb-field-title">
                             <label class="onb-label">Title</label>
                             <input type="text" id="onbContactTitle" class="onb-input" placeholder="Owner" autocomplete="organization-title">
                         </div>
@@ -162,80 +344,13 @@
 
                     <div class="onb-nav-row">
                         <button class="onb-back-btn" onclick="onbPrev()"><i class="fa-solid fa-arrow-left"></i> Back</button>
-                        <button class="onb-continue-btn" onclick="onbNext()">Continue <i class="fa-solid fa-arrow-right"></i></button>
+                        <button class="onb-continue-btn" id="onbStep4Btn" onclick="onbNext()">Continue <i class="fa-solid fa-arrow-right"></i></button>
                     </div>
                 </div>
             </div>
 
-            <!-- ═════��══════════ STEP 3: Website / Domain ════════════════ -->
-            <div class="onb-slide" data-step="3">
-                <div class="onb-card">
-                    <h2 class="onb-title">Your Business Website</h2>
-                    <p class="onb-subtitle">Carrier networks verify your business identity through your online presence. This keeps your calls trusted and your caller ID displaying correctly.</p>
-
-                    <!-- Path toggle -->
-                    <div class="onb-path-toggle">
-                        <div class="onb-path-btn selected" id="onbPathHave" onclick="onbWebPath('have')">
-                            <span class="onb-path-btn-icon"><i class="fa-solid fa-globe"></i></span>
-                            <div class="onb-path-btn-label">I have a website</div>
-                            <div class="onb-path-btn-sub">Enter your URL</div>
-                        </div>
-                        <div class="onb-path-btn" id="onbPathNeed" onclick="onbWebPath('need')">
-                            <span class="onb-path-btn-icon"><i class="fa-solid fa-wand-magic-sparkles"></i></span>
-                            <div class="onb-path-btn-label">I need a website</div>
-                            <div class="onb-path-btn-sub">Get one for $10/mo</div>
-                        </div>
-                    </div>
-
-                    <!-- Path A: Already have a website -->
-                    <div id="onbWebHave">
-                        <div class="onb-field-group">
-                            <label class="onb-label">Website URL</label>
-                            <input type="url" id="onbWebsite" class="onb-input" placeholder="https://www.yourbusiness.com">
-                        </div>
-                    </div>
-
-                    <!-- Path B: Need a website (Omnisconn Domain & Website) -->
-                    <div id="onbWebNeed" style="display:none;">
-                        <div class="onb-info">
-                            <i class="fa-solid fa-sparkles onb-info-icon"></i>
-                            <div class="onb-info-text">
-                                Get a professional business website with your own domain, landing page, and business email address — all set up automatically.
-                            </div>
-                        </div>
-
-                        <ul class="onb-domain-features">
-                            <li>Professional landing page with your name, bio, and contact form</li>
-                            <li>Your own domain (yourbusiness.com)</li>
-                            <li>Business email (you@yourbusiness.com)</li>
-                            <li>Carrier-verified online presence for trusted caller ID</li>
-                            <li>Set up in under 2 minutes</li>
-                        </ul>
-
-                        <div class="onb-domain-price">$10<span class="onb-domain-price-period">/month</span></div>
-
-                        <div class="onb-domain-search-row" style="margin-top: 16px;">
-                            <input type="text" id="onbDomainSearch" class="onb-input" placeholder="Search for a domain (e.g. smithinsurance)">
-                            <button class="onb-domain-search-btn" onclick="onbSearchDomain()">
-                                <i class="fa-solid fa-magnifying-glass"></i> Search
-                            </button>
-                        </div>
-
-                        <div id="onbDomainResults" class="onb-domain-results"></div>
-                        <input type="hidden" id="onbSelectedDomain" value="">
-
-                        <span class="onb-skip-link" onclick="onbSkipDomain()">Skip for now — I'll set this up later</span>
-                    </div>
-
-                    <div class="onb-nav-row">
-                        <button class="onb-back-btn" onclick="onbPrev()"><i class="fa-solid fa-arrow-left"></i> Back</button>
-                        <button class="onb-continue-btn" id="onbStep3Btn" onclick="onbNext()">Continue <i class="fa-solid fa-arrow-right"></i></button>
-                    </div>
-                </div>
-            </div>
-
-            <!-- ════════════════ STEP 4: Phone Numbers ══════���═════════ -->
-            <div class="onb-slide" data-step="4">
+            <!-- ════════════════ STEP 5: Phone Numbers ════════════════ -->
+            <div class="onb-slide" data-step="5">
                 <div class="onb-card">
                     <h2 class="onb-title">Get Your Phone Numbers</h2>
                     <p class="onb-subtitle">You get 5 phone numbers free with your plan. Search by area code to find numbers in your market.</p>
@@ -252,7 +367,7 @@
                         <div class="onb-number-grid" id="onbNumberGrid"></div>
                     </div>
 
-                    <div id="onbNumbersNotReady" style="display:none;">
+                    <div id="onbNumbersNotReady" class="onb-conditional">
                         <div class="onb-info">
                             <i class="fa-solid fa-circle-info onb-info-icon"></i>
                             <div class="onb-info-text">
@@ -275,7 +390,7 @@
     </div>
 </div>
 
-<!-- ════════════════ CLOSING: Tagline → Workspace ═══���════════════ -->
+<!-- ════════════════ CLOSING: Tagline → Workspace ════════════════ -->
 <div class="onb-closing" id="onbClosing" style="display:none;">
     <div class="onb-closing-content">
         <div class="onb-closing-line" id="onbClosingLine">Connect everything. Close everyone.</div>

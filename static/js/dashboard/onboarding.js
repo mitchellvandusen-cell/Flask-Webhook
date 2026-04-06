@@ -1,7 +1,8 @@
 /* ================================================================
-   ONBOARDING WIZARD
-   Intro animation → 4-step setup → Closing tagline → Workspace
-   Self-gates via DASHBOARD_BOOT. Saves profile locally.
+   ONBOARDING WIZARD — 5-Step Pre-Qualification + Guided Setup
+   Step 1: LLC?  Step 2: EIN?  Step 3: Website?
+   Step 4: Address & Contact  Step 5: Phone Numbers
+   Self-gates via DASHBOARD_BOOT.needsOnboarding.
    ================================================================ */
 (function () {
     'use strict';
@@ -11,23 +12,28 @@
     if (!BOOT || !BOOT.needsOnboarding) return;
 
     var currentStep = 1;
-    var TOTAL_STEPS = 4;
-    var selectedNumbers = [];
-    var selectedDomain = '';
-    var webPath = 'have'; // 'have' or 'need'
+    var TOTAL_STEPS = 5;
     var saving = false;
     var introPlayed = sessionStorage.getItem('onb_intro_done') === '1';
 
+    /* ── Wizard state ── */
+    var hasLlc = null;         // true/false/null
+    var hasEin = null;         // true/false/null
+    var einIsNew = null;       // true/false/null (sole prop 30-day question)
+    var hasWebsite = null;     // true/false/null
+    var selectedNumbers = [];
+    var selectedDomain = '';
+    var einFileData = null;    // { data: base64, type: mime, name: filename }
+
     /* ── Restore step from sessionStorage ── */
-    var saved = parseInt(sessionStorage.getItem('onb_step'), 10);
-    if (saved && saved >= 1 && saved <= TOTAL_STEPS) {
-        currentStep = saved;
-    }
+    // Only restore step if wizard state (Yes/No answers) is also preserved.
+    // Since JS state resets on reload, always restart from step 1 to avoid
+    // landing on a step with hidden conditional sections and empty fields.
+    // The intro skip IS preserved so they don't re-watch the animation.
 
     /* ── Init on DOM ready ── */
     document.addEventListener('DOMContentLoaded', function () {
-
-        // If voice not provisioned, show the alternate message on step 4
+        // If voice not provisioned, show alternate message on step 5
         if (!BOOT.voipSetupDone) {
             var ready = document.getElementById('onbNumbersReady');
             var notReady = document.getElementById('onbNumbersNotReady');
@@ -43,31 +49,47 @@
             }
         }
 
-        // Phase 1: Play intro or skip to setup
-        if (!introPlayed) {
-            playIntro();
-        } else {
-            skipToSetup();
+        // Enable drag-and-drop on upload area
+        var dropArea = document.getElementById('onbUploadArea');
+        if (dropArea) {
+            ['dragenter', 'dragover'].forEach(function (evt) {
+                dropArea.addEventListener(evt, function (e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    dropArea.classList.add('drag-over');
+                });
+            });
+            ['dragleave', 'drop'].forEach(function (evt) {
+                dropArea.addEventListener(evt, function (e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    dropArea.classList.remove('drag-over');
+                });
+            });
+            dropArea.addEventListener('drop', function (e) {
+                var files = e.dataTransfer && e.dataTransfer.files;
+                if (files && files.length) {
+                    document.getElementById('onbEinFile').files = files;
+                    onbFileSelected(document.getElementById('onbEinFile'));
+                }
+            });
         }
+
+        if (!introPlayed) { playIntro(); } else { skipToSetup(); }
     });
 
     /* ════════════════════════════════════════════════════════════════
-       PHASE 1: INTRO ANIMATION — "Welcome to Omnisconn"
+       INTRO ANIMATION
        ════════════════════════════════════════════════════════════════ */
 
     function playIntro() {
         var intro = document.getElementById('onbIntro');
         var wizard = document.getElementById('onboardingWizard');
         if (!intro || !wizard) { skipToSetup(); return; }
-
-        // Intro animations: brand finishes ~2.0s, tagline ~2.1s
-        // Hold the full display for ~1.5s before fading
         setTimeout(function () {
             intro.classList.add('fade-out');
             sessionStorage.setItem('onb_intro_done', '1');
             introPlayed = true;
-
-            // After fade-out transition (0.8s), show wizard
             setTimeout(function () {
                 intro.style.display = 'none';
                 wizard.style.display = '';
@@ -90,7 +112,6 @@
 
     function goToStep(step, instant) {
         currentStep = step;
-        sessionStorage.setItem('onb_step', step);
 
         var slides = document.getElementById('onbSlides');
         if (!slides) return;
@@ -98,183 +119,162 @@
         if (instant) {
             slides.style.transition = 'none';
             slides.style.transform = 'translateX(-' + ((step - 1) * 100) + '%)';
-            slides.offsetHeight; // force reflow
+            slides.offsetHeight;
             slides.style.transition = '';
         } else {
             slides.style.transform = 'translateX(-' + ((step - 1) * 100) + '%)';
         }
 
         // Update dots
-        var dots = document.querySelectorAll('.onb-dot');
-        dots.forEach(function (dot) {
+        document.querySelectorAll('.onb-dot').forEach(function (dot) {
             var ds = parseInt(dot.dataset.step, 10);
             dot.classList.toggle('active', ds === step);
             dot.classList.toggle('done', ds < step);
         });
 
-        // Update step label
         var lbl = document.getElementById('onbStepNum');
         if (lbl) lbl.textContent = step;
+
+        // Pre-fill step 4 summary when arriving there
+        if (step === 4) prefillStep4();
     }
 
     window.onbNext = function () {
         if (saving) return;
         if (!validateStep(currentStep)) return;
 
-        // Step 3: save business profile before advancing
-        if (currentStep === 3) {
-            saveProfile(function () {
-                goToStep(4);
-            });
+        // Step 4: save profile before advancing to step 5
+        if (currentStep === 4) {
+            saveProfile(function () { goToStep(5); });
             return;
         }
 
-        if (currentStep < TOTAL_STEPS) {
-            goToStep(currentStep + 1);
-        }
+        if (currentStep < TOTAL_STEPS) goToStep(currentStep + 1);
     };
 
     window.onbPrev = function () {
-        if (currentStep > 1) {
-            goToStep(currentStep - 1);
-        }
+        if (currentStep > 1) goToStep(currentStep - 1);
     };
 
     /* ════════════════════════════════════════════════════════════════
-       VALIDATION
+       STEP 1: LLC QUESTION
        ════════════════════════════════════════════════════════════════ */
 
-    function validateStep(step) {
-        clearErrors();
-
-        if (step === 1) {
-            var name = val('onbBizName');
-            var type = val('onbBizType');
-            var ein = val('onbEIN');
-            var ok = true;
-            if (!name) { markError('onbBizName'); ok = false; }
-            if (!type) { markError('onbBizType'); ok = false; }
-            if (!ein) { markError('onbEIN'); ok = false; }
-            return ok;
-        }
-
-        if (step === 2) {
-            var fields = ['onbStreet', 'onbCity', 'onbState', 'onbZip', 'onbContactName', 'onbContactEmail'];
-            var ok2 = true;
-            fields.forEach(function (id) {
-                if (!val(id)) { markError(id); ok2 = false; }
-            });
-            return ok2;
-        }
-
-        if (step === 3) {
-            if (webPath === 'have') {
-                var url = val('onbWebsite');
-                if (!url) { markError('onbWebsite'); return false; }
-            }
-            return true;
-        }
-
-        return true;
-    }
-
-    function val(id) {
-        var el = document.getElementById(id);
-        return el ? el.value.trim() : '';
-    }
-
-    function markError(id) {
-        var el = document.getElementById(id);
-        if (el) el.classList.add('onb-error');
-    }
-
-    function clearErrors() {
-        document.querySelectorAll('.onb-error').forEach(function (el) {
-            el.classList.remove('onb-error');
-        });
-    }
+    window.onbSetLlc = function (val) {
+        hasLlc = val;
+        toggle('onbLlcYes', val === true);
+        toggle('onbLlcNo', val === false);
+        showIf('onbLlcFields', val === true);
+        showIf('onbSolePropMsg', val === false);
+        enableBtn('onbStep1Btn', true);
+    };
 
     /* ════════════════════════════════════════════════════════════════
-       SAVE BUSINESS PROFILE (Steps 1-3 → /voice/trust-hub/save)
-       Local save only — no Twilio API calls.
+       STEP 2: EIN QUESTION + 30-DAY + UPLOAD
        ════════════════════════════════════════════════════════════════ */
 
-    function saveProfile(callback) {
-        saving = true;
-        setBtnLoading('onbStep3Btn', true);
+    window.onbSetHasEin = function (val) {
+        hasEin = val;
+        einIsNew = null;
+        einFileData = null;
+        toggle('onbEinYes', val === true);
+        toggle('onbEinNo', val === false);
+        showIf('onbEinFields', val === true);
+        showIf('onbNoEinGuide', val === false);
+        // Show 30-day question only for sole props
+        showIf('onbEinAgeQuestion', val === true && hasLlc === false);
+        showIf('onbEinUpload', false);
+        // Reset sub-selections
+        toggle('onbEinNewYes', false);
+        toggle('onbEinNewNo', false);
+        // For LLC users with EIN, enable continue immediately
+        enableBtn('onbStep2Btn', val === true && hasLlc === true);
+        // Hide nav when showing IRS guide
+        showIf('onbStep2Nav', val !== false);
+    };
 
-        var website = webPath === 'have' ? val('onbWebsite') : '';
-        if (webPath === 'need' && selectedDomain) {
-            website = 'https://' + selectedDomain;
+    window.onbSetEinNew = function (val) {
+        einIsNew = val;
+        toggle('onbEinNewYes', val === true);
+        toggle('onbEinNewNo', val === false);
+        var needsUpload = (val === true);
+        showIf('onbEinUpload', needsUpload);
+        // Enable continue if no upload needed, or if file already selected
+        enableBtn('onbStep2Btn', !needsUpload || !!einFileData);
+    };
+
+    window.onbGotEin = function () {
+        // User clicked "I just got my EIN" — they literally just got it, so ein_is_new = true
+        hasEin = true;
+        einIsNew = true;
+        toggle('onbEinYes', true);
+        toggle('onbEinNo', false);
+        showIf('onbEinFields', true);
+        showIf('onbNoEinGuide', false);
+        showIf('onbStep2Nav', true);
+        // Sole prop always for this path
+        showIf('onbEinAgeQuestion', false); // Skip 30-day question — we know it's new
+        showIf('onbEinUpload', true);       // Require upload
+        enableBtn('onbStep2Btn', false);    // Disabled until file uploaded
+    };
+
+    /* ── File upload handlers ── */
+
+    window.onbFileSelected = function (input) {
+        var file = input.files && input.files[0];
+        if (!file) return;
+
+        if (file.size > 5 * 1024 * 1024) {
+            if (typeof _showDashToast === 'function') _showDashToast(false, 'File too large. Maximum 5 MB.');
+            input.value = '';
+            return;
         }
 
-        var data = {
-            business_name:  val('onbBizName'),
-            business_type:  val('onbBizType'),
-            ein:            val('onbEIN'),
-            street:         val('onbStreet'),
-            city:           val('onbCity'),
-            state:          val('onbState'),
-            zip:            val('onbZip'),
-            website:        website,
-            contact_name:   val('onbContactName'),
-            contact_title:  val('onbContactTitle'),
-            contact_email:  val('onbContactEmail'),
-            contact_phone:  val('onbContactPhone')
+        var reader = new FileReader();
+        reader.onload = function (e) {
+            var base64 = e.target.result.split(',')[1]; // strip data:mime;base64, prefix
+            einFileData = {
+                data: base64,
+                type: file.type || 'application/octet-stream',
+                name: file.name
+            };
+            // Show preview
+            document.getElementById('onbFileName').textContent = file.name;
+            document.getElementById('onbFileSize').textContent = formatFileSize(file.size);
+            showIf('onbFilePreview', true);
+            document.getElementById('onbUploadArea').classList.add('has-file');
+            enableBtn('onbStep2Btn', true);
         };
+        reader.readAsDataURL(file);
+    };
 
-        fetch('/voice/trust-hub/save', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(data)
-        })
-        .then(function (r) { return r.json(); })
-        .then(function (result) {
-            saving = false;
-            setBtnLoading('onbStep3Btn', false);
-            if (result.error) {
-                if (typeof _showDashToast === 'function') _showDashToast(false, result.error);
-                return;
-            }
-            if (callback) callback();
-        })
-        .catch(function () {
-            saving = false;
-            setBtnLoading('onbStep3Btn', false);
-            if (typeof _showDashToast === 'function') _showDashToast(false, 'Save failed. Please try again.');
-        });
-    }
+    window.onbRemoveFile = function () {
+        einFileData = null;
+        document.getElementById('onbEinFile').value = '';
+        showIf('onbFilePreview', false);
+        document.getElementById('onbUploadArea').classList.remove('has-file');
+        enableBtn('onbStep2Btn', false);
+    };
 
     /* ════════════════════════════════════════════════════════════════
-       STEP 3: WEBSITE / DOMAIN
+       STEP 3: WEBSITE QUESTION
        ════════════════════════════════════════════════════════════════ */
 
-    window.onbWebPath = function (path) {
-        webPath = path;
-        var haveBtn = document.getElementById('onbPathHave');
-        var needBtn = document.getElementById('onbPathNeed');
-        var haveDiv = document.getElementById('onbWebHave');
-        var needDiv = document.getElementById('onbWebNeed');
-
-        if (path === 'have') {
-            haveBtn.classList.add('selected');
-            needBtn.classList.remove('selected');
-            haveDiv.style.display = '';
-            needDiv.style.display = 'none';
-        } else {
-            haveBtn.classList.remove('selected');
-            needBtn.classList.add('selected');
-            haveDiv.style.display = 'none';
-            needDiv.style.display = '';
-        }
+    window.onbSetHasWeb = function (val) {
+        hasWebsite = val;
+        toggle('onbWebYes', val === true);
+        toggle('onbWebNo', val === false);
+        showIf('onbWebHave', val === true);
+        showIf('onbWebNeed', val === false);
+        enableBtn('onbStep3Btn', true);
     };
 
     window.onbSearchDomain = function () {
-        var query = val('onbDomainSearch');
-        if (!query) { markError('onbDomainSearch'); return; }
+        var query = valOf('onbDomainSearch');
+        if (!query) { markError('onbDomainSearch', 'Enter a business name to search'); return; }
 
         var resultsDiv = document.getElementById('onbDomainResults');
-        resultsDiv.innerHTML = '<div style="text-align:center;padding:16px;color:var(--text-muted)"><i class="fa-solid fa-spinner fa-spin"></i> Searching...</div>';
+        resultsDiv.innerHTML = '<div class="onb-loading-state"><i class="fa-solid fa-spinner fa-spin"></i> Searching...</div>';
 
         fetch('/api/domain/search', {
             method: 'POST',
@@ -287,7 +287,7 @@
                 resultsDiv.innerHTML = '<div class="onb-info"><div class="onb-info-text">' + escHtml(data.error) + '</div></div>';
                 return;
             }
-            var domains = data.domains || data.results || [];
+            var domains = data.domains || data.results || data.suggestions || [];
             if (!domains.length) {
                 resultsDiv.innerHTML = '<div class="onb-info"><div class="onb-info-text">No domains found. Try a different name.</div></div>';
                 return;
@@ -296,50 +296,71 @@
             domains.forEach(function (d) {
                 var name = typeof d === 'string' ? d : (d.domain || d.name || '');
                 if (!name) return;
-                html += '<div class="onb-domain-option" onclick="onbSelectDomain(this, \'' + escAttr(name) + '\')">';
+                html += '<div class="onb-domain-option" data-domain="' + escData(name) + '">';
                 html += '<span class="onb-domain-name">' + escHtml(name) + '</span>';
                 html += '<span class="onb-domain-avail"><i class="fa-solid fa-circle-check"></i> Available</span>';
                 html += '</div>';
             });
             resultsDiv.innerHTML = html;
+            resultsDiv.querySelectorAll('.onb-domain-option').forEach(function (el) {
+                el.addEventListener('click', function () {
+                    selectedDomain = el.dataset.domain;
+                    document.getElementById('onbSelectedDomain').value = selectedDomain;
+                    resultsDiv.querySelectorAll('.onb-domain-option').forEach(function (o) { o.classList.remove('selected'); });
+                    el.classList.add('selected');
+                });
+            });
         })
         .catch(function () {
             resultsDiv.innerHTML = '<div class="onb-info"><div class="onb-info-text">Search failed. Please try again.</div></div>';
         });
     };
 
-    window.onbSelectDomain = function (el, domain) {
-        selectedDomain = domain;
-        document.getElementById('onbSelectedDomain').value = domain;
-        document.querySelectorAll('.onb-domain-option').forEach(function (o) {
-            o.classList.remove('selected');
-        });
-        el.classList.add('selected');
-    };
-
     window.onbSkipDomain = function () {
         selectedDomain = '';
-        document.getElementById('onbSelectedDomain').value = '';
-        saveProfile(function () { goToStep(4); });
+        if (document.getElementById('onbSelectedDomain')) document.getElementById('onbSelectedDomain').value = '';
+        goToStep(4);
     };
 
     /* ════════════════════════════════════════════════════════════════
-       STEP 4: PHONE NUMBERS
+       STEP 4: PRE-FILL + SAVE
+       ════════════════════════════════════════════════════════════════ */
+
+    function prefillStep4() {
+        var bizName = hasLlc ? valOf('onbBizName') : valOf('onbSolePropName');
+        var ein = valOf('onbEIN');
+        var web = hasWebsite ? valOf('onbWebsite') : (selectedDomain ? 'https://' + selectedDomain : '');
+
+        setText('onbPrefillName', bizName || '—');
+        setText('onbPrefillEin', ein ? maskEin(ein) : '—');
+        setText('onbPrefillWeb', web || 'Not set');
+        showIf('onbPrefillWebWrap', !!web);
+    }
+
+    function maskEin(ein) {
+        // Show as XX-XXX**89 for privacy
+        var digits = ein.replace(/\D/g, '');
+        if (digits.length >= 9) return digits.slice(0, 2) + '-' + digits.slice(2, 5) + '****';
+        return ein;
+    }
+
+    /* ════════════════════════════════════════════════════════════════
+       STEP 5: PHONE NUMBERS
        ════════════════════════════════════════════════════════════════ */
 
     window.onbSearchNumbers = function () {
-        var ac = val('onbAreaCode');
-        if (!ac || ac.length < 3) { markError('onbAreaCode'); return; }
+        var ac = valOf('onbAreaCode');
+        if (!ac || ac.length < 3) { markError('onbAreaCode', 'Enter a 3-digit area code'); return; }
 
         var grid = document.getElementById('onbNumberGrid');
-        grid.innerHTML = '<div style="text-align:center;padding:16px;color:var(--text-muted);grid-column:1/-1"><i class="fa-solid fa-spinner fa-spin"></i> Searching...</div>';
+        grid.innerHTML = '<div class="onb-loading-state onb-loading-full"><i class="fa-solid fa-spinner fa-spin"></i> Searching...</div>';
 
         fetch('/voice/numbers/search?area_code=' + encodeURIComponent(ac) + '&number_type=local&limit=10')
         .then(function (r) { return r.json(); })
         .then(function (data) {
             var nums = data.numbers || [];
             if (!nums.length) {
-                grid.innerHTML = '<div style="text-align:center;padding:16px;color:var(--text-muted);grid-column:1/-1">No numbers found for that area code. Try another.</div>';
+                grid.innerHTML = '<div class="onb-loading-state onb-loading-full">No numbers found for that area code. Try another.</div>';
                 return;
             }
             selectedNumbers = [];
@@ -347,94 +368,208 @@
             nums.forEach(function (n) {
                 var phone = n.phone || n.phoneNumber || n.friendly_name || '';
                 var raw = n.phone_number || n.phoneNumber || phone;
-                html += '<div class="onb-number-card" onclick="onbToggleNumber(this, \'' + escAttr(raw) + '\')">';
+                html += '<div class="onb-number-card" data-phone="' + escData(raw) + '">';
                 html += '<span class="onb-number-check"><i class="fa-solid fa-check"></i></span>';
                 html += '<span class="onb-number-text">' + escHtml(formatPhone(phone)) + '</span>';
                 html += '</div>';
             });
             grid.innerHTML = html;
+            grid.querySelectorAll('.onb-number-card').forEach(function (el) {
+                el.addEventListener('click', function () {
+                    var phone = el.dataset.phone;
+                    var idx = selectedNumbers.indexOf(phone);
+                    if (idx >= 0) {
+                        selectedNumbers.splice(idx, 1);
+                        el.classList.remove('selected');
+                    } else {
+                        if (selectedNumbers.length >= 5) return;
+                        selectedNumbers.push(phone);
+                        el.classList.add('selected');
+                    }
+                    updateNumberCount();
+                });
+            });
             updateNumberCount();
         })
         .catch(function () {
-            grid.innerHTML = '<div style="text-align:center;padding:16px;color:var(--text-muted);grid-column:1/-1">Search failed. Please try again.</div>';
+            grid.innerHTML = '<div class="onb-loading-state onb-loading-full">Search failed. Please try again.</div>';
         });
-    };
-
-    window.onbToggleNumber = function (el, phone) {
-        var idx = selectedNumbers.indexOf(phone);
-        if (idx >= 0) {
-            selectedNumbers.splice(idx, 1);
-            el.classList.remove('selected');
-        } else {
-            if (selectedNumbers.length >= 5) return;
-            selectedNumbers.push(phone);
-            el.classList.add('selected');
-        }
-        updateNumberCount();
     };
 
     function updateNumberCount() {
         var el = document.getElementById('onbNumberCount');
         if (!el) return;
         var remaining = 5 - selectedNumbers.length;
-        if (remaining > 0) {
-            el.innerHTML = 'Selected ' + selectedNumbers.length + ' of 5 — <strong>' + remaining + '</strong> more free';
-        } else {
-            el.innerHTML = '<strong>5 of 5</strong> selected';
-        }
+        el.innerHTML = remaining > 0
+            ? 'Selected ' + selectedNumbers.length + ' of 5 — <strong>' + remaining + '</strong> more free'
+            : '<strong>5 of 5</strong> selected';
     }
 
     window.onbGetNumbers = function () {
-        if (selectedNumbers.length === 0) {
-            onbFinish();
-            return;
-        }
-
+        if (!selectedNumbers.length) { onbFinish(); return; }
         saving = true;
         setBtnLoading('onbGetNumbersBtn', true);
-
-        var bought = 0;
-        var errors = 0;
+        var bought = 0, errors = 0, total = selectedNumbers.length;
 
         function buyNext() {
-            if (bought + errors >= selectedNumbers.length) {
+            if (bought + errors >= total) {
                 saving = false;
                 setBtnLoading('onbGetNumbersBtn', false);
+                if (errors > 0 && bought > 0 && typeof _showDashToast === 'function')
+                    _showDashToast(true, 'Got ' + bought + ' of ' + total + ' numbers. ' + errors + ' unavailable.');
+                if (errors > 0 && bought === 0) {
+                    if (typeof _showDashToast === 'function')
+                        _showDashToast(false, 'Could not get any numbers — they may have been claimed. Try again.');
+                    return;
+                }
                 onbFinish();
                 return;
             }
-
-            var phone = selectedNumbers[bought + errors];
             fetch('/voice/numbers/buy', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ phone_number: phone, number_type: 'local' })
+                body: JSON.stringify({ phone_number: selectedNumbers[bought + errors], number_type: 'local' })
             })
             .then(function (r) { return r.json(); })
-            .then(function (result) {
-                if (result.error) {
-                    errors++;
-                } else {
-                    bought++;
-                }
-                buyNext();
-            })
-            .catch(function () {
-                errors++;
-                buyNext();
-            });
+            .then(function (res) { res.error ? errors++ : bought++; buyNext(); })
+            .catch(function () { errors++; buyNext(); });
         }
-
         buyNext();
     };
 
-    window.onbSkipNumbers = function () {
-        onbFinish();
-    };
+    window.onbSkipNumbers = function () { onbFinish(); };
 
     /* ════════════════════════════════════════════════════════════════
-       PHASE 3: CLOSING — "Connect everything. Close everyone."
-       Screen goes dark → tagline fades in → screen brightens → workspace
+       VALIDATION
+       ════════════════════════════════════════════════════════════════ */
+
+    var EIN_RE = /^\d{2}-?\d{7}$/;
+    var EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+    function validateStep(step) {
+        clearErrors();
+
+        if (step === 1) {
+            if (hasLlc === null) return false;
+            if (hasLlc) {
+                var ok = true;
+                if (!valOf('onbBizName')) { markError('onbBizName', 'Legal business name is required'); ok = false; }
+                if (!valOf('onbBizType')) { markError('onbBizType', 'Select an entity type'); ok = false; }
+                return ok;
+            }
+            if (!hasLlc && !valOf('onbSolePropName')) {
+                markError('onbSolePropName', 'Your legal name is required');
+                return false;
+            }
+            return true;
+        }
+
+        if (step === 2) {
+            if (hasEin === null) return false;
+            if (!hasEin) return false; // Blocked by IRS guide
+            var ein = valOf('onbEIN');
+            if (!ein) { markError('onbEIN', 'EIN is required'); return false; }
+            if (!EIN_RE.test(ein)) { markError('onbEIN', 'Enter a valid EIN (XX-XXXXXXX)'); return false; }
+            // Sole prop with new EIN needs upload
+            if (!hasLlc && einIsNew && !einFileData) {
+                if (typeof _showDashToast === 'function') _showDashToast(false, 'Please upload your EIN confirmation letter.');
+                return false;
+            }
+            return true;
+        }
+
+        if (step === 3) {
+            if (hasWebsite === null) return false;
+            if (hasWebsite && !valOf('onbWebsite')) { markError('onbWebsite', 'Enter your website URL'); return false; }
+            return true;
+        }
+
+        if (step === 4) {
+            var fields = [
+                ['onbStreet', 'Street address is required'],
+                ['onbCity', 'City is required'],
+                ['onbState', 'Select a state'],
+                ['onbZip', 'ZIP code is required'],
+                ['onbContactName', 'Contact name is required'],
+                ['onbContactEmail', 'Email is required']
+            ];
+            var ok4 = true;
+            fields.forEach(function (pair) {
+                if (!valOf(pair[0])) { markError(pair[0], pair[1]); ok4 = false; }
+            });
+            var email = valOf('onbContactEmail');
+            if (email && !EMAIL_RE.test(email)) { markError('onbContactEmail', 'Enter a valid email'); ok4 = false; }
+            return ok4;
+        }
+
+        return true;
+    }
+
+    /* ════════════════════════════════════════════════════════════════
+       SAVE PROFILE (Step 4 → /voice/trust-hub/save)
+       ════════════════════════════════════════════════════════════════ */
+
+    function saveProfile(callback) {
+        saving = true;
+        setBtnLoading('onbStep4Btn', true);
+
+        var bizName = hasLlc ? valOf('onbBizName') : valOf('onbSolePropName');
+        var bizType = hasLlc ? valOf('onbBizType') : 'Sole Proprietorship';
+        var website = '';
+        if (hasWebsite) {
+            website = valOf('onbWebsite');
+        } else if (selectedDomain) {
+            website = 'https://' + selectedDomain;
+        }
+
+        var data = {
+            business_name:  bizName,
+            business_type:  bizType,
+            ein:            valOf('onbEIN'),
+            has_llc:        hasLlc,
+            ein_is_new:     !!(einIsNew),
+            street:         valOf('onbStreet'),
+            city:           valOf('onbCity'),
+            state:          valOf('onbState'),
+            zip:            valOf('onbZip'),
+            website:        website,
+            contact_name:   valOf('onbContactName'),
+            contact_title:  valOf('onbContactTitle'),
+            contact_email:  valOf('onbContactEmail'),
+            contact_phone:  valOf('onbContactPhone')
+        };
+
+        // Include EIN document if uploaded
+        if (einFileData) {
+            data.ein_document_data = einFileData.data;
+            data.ein_document_type = einFileData.type;
+            data.ein_document_name = einFileData.name;
+        }
+
+        fetch('/voice/trust-hub/save', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        })
+        .then(function (r) { return r.json(); })
+        .then(function (result) {
+            saving = false;
+            setBtnLoading('onbStep4Btn', false);
+            if (result.error) {
+                if (typeof _showDashToast === 'function') _showDashToast(false, result.error);
+                return;
+            }
+            if (callback) callback();
+        })
+        .catch(function () {
+            saving = false;
+            setBtnLoading('onbStep4Btn', false);
+            if (typeof _showDashToast === 'function') _showDashToast(false, 'Save failed. Please try again.');
+        });
+    }
+
+    /* ════════════════════════════════════════════════════════════════
+       CLOSING ANIMATION
        ════════════════════════════════════════════════════════════════ */
 
     function onbFinish() {
@@ -443,32 +578,21 @@
         var closingLine = document.getElementById('onbClosingLine');
 
         if (!closing || !closingLine) {
-            // Fallback: just reload
             sessionStorage.removeItem('onb_step');
             sessionStorage.removeItem('onb_intro_done');
             window.location.reload();
             return;
         }
 
-        // Hide wizard
         if (wizard) wizard.style.display = 'none';
-
-        // Show closing overlay (dark, opacity 0 → 1)
         closing.style.display = '';
-        // Force reflow before adding class
-        closing.offsetHeight; // eslint-disable-line no-unused-expressions
+        closing.offsetHeight;
         closing.classList.add('visible');
 
-        // After dark screen settles, animate the tagline
-        setTimeout(function () {
-            closingLine.classList.add('animate');
-        }, 600);
+        setTimeout(function () { closingLine.classList.add('animate'); }, 600);
 
-        // Hold the tagline for 2.5 seconds, then brighten and fade
         setTimeout(function () {
             closing.classList.add('brightening');
-
-            // After brighten transition, reload to workspace
             setTimeout(function () {
                 sessionStorage.removeItem('onb_step');
                 sessionStorage.removeItem('onb_intro_done');
@@ -490,6 +614,57 @@
         if (el) el.classList.toggle('open');
     };
 
+    function valOf(id) {
+        var el = document.getElementById(id);
+        return el ? el.value.trim() : '';
+    }
+
+    function setText(id, text) {
+        var el = document.getElementById(id);
+        if (el) el.textContent = text;
+    }
+
+    function toggle(id, selected) {
+        var el = document.getElementById(id);
+        if (el) el.classList.toggle('selected', selected);
+    }
+
+    function showIf(id, condition) {
+        var el = document.getElementById(id);
+        if (!el) return;
+        if (condition) {
+            el.style.display = '';
+            el.classList.remove('onb-conditional'); // let CSS-defined display (block/flex) take over
+        } else {
+            el.style.display = 'none';
+        }
+    }
+
+    function enableBtn(id, enabled) {
+        var el = document.getElementById(id);
+        if (el) el.disabled = !enabled;
+    }
+
+    function markError(id, msg) {
+        var el = document.getElementById(id);
+        if (!el) return;
+        el.classList.add('onb-error');
+        if (msg) {
+            var existing = el.parentNode.querySelector('.onb-error-msg');
+            if (!existing) {
+                var span = document.createElement('span');
+                span.className = 'onb-error-msg';
+                span.textContent = msg;
+                el.parentNode.appendChild(span);
+            }
+        }
+    }
+
+    function clearErrors() {
+        document.querySelectorAll('.onb-error').forEach(function (el) { el.classList.remove('onb-error'); });
+        document.querySelectorAll('.onb-error-msg').forEach(function (el) { el.remove(); });
+    }
+
     function setBtnLoading(id, loading) {
         var btn = document.getElementById(id);
         if (!btn) return;
@@ -506,10 +681,14 @@
     function formatPhone(p) {
         var d = (p || '').replace(/\D/g, '');
         if (d.length === 11 && d[0] === '1') d = d.slice(1);
-        if (d.length === 10) {
-            return '(' + d.slice(0, 3) + ') ' + d.slice(3, 6) + '-' + d.slice(6);
-        }
+        if (d.length === 10) return '(' + d.slice(0, 3) + ') ' + d.slice(3, 6) + '-' + d.slice(6);
         return p;
+    }
+
+    function formatFileSize(bytes) {
+        if (bytes < 1024) return bytes + ' B';
+        if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
+        return (bytes / 1048576).toFixed(1) + ' MB';
     }
 
     function escHtml(s) {
@@ -518,8 +697,9 @@
         return d.innerHTML;
     }
 
-    function escAttr(s) {
-        return s.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+    function escData(s) {
+        return (s || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;')
+                        .replace(/'/g, '&#39;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
     }
 
 })();

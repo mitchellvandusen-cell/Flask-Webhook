@@ -360,12 +360,11 @@ def dashboard():
     # Agency context — for sidebar/tabs showing agency-specific items
     is_agency = current_user.role == 'agency_owner'
 
-    # Business profile onboarding gate — voice-capable users must set up
-    # their business profile before accessing the workspace.
+    # Business profile onboarding gate — all paying users must complete
+    # the onboarding wizard before accessing the workspace.
     needs_onboarding = False
-    if current_user.subscription_tier != 'sms_bot' and not is_admin:
-        trust_hub = voice_config.get('trust_hub', {})
-        needs_onboarding = not bool(trust_hub.get('business_name', '').strip())
+    if not is_admin and not current_user.business_profile_submitted:
+        needs_onboarding = True
 
     return render_template('dashboard.html',
         form=form,

@@ -1156,6 +1156,19 @@ def save_trust_hub():
         if field in data:
             trust_hub[field] = (data[field] or '').strip()
 
+    # Boolean/metadata fields from onboarding wizard
+    for bool_field in ('has_llc', 'ein_is_new'):
+        if bool_field in data:
+            trust_hub[bool_field] = bool(data[bool_field])
+
+    # EIN document (base64-encoded, sole prop with new EIN only)
+    if data.get('ein_document_data'):
+        trust_hub['ein_document_data'] = data['ein_document_data']
+        trust_hub['ein_document_type'] = (data.get('ein_document_type') or 'application/octet-stream')
+        trust_hub['ein_document_name'] = (data.get('ein_document_name') or 'ein_document')
+        trust_hub['ein_document_uploaded_at'] = data.get('ein_document_uploaded_at') or \
+            datetime.utcnow().isoformat()
+
     # Update carrier registration statuses
     for carrier in ['fcr_status', 'att_status', 'tmobile_status', 'verizon_status']:
         if carrier in data:
@@ -1163,6 +1176,23 @@ def save_trust_hub():
 
     vc['trust_hub'] = trust_hub
     _save_voice_config(current_user.email, vc)
+
+    # Mark business profile as submitted (onboarding gate)
+    has_required = all(trust_hub.get(f, '').strip() for f in
+                       ('business_name', 'ein', 'street', 'city', 'state', 'zip',
+                        'contact_name', 'contact_email'))
+    if has_required:
+        conn = get_db_connection()
+        try:
+            cur = conn.cursor()
+            cur.execute(
+                "UPDATE subscribers SET business_profile_submitted = TRUE WHERE email = %s",
+                (current_user.email,))
+            conn.commit()
+        except Exception:
+            conn.rollback()
+        finally:
+            return_db_connection(conn)
 
     return jsonify({"status": "ok"})
 

@@ -238,6 +238,7 @@
         whitelabel:              {{ whitelabel|tojson|safe if whitelabel else '{}' }},
         // Onboarding wizard gate
         needsOnboarding:         {{ 'true' if needs_onboarding else 'false' }},
+        fullName:                {{ (current_user.full_name or '')|tojson }},
     };
     </script>
 

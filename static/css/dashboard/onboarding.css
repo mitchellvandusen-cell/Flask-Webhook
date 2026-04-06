@@ -637,6 +637,214 @@
     line-height: var(--lh-relaxed);
 }
 
+/* ── Yes/No Radio Cards ─────────────────────────────────────── */
+.onb-question {
+    font-size: var(--fs-base);
+    font-weight: 600;
+    color: var(--text-primary);
+    margin: 0 0 1rem;
+}
+.onb-question-sub {
+    font-size: var(--fs-sm);
+    margin-top: 1rem;
+}
+.onb-yesno {
+    display: flex;
+    gap: 0.75rem;
+    margin-bottom: 1.5rem;
+}
+.onb-yesno-sm {
+    margin-bottom: 1rem;
+}
+.onb-yesno-sm .onb-yesno-card {
+    padding: 0.75rem 1rem;
+}
+.onb-yesno-card {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.375rem;
+    padding: 1.25rem 1rem;
+    background: var(--surface-2);
+    border: 2px solid var(--border);
+    border-radius: 0.625rem;
+    cursor: pointer;
+    text-align: center;
+    transition: border-color 0.2s ease, background 0.2s ease;
+}
+.onb-yesno-card:hover {
+    border-color: var(--accent-border);
+}
+.onb-yesno-card.selected {
+    border-color: var(--accent);
+    background: var(--accent-dim);
+}
+.onb-yesno-icon {
+    font-size: 1.5rem;
+    color: var(--text-muted);
+    transition: color 0.2s;
+}
+.onb-yesno-card.selected .onb-yesno-icon {
+    color: var(--accent);
+}
+.onb-yesno-label {
+    font-weight: 700;
+    font-size: var(--fs-base);
+    color: var(--text-primary);
+}
+.onb-yesno-sub {
+    font-size: var(--fs-xs);
+    color: var(--text-muted);
+}
+
+/* ── Conditional sections ──────────────────────────────────── */
+.onb-conditional {
+    display: none;
+}
+.onb-field-hint {
+    display: block;
+    font-size: var(--fs-xs);
+    color: var(--text-muted);
+    margin-top: 0.25rem;
+    line-height: var(--lh-relaxed);
+}
+
+/* ── Constrained field widths (replaces inline styles) ─────── */
+.onb-field-state { max-width: 120px; }
+.onb-field-zip   { max-width: 140px; }
+.onb-field-title { max-width: 160px; }
+
+/* ── File Upload Area ──────────────────────────────────────── */
+.onb-upload-area {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.375rem;
+    padding: 1.75rem 1rem;
+    background: var(--surface-2);
+    border: 2px dashed var(--border-strong);
+    border-radius: 0.625rem;
+    cursor: pointer;
+    transition: border-color 0.2s ease, background 0.2s ease;
+    text-align: center;
+    margin-bottom: 0.75rem;
+}
+.onb-upload-area:hover {
+    border-color: var(--accent);
+    background: var(--accent-dim);
+}
+.onb-upload-area.has-file {
+    border-color: var(--accent);
+    border-style: solid;
+    background: var(--accent-dim);
+}
+.onb-upload-area.drag-over {
+    border-color: var(--accent);
+    background: var(--accent-dim);
+}
+.onb-upload-icon {
+    font-size: 1.75rem;
+    color: var(--text-muted);
+    transition: color 0.2s;
+}
+.onb-upload-area:hover .onb-upload-icon,
+.onb-upload-area.has-file .onb-upload-icon {
+    color: var(--accent);
+}
+.onb-upload-text {
+    font-weight: 600;
+    font-size: var(--fs-base);
+    color: var(--text-primary);
+}
+.onb-upload-hint {
+    font-size: var(--fs-xs);
+    color: var(--text-muted);
+    line-height: var(--lh-relaxed);
+    max-width: 28rem;
+}
+.onb-file-input {
+    display: none;
+}
+.onb-file-preview {
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+    padding: 0.75rem 1rem;
+    background: var(--surface-2);
+    border: 1px solid var(--accent);
+    border-radius: 0.625rem;
+    margin-bottom: 1rem;
+    font-size: var(--fs-sm);
+    color: var(--text-primary);
+}
+.onb-file-preview i {
+    color: var(--accent);
+}
+.onb-file-size {
+    color: var(--text-muted);
+    margin-left: auto;
+}
+.onb-file-remove {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 0.25rem;
+    font-size: var(--fs-base);
+    transition: color 0.15s;
+}
+.onb-file-remove:hover {
+    color: var(--status-error);
+}
+
+/* ── "I just got my EIN" button ────────────────────────────── */
+.onb-got-ein-btn {
+    margin-top: 1.25rem;
+}
+
+/* ── Pre-filled summary row (Step 4) ──────────────────────── */
+.onb-prefilled-row {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+    padding: 1rem;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 0.625rem;
+}
+.onb-prefilled-item {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 0.125rem;
+}
+.onb-prefilled-label {
+    font-size: var(--fs-xs);
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+.onb-prefilled-value {
+    font-size: var(--fs-sm);
+    font-weight: 600;
+    color: var(--text-primary);
+    font-family: 'JetBrains Mono', monospace;
+    word-break: break-all;
+}
+
+/* ── Loading state (replaces inline styles) ────────────────── */
+.onb-loading-state {
+    text-align: center;
+    padding: 1rem;
+    color: var(--text-muted);
+    font-size: var(--fs-sm);
+}
+.onb-loading-full {
+    grid-column: 1 / -1;
+}
+
 /* ── Mobile ──────────────────────────────────────────────────── */
 @media (max-width: 640px) {
     .onb-overlay {
@@ -659,6 +867,14 @@
     .onb-path-toggle {
         flex-direction: column;
         gap: 0.625rem;
+    }
+    .onb-yesno {
+        flex-direction: column;
+        gap: 0.625rem;
+    }
+    .onb-prefilled-row {
+        flex-direction: column;
+        gap: 0.75rem;
     }
 }
 
@@ -704,4 +920,26 @@
 }
 [data-theme="light"] .onb-number-card.selected .onb-number-check {
     color: #ffffff;
+}
+[data-theme="light"] .onb-yesno-card.selected {
+    border-color: var(--lt-accent);
+    background: var(--lt-accent-bg);
+}
+[data-theme="light"] .onb-yesno-card.selected .onb-yesno-icon {
+    color: var(--lt-accent);
+}
+[data-theme="light"] .onb-upload-area:hover,
+[data-theme="light"] .onb-upload-area.has-file {
+    border-color: var(--lt-accent);
+    background: var(--lt-accent-bg);
+}
+[data-theme="light"] .onb-upload-area:hover .onb-upload-icon,
+[data-theme="light"] .onb-upload-area.has-file .onb-upload-icon {
+    color: var(--lt-accent);
+}
+[data-theme="light"] .onb-file-preview {
+    border-color: var(--lt-accent);
+}
+[data-theme="light"] .onb-file-preview i {
+    color: var(--lt-accent);
 }
