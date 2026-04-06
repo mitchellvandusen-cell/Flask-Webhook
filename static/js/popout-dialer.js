@@ -164,6 +164,23 @@
     try { selectedOutputDeviceId = localStorage.getItem(LS.output) || null; } catch (e) {}
     try { session.recentXferNumbers = JSON.parse(localStorage.getItem(LS.xfer) || '[]'); } catch (e) {}
 
+    // ── Restore queue from localStorage (fallback when BroadcastChannel
+    //    message hasn't arrived yet or iframe isn't running) ──
+    try {
+        const storedQueue = JSON.parse(localStorage.getItem('igb_dialer_queue') || '[]');
+        if (Array.isArray(storedQueue) && storedQueue.length) {
+            mirroredQueue = storedQueue.map(c => ({
+                contactId: c.contactId || c.id,
+                name: c.name || c.firstName || 'Lead',
+                firstName: c.firstName,
+                phone: c.phone,
+                status: c.status || 'pending',
+                temperature: c.temperature,
+                score: c.score,
+            }));
+        }
+    } catch (e) { /* corrupt data — ignore */ }
+
     // ═══ BroadcastChannel ═════════════════════════════════════════════════════
     let bus = null;
     try { bus = new BroadcastChannel('omnisconn-dialer'); }
@@ -240,9 +257,32 @@
 
     window.addEventListener('load', () => {
         sendToIframe({ type: 'POPUP_HELLO', deviceReady: false, call: null });
+        // Ask iframe to send current queue (in case it's running)
+        sendToIframe({ type: 'QUEUE_REQUEST' });
+        // Render localStorage-restored queue immediately
+        if (mirroredQueue.length) renderQueue();
     });
     window.addEventListener('beforeunload', () => {
         sendToIframe({ type: 'POPUP_CLOSING' });
+    });
+
+    // Listen for localStorage changes from the main dashboard (fallback sync)
+    window.addEventListener('storage', (ev) => {
+        if (ev.key !== 'igb_dialer_queue') return;
+        try {
+            const items = JSON.parse(ev.newValue || '[]');
+            if (!Array.isArray(items)) return;
+            mirroredQueue = items.map(c => ({
+                contactId: c.contactId || c.id,
+                name: c.name || c.firstName || 'Lead',
+                firstName: c.firstName,
+                phone: c.phone,
+                status: c.status || 'pending',
+                temperature: c.temperature,
+                score: c.score,
+            }));
+            renderQueue();
+        } catch (e) { /* ignore */ }
     });
 
     // ═══ State cascade ════════════════════════════════════════════════════════

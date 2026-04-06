@@ -46,3 +46,16 @@ Flask-Webhook/
 
 # Backup files
 CLAUDE.md.local
+
+# Playwright MCP cache
+.playwright-mcp/
+
+# Audit reports (local only)
+audit/
+
+# Dev-only scripts
+run_local.py
+mint_cookie.py
+
+# Screenshots (local only)
+*.png

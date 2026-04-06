@@ -9881,6 +9881,10 @@
                         case 'POPUP_MUTE_CHANGED':
                             // Mirror mute state in any iframe-side UI if present
                             break;
+                        case 'QUEUE_REQUEST':
+                            // Popout asking for current queue (e.g. opened standalone)
+                            schedulePushQueue(0);
+                            break;
                         default:
                             break;
                     }
