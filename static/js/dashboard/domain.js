@@ -11,32 +11,45 @@
     let _selectedDba = '';
 
     // ── Init: check if agent already has a domain ──
+    function _showSetup() {
+        var loading = document.getElementById('domainLoading');
+        var setup = document.getElementById('domainSetup');
+        if (loading) loading.style.display = 'none';
+        if (setup) setup.style.display = 'block';
+        // Pre-fill domain from onboarding handoff (?onb_domain=...)
+        try {
+            var params = new URLSearchParams(window.location.search);
+            var onbDomain = params.get('onb_domain');
+            if (onbDomain) {
+                var searchInput = document.getElementById('domainDbaInput');
+                if (searchInput) searchInput.value = onbDomain.replace(/\.com$/i, '');
+                if (typeof domainSearch === 'function') domainSearch();
+            }
+        } catch (e) { /* URLSearchParams not supported — ignore */ }
+    }
+
     window.domainTabInit = function () {
         fetch('/api/domain/status')
-            .then(r => r.json())
-            .then(d => {
-                document.getElementById('domainLoading').style.display = 'none';
+            .then(function (r) {
+                if (!r.ok) throw new Error('HTTP ' + r.status);
+                return r.json();
+            })
+            .then(function (d) {
+                var loading = document.getElementById('domainLoading');
+                if (loading) loading.style.display = 'none';
                 if (d.has_domain && d.status === 'active') {
                     _showActiveDomain(d);
                 } else if (d.has_domain && d.status === 'provisioning') {
-                    document.getElementById('domainProvisioning').style.display = 'block';
+                    var prov = document.getElementById('domainProvisioning');
+                    if (prov) prov.style.display = 'block';
                 } else if (d.has_domain && d.status === 'error') {
-                    _showActiveDomain(d); // Show what we have + error state
+                    _showActiveDomain(d);
                 } else {
-                    document.getElementById('domainSetup').style.display = 'block';
-                    // Pre-fill domain from onboarding handoff (?onb_domain=...)
-                    var params = new URLSearchParams(window.location.search);
-                    var onbDomain = params.get('onb_domain');
-                    if (onbDomain) {
-                        var searchInput = document.getElementById('domainSearchInput');
-                        if (searchInput) searchInput.value = onbDomain.replace(/\.com$/i, '');
-                        if (typeof domainSearch === 'function') domainSearch();
-                    }
+                    _showSetup();
                 }
             })
-            .catch(() => {
-                document.getElementById('domainLoading').style.display = 'none';
-                document.getElementById('domainSetup').style.display = 'block';
+            .catch(function () {
+                _showSetup();
             });
     };
 
