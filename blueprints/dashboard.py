@@ -85,7 +85,16 @@ def _check_needs_onboarding(user, voice_config=None):
     if profile_sid:
         return False  # Has a real Twilio profile → onboarding done
 
-    # Flag says True but no profile_sid — need to verify against Twilio.
+    # Flag is True and trust_hub has all required business data filled out →
+    # wizard is complete. The Trust Hub registration job may still be running
+    # in RQ (async). Don't reset the flag — let user through to workspace.
+    required_fields = ('business_name', 'ein', 'website', 'street', 'city', 'state', 'zip',
+                       'contact_name', 'contact_email')
+    has_all_data = all(trust_hub.get(f, '').strip() for f in required_fields)
+    if has_all_data:
+        return False  # Business data submitted, Twilio job is processing → let them through
+
+    # Flag says True but no profile_sid AND missing data — need to verify against Twilio.
     # Only make the API call if user has a sub-account (otherwise no point).
     sub_sid = getattr(user, 'twilio_sub_account_sid', '') or vc.get('twilio_sub_account_sid', '')
     sub_auth = getattr(user, 'twilio_sub_account_auth_token', '') or vc.get('twilio_auth_token', '')
