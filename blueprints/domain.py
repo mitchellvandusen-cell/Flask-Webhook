@@ -34,7 +34,8 @@ PORKBUN_API_KEY = os.getenv('PORKBUN_API_KEY', '')
 PORKBUN_SECRET_KEY = os.getenv('PORKBUN_SECRET_KEY', '')
 CLOUDFLARE_API_TOKEN = os.getenv('CLOUDFLARE_API_TOKEN', '')
 CLOUDFLARE_ACCOUNT_ID = os.getenv('CLOUDFLARE_ACCOUNT_ID', '')
-MAILGUN_API_KEY = os.getenv('MAILGUN_API_KEY', '')
+MAILGUN_API_KEY = os.getenv('MAILGUN_API_KEY', '')  # Per-domain sending key
+MAILGUN_ACCOUNT_KEY = os.getenv('MAILGUN_ACCOUNT_API_KEY', '') or MAILGUN_API_KEY  # Account key for domain management
 CRON_SECRET = os.getenv('CRON_SECRET', '')  # Used to authenticate auto-reply endpoint
 
 PORKBUN_API_BASE = 'https://api-ipv4.porkbun.com/api/json/v3'
@@ -485,11 +486,11 @@ def _cf_store_agent_config(domain, config):
 # ═══════════════════════════════════════════════════════════════
 
 def _mailgun_add_domain(domain):
-    """Add a sending domain to Mailgun. Uses v3 API (not v4)."""
+    """Add a sending domain to Mailgun. Uses account key for domain management."""
     try:
         resp = requests.post(
             'https://api.mailgun.net/v3/domains',
-            auth=('api', MAILGUN_API_KEY),
+            auth=('api', MAILGUN_ACCOUNT_KEY),
             data={'name': domain, 'web_scheme': 'https'},
             timeout=30,
         )
