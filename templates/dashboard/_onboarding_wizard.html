@@ -408,8 +408,8 @@
                     <div class="onb-row">
                         <div class="onb-field-group">
                             <label class="onb-label">
-                                Email
-                                <span class="onb-info-tip" data-tooltip="Where carriers can reach you if they need to verify something about your registration. We pre-filled your account email."><i class="fa-solid fa-circle-info"></i></span>
+                                Your Personal Email
+                                <span class="onb-info-tip" data-tooltip="Your personal inbox where you receive email. If you set up a business domain, emails sent to your business address will automatically forward here."><i class="fa-solid fa-circle-info"></i></span>
                             </label>
                             <input type="email" id="onbContactEmail" class="onb-input" value="{{ current_user.email }}" autocomplete="email">
                         </div>
@@ -423,14 +423,14 @@
                     </div>
 
                     <!-- Website provisioning section -->
-                    <div id="onbStep4Provisioning" style="margin-top: 24px; padding: 12px; background: #0a0a0a; border: 1px solid #1a1a1a; border-radius: 8px; display: none;">
+                    <div id="onbStep4Provisioning" class="onb-provision-box" style="display: none;">
                         <div style="margin-bottom: 12px;">
-                            <p style="margin: 0 0 12px 0; font-weight: 500; color: #cccccc;">Your website & email will be set up now</p>
+                            <p class="onb-provision-text">Your website & email will be set up now</p>
                             <button class="onb-continue-btn" id="onbStep4ProvisionBtn" onclick="onbProvisionWebsite()" style="width: 100%;">
                                 <i class="fa-solid fa-magic"></i> Provision Website & Email
                             </button>
                         </div>
-                        <div id="onbProvisionStatus" style="font-size: 0.9em; color: #888; display: none;"></div>
+                        <div id="onbProvisionStatus" class="onb-provision-status" style="display: none;"></div>
                     </div>
 
                     <div class="onb-nav-row">
@@ -513,8 +513,12 @@
                                 <span class="onb-review-value" id="onbRevWebsite">—</span>
                             </div>
                             <div class="onb-review-field" id="onbRevEmailDomainWrap" style="display:none;">
-                                <span class="onb-review-label">Business Email</span>
+                                <span class="onb-review-label">Business Email <span class="onb-info-tip" data-tooltip="This is the email address carriers will see for your business. It matches your domain so carriers can verify your identity."><i class="fa-solid fa-circle-info"></i></span></span>
                                 <span class="onb-review-value" id="onbRevEmailDomain">—</span>
+                            </div>
+                            <div class="onb-review-field" id="onbRevEmailFwdWrap" style="display:none;">
+                                <span class="onb-review-label">Emails Forward To <span class="onb-info-tip" data-tooltip="Any email sent to your business email above will automatically arrive in this inbox. You don't need to check two inboxes."><i class="fa-solid fa-circle-info"></i></span></span>
+                                <span class="onb-review-value" id="onbRevEmailFwd">—</span>
                             </div>
                         </div>
                     </div>
@@ -544,7 +548,7 @@
                                 <span class="onb-review-value" id="onbRevRole">—</span>
                             </div>
                             <div class="onb-review-field">
-                                <span class="onb-review-label">Email</span>
+                                <span class="onb-review-label">Contact Email</span>
                                 <span class="onb-review-value" id="onbRevEmail">—</span>
                             </div>
                             <div class="onb-review-field">
@@ -584,7 +588,7 @@
 
                     <!-- Phone Numbers for Selected States -->
                     <div id="onbNumbersSection" style="display: none; margin-top: 32px;">
-                        <h3 style="font-size: 14px; font-weight: 700; margin-bottom: 16px; color: #cccccc;">
+                        <h3 class="onb-numbers-heading">
                             Available Numbers
                         </h3>
                         <div class="onb-free-allowance">

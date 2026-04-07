@@ -24,12 +24,12 @@
     var einIsNew = null;       // true/false/null (sole prop 30-day question)
     var hasWebsite = null;     // true/false/null
     var selectedNumbers = [];
-    var selectedDomain = '';
+    var selectedDomain = sessionStorage.getItem('onb_provisioned_domain') || '';
     var einFileData = null;    // { data: base64, type: mime, name: filename }
     var promoCode = '';        // promo code text
     var promoValidated = false; // true if promo code validated and valid
-    var provisioned = false;   // true after website provisioned in Step 4
-    var provisionedEmail = ''; // business email from provisioning
+    var provisioned = sessionStorage.getItem('onb_provisioned') === '1';
+    var provisionedEmail = sessionStorage.getItem('onb_provisioned_email') || '';
     var selectedStates = [];   // array of 2-letter state codes
     var selectedPhoneNumbers = []; // array of {phone, state, selected: bool}
     var availableNumbers = {}; // {state: [phone, phone, ...]}
@@ -462,13 +462,22 @@
         // Website (required — either their own or our domain)
         setText('onbRevWebsite', web || '—');
 
-        // Show business email if they picked our domain service
+        // Show business email (domain email) — this is what carriers see
         var emailDomainWrap = document.getElementById('onbRevEmailDomainWrap');
-        if (!hasWebsite && selectedDomain) {
-            setText('onbRevEmailDomain', 'you@' + selectedDomain);
+        if (!hasWebsite && selectedDomain && provisionedEmail) {
+            setText('onbRevEmailDomain', provisionedEmail);
             if (emailDomainWrap) emailDomainWrap.style.display = '';
         } else {
             if (emailDomainWrap) emailDomainWrap.style.display = 'none';
+        }
+
+        // Show email forwarding destination — where domain emails actually arrive
+        var fwdWrap = document.getElementById('onbRevEmailFwdWrap');
+        if (!hasWebsite && selectedDomain && provisionedEmail) {
+            setText('onbRevEmailFwd', valOf('onbContactEmail') || '—');
+            if (fwdWrap) fwdWrap.style.display = '';
+        } else {
+            if (fwdWrap) fwdWrap.style.display = 'none';
         }
 
         // Address
@@ -543,15 +552,17 @@
             // Success!
             provisioned = true;
             provisionedEmail = result.email || (firstName + '@' + selectedDomain);
+            // Persist so page refresh doesn't lose provisioning state
+            sessionStorage.setItem('onb_provisioned', '1');
+            sessionStorage.setItem('onb_provisioned_email', provisionedEmail);
+            sessionStorage.setItem('onb_provisioned_domain', selectedDomain);
             statusDiv.innerHTML = '<i class="fa-solid fa-circle-check" style="color: #00ff88;"></i> Website & email provisioned! <br>' +
                 'Email: <strong>' + escHtml(provisionedEmail) + '</strong>';
             statusDiv.style.color = '#00ff88';
 
-            // Update email field
-            var emailInput = document.getElementById('onbContactEmail');
-            if (emailInput) {
-                emailInput.value = provisionedEmail;
-            }
+            // Note: Do NOT overwrite onbContactEmail — it stays as the user's
+            // personal email for Porkbun email forwarding.
+            // provisionedEmail (domain email) is used separately for Twilio.
 
             // Enable Continue button
             enableBtn('onbStep4Btn', true);
@@ -757,7 +768,7 @@
 
     function saveProfile(callback) {
         saving = true;
-        setBtnLoading('onbSubmitBtn', true);
+        setBtnLoading('onbStep6Btn', true);
 
         // For sole prop + DBA: business_name = DBA name, legal name stays as contact_name
         var bizName = hasLlc ? valOf('onbBizName') : (hasDba ? valOf('onbDbaName') : valOf('onbSolePropName'));
@@ -785,7 +796,7 @@
             website:        website,
             contact_name:   valOf('onbContactName'),
             contact_title:  valOf('onbContactRole'),
-            contact_email:  valOf('onbContactEmail'),
+            contact_email:  provisionedEmail || valOf('onbContactEmail'),
             contact_phone:  valOf('onbContactPhone')
         };
 
@@ -804,18 +815,18 @@
         .then(function (r) { return r.json(); })
         .then(function (result) {
             saving = false;
-            setBtnLoading('onbSubmitBtn', false);
+            setBtnLoading('onbStep6Btn', false);
             if (result.error) {
                 if (typeof _showDashToast === 'function') _showDashToast(false, result.error);
                 return;
             }
             if (typeof _showDashToast === 'function')
-                _showDashToast(true, 'Business profile saved. Carrier verification submitted.');
+                _showDashToast(true, 'Business profile saved.');
             if (callback) callback();
         })
         .catch(function () {
             saving = false;
-            setBtnLoading('onbSubmitBtn', false);
+            setBtnLoading('onbStep6Btn', false);
             if (typeof _showDashToast === 'function') _showDashToast(false, 'Save failed. Please try again.');
         });
     }
@@ -1216,7 +1227,7 @@
     }
 
     window.onbFinalSubmit = function () {
-        // Final step: save states, then show closing screen
+        // Final step: save profile + states, then show closing screen
         if (selectedStates.length === 0) {
             markError('onbNumbersList', 'Please select at least one state');
             return;
@@ -1224,32 +1235,39 @@
 
         setBtnLoading('onbStep6Btn', true);
 
-        // Save states to DB
-        fetch('/voice/licensed-states', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ states: selectedStates })
-        })
-        .then(function (r) {
-            if (!r.ok) throw new Error('Failed to save states');
-            return r.json();
-        })
-        .then(function (data) {
-            // States saved, show closing screen
-            var wizard = document.getElementById('onboardingWizard');
-            var closing = document.getElementById('onbClosing');
-            if (wizard) wizard.style.display = 'none';
-            if (closing) closing.style.display = 'flex';
+        // Step A: Save business profile to /voice/trust-hub/save FIRST
+        saveProfile(function () {
+            // Step B: Profile saved — now save states
+            fetch('/voice/licensed-states', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ states: selectedStates })
+            })
+            .then(function (r) {
+                if (!r.ok) throw new Error('Failed to save states');
+                return r.json();
+            })
+            .then(function (data) {
+                // Both profile and states saved — show closing screen
+                sessionStorage.removeItem('onb_provisioned');
+                sessionStorage.removeItem('onb_provisioned_email');
+                sessionStorage.removeItem('onb_provisioned_domain');
+                sessionStorage.removeItem('onb_intro_done');
 
-            // Optional: Reload dashboard after 3 seconds
-            setTimeout(function () {
-                window.location.reload();
-            }, 3000);
-        })
-        .catch(function (e) {
-            console.error('Error saving states:', e);
-            markError('onbNumbersList', 'Failed to submit. Please try again.');
-            setBtnLoading('onbStep6Btn', false);
+                var wizard = document.getElementById('onboardingWizard');
+                var closing = document.getElementById('onbClosing');
+                if (wizard) wizard.style.display = 'none';
+                if (closing) closing.style.display = 'flex';
+
+                setTimeout(function () {
+                    window.location.reload();
+                }, 3000);
+            })
+            .catch(function (e) {
+                console.error('Error saving states:', e);
+                markError('onbNumbersList', 'Failed to submit. Please try again.');
+                setBtnLoading('onbStep6Btn', false);
+            });
         });
     };
 

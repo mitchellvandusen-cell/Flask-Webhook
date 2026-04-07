@@ -1360,6 +1360,7 @@ body.light-theme .onb-numbers-state-section {
 body.light-theme .onb-numbers-state-header {
     background: #f5f5f5;
     border-bottom-color: #e5e7eb;
+    color: #374151;
 }
 
 body.light-theme .onb-number-checkbox {
@@ -1411,4 +1412,54 @@ body.light-theme .onb-ghost-btn {
 body.light-theme .onb-ghost-btn:hover {
     border-color: rgba(5,150,105,0.4);
     color: #111827;
+}
+
+/* ── Provisioning Box (Step 4) ─────────────────────────────── */
+.onb-provision-box {
+    margin-top: 24px;
+    padding: 12px;
+    background: #0a0a0a;
+    border: 1px solid #1a1a1a;
+    border-radius: 8px;
+}
+.onb-provision-text {
+    margin: 0 0 12px 0;
+    font-weight: 500;
+    color: #cccccc;
+}
+.onb-provision-status {
+    font-size: 0.9em;
+    color: #888888;
+}
+
+body.light-theme .onb-provision-box {
+    background: #f9fafb;
+    border-color: #e5e7eb;
+}
+body.light-theme .onb-provision-text {
+    color: #374151;
+}
+body.light-theme .onb-provision-status {
+    color: #6b7280;
+}
+
+/* ── Numbers Heading (Step 6) ──────────────────────────────── */
+.onb-numbers-heading {
+    font-size: 14px;
+    font-weight: 700;
+    margin-bottom: 16px;
+    color: #cccccc;
+}
+
+body.light-theme .onb-numbers-heading {
+    color: #374151;
+}
+
+/* ── Missing light overrides (state cards, number headers) ─── */
+body.light-theme .onb-state-card span:first-child {
+    color: #111827;
+}
+
+body.light-theme .onb-state-name {
+    color: #6b7280;
 }
