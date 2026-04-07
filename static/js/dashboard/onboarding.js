@@ -796,7 +796,7 @@
         var data = {
             business_name:  bizName,
             business_type:  bizType,
-            ein:            valOf('onbEIN'),
+            ein:            (function() { var e = valOf('onbEIN').replace(/[^0-9]/g, ''); return e.length === 9 ? e.slice(0,2) + '-' + e.slice(2) : valOf('onbEIN'); })(),
             has_llc:        hasLlc,
             has_dba:        !!(hasDba),
             dba_name:       hasDba ? valOf('onbDbaName') : '',

@@ -1154,7 +1154,13 @@ def save_trust_hub():
     ]
     for field in profile_fields:
         if field in data:
-            trust_hub[field] = (data[field] or '').strip()
+            val = (data[field] or '').strip()
+            # Normalize EIN to XX-XXXXXXX format (Twilio requires the dash)
+            if field == 'ein' and val:
+                digits = ''.join(c for c in val if c.isdigit())
+                if len(digits) == 9:
+                    val = digits[:2] + '-' + digits[2:]
+            trust_hub[field] = val
 
     # Boolean/metadata fields from onboarding wizard
     for bool_field in ('has_llc', 'ein_is_new', 'has_dba'):
