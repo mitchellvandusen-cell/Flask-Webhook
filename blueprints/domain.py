@@ -17,6 +17,7 @@ import re
 import time
 import requests
 from functools import wraps
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from flask import Blueprint, request, jsonify
 from flask_login import current_user, login_required
@@ -141,25 +142,40 @@ def _porkbun_post(endpoint, extra_data=None):
 
 
 def _porkbun_check_available(domain):
-    """Check if a .com domain is available via RDAP (ICANN public protocol).
-    RDAP 404 = available, 200 = taken. No API key needed."""
-    try:
-        resp = requests.get(
-            f'https://rdap.verisign.com/com/v1/domain/{domain}',
-            timeout=10,
-            headers={'Accept': 'application/json'},
-        )
-        available = (resp.status_code == 404)
-        return {'available': available, 'price': '11.08'}
-    except Exception as e:
-        logger.warning(f"[Domain] RDAP check failed for {domain}: {e}")
+    """Check domain availability AND get current pricing via Porkbun API.
+    Endpoint: POST /domain/checkDomain/{domain}
+    Response: {status, response: {avail: "yes"/"no", price: "9.73", ...}}
+    Returns dict with 'available' (bool) and 'price' (str, USD)."""
+    result = _porkbun_post(f'/domain/checkDomain/{domain}')
+    if result.get('status') == 'ERROR':
+        logger.warning(f"[Domain] Porkbun checkDomain failed for {domain}: {result.get('message')}")
         return {'available': False, 'price': '11.08'}
+    resp = result.get('response', {})
+    available = resp.get('avail', 'no').lower() == 'yes'
+    price = resp.get('price', '11.08')
+    return {'available': available, 'price': str(price)}
 
 
-def _porkbun_register(domain, contact_info):
-    """Register a .com domain via Porkbun API."""
+@_retry_with_backoff(max_attempts=4, backoff_base=2)
+def _porkbun_register(domain, contact_info, price_usd=None):
+    """Register a .com domain via Porkbun API.
+    Endpoint: POST /domain/create/{domain}
+    Requires cost (pennies) and agreeToTerms.
+    Retries up to 4 times with exponential backoff (2s, 4s, 8s) for transient failures."""
+    # Get current price if not provided
+    if price_usd is None:
+        check = _porkbun_check_available(domain)
+        price_usd = check.get('price', '11.08')
+
+    # Convert USD string to pennies (e.g. '9.73' -> 973)
+    try:
+        cost_pennies = int(round(float(price_usd) * 100))
+    except (ValueError, TypeError):
+        cost_pennies = 1108  # fallback ~$11.08
+
     data = {
-        'domain': domain,
+        'cost': cost_pennies,
+        'agreeToTerms': 'yes',
         'years': 1,
         'autoRenew': True,
         'whoisPrivacy': True,
@@ -175,7 +191,7 @@ def _porkbun_register(domain, contact_info):
         data[f'{prefix}PostalCode'] = contact_info.get('zip', '')
         data[f'{prefix}Country'] = 'US'
 
-    return _porkbun_post('/domain/register', data)
+    return _porkbun_post(f'/domain/create/{domain}', data)
 
 
 @_retry_with_backoff(max_attempts=4, backoff_base=3)
@@ -183,7 +199,7 @@ def _porkbun_set_nameservers(domain, nameservers):
     """Update nameservers for a domain on Porkbun. Returns True on success.
     Retries up to 4 times with exponential backoff (3s, 9s, 27s) for activation timing.
     """
-    result = _porkbun_post('/domain/updateNs', {'domain': domain, 'ns': nameservers})
+    result = _porkbun_post(f'/domain/updateNs/{domain}', {'ns': nameservers})
     if result.get('status') != 'SUCCESS':
         raise Exception(f"Nameserver update failed: {result.get('message', 'Unknown error')}")
     return True
@@ -265,11 +281,12 @@ def _cf_add_dns_record(zone_id, record_type, name, content, priority=None, proxi
 
 
 def _cf_setup_dns(zone_id, domain, mailgun_dkim_records=None):
-    """Configure DNS records. A records are auto-managed by Cloudflare for full zones.
-    Worker routes (created separately) handle landing page routing."""
-    # For Cloudflare Workers: no explicit A record needed — Cloudflare's full zone setup
-    # automatically assigns nameservers and anycast IPs. Worker routes (created in
-    # _cf_setup_worker_route) handle the actual traffic routing to the worker.
+    """Configure DNS records for Worker route + email routing."""
+    # Proxied A record required for Worker routes to fire.
+    # 192.0.2.1 (RFC 5737 TEST-NET) is a placeholder — Cloudflare intercepts
+    # all traffic at the edge before it reaches this IP.
+    _cf_add_dns_record(zone_id, 'A', '@', '192.0.2.1', proxied=True)
+    _cf_add_dns_record(zone_id, 'A', 'www', '192.0.2.1', proxied=True)
 
     # MX records — critical (email won't work without these)
     mx_ok = all([
@@ -294,9 +311,9 @@ def _cf_setup_email_routing(zone_id, domain, forward_to):
     Returns dict with email_verification_needed flag."""
     result = {'email_routing_ok': False, 'email_verification_needed': False}
 
-    # Enable email routing on the zone
+    # Enable email routing on the zone (POST, not PUT — per CF API docs)
     try:
-        requests.put(
+        requests.post(
             f'{CLOUDFLARE_API_BASE}/zones/{zone_id}/email/routing/enable',
             headers=_cf_headers(),
             json={'enabled': True},
@@ -525,14 +542,29 @@ def domain_search():
         (data.get('last_name') or '').strip(),
     )
 
+    # Parallel domain checks: ~15s instead of 60s
     results = []
-    for domain in suggestions:
-        check = _porkbun_check_available(domain)
-        results.append({
-            'domain': domain,
-            'available': check['available'],
-            'price_yearly': check['price'],
-        })
+    with ThreadPoolExecutor(max_workers=6) as executor:
+        futures = {executor.submit(_porkbun_check_available, domain): domain for domain in suggestions}
+        for future in as_completed(futures):
+            domain = futures[future]
+            try:
+                check = future.result()
+                results.append({
+                    'domain': domain,
+                    'available': check['available'],
+                    'price_yearly': check['price'],
+                })
+            except Exception as e:
+                logger.warning(f"[Domain] Domain check failed for {domain}: {e}")
+                results.append({
+                    'domain': domain,
+                    'available': False,
+                    'price_yearly': '11.08',
+                })
+
+    # Sort by availability and price for better UX
+    results.sort(key=lambda x: (not x['available'], float(x['price_yearly'])))
     return jsonify({'suggestions': results})
 
 
@@ -663,6 +695,16 @@ def domain_checkout():
     agent_email = f'{email_prefix}@{domain}'
     legal_business_name = (data.get('legal_business_name') or '').strip()  # Optional: legal entity name
 
+    # ── Check if this domain was previously registered but provisioning failed ──
+    # If so, skip availability check and resume from the failed step
+    existing = vc.get('web_presence', {})
+    resume_from_step = None
+    if existing.get('domain') == domain and existing.get('status') == 'error':
+        # We already own this domain (from a previous failed attempt)
+        # Skip availability check and resume from the step that failed
+        resume_from_step = len(existing.get('provisioning_log', []))
+        logger.info(f"[Domain] Resuming {domain} from step {resume_from_step} (previous attempt failed)")
+
     # ── Validate promo code BEFORE provisioning (prevent free domains) ──
     promo_code_id = None
     if promo_code:
@@ -682,53 +724,90 @@ def domain_checkout():
                 'error': f'Could not validate promo code. Error: {promo_err}'
             }), 400
 
-    # ── Step 1: Check domain is STILL available (race condition guard) ──
-    avail_check = _porkbun_check_available(domain)
-    if not avail_check.get('available'):
-        return jsonify({'error': f'{domain} is no longer available. Please search again.'}), 409
+    # ── Step 0: Check domain is STILL available (race condition guard) ──
+    # UNLESS we're resuming from a previous failed attempt (we already own it)
+    if resume_from_step is None:
+        # First attempt: check availability
+        avail_check = _porkbun_check_available(domain)
+        if not avail_check.get('available'):
+            return jsonify({'error': f'{domain} is no longer available. Please search again.'}), 409
+    else:
+        # Resuming: we already own the domain, skip availability check
+        # Use the price from the previous attempt
+        avail_check = existing.get('avail_check', {'available': True, 'price': '11.08'})
 
     # ── Provision FIRST, charge AFTER ──
     provisioning_log = []
-    web_presence = {
-        'domain': domain,
-        'dba_name': dba_name,
-        'legal_business_name': legal_business_name,  # For A2P DBA formatting
-        'agent_name': agent_name,
-        'email': agent_email,
-        'email_prefix': email_prefix,
-        'email_forward_to': forward_to,
-        'phone_display': phone_display,
-        'phone_raw': phone_raw,
-        'licensed_states': licensed_states,
-        'bio': bio,
-        'status': 'provisioning',
-        'disclaimer_accepted': True,
-        'disclaimer_accepted_at': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()),
-        'provisioned_at': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()),
-    }
+
+    # Initialize web_presence (merge with existing if resuming)
+    if resume_from_step is not None:
+        # Resuming from previous attempt: preserve existing data
+        web_presence = existing.copy()
+        web_presence['status'] = 'provisioning'  # Reset status while retrying
+        web_presence['provisioned_at'] = time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
+    else:
+        # First attempt: create new web_presence
+        web_presence = {
+            'domain': domain,
+            'dba_name': dba_name,
+            'legal_business_name': legal_business_name,  # For A2P DBA formatting
+            'agent_name': agent_name,
+            'email': agent_email,
+            'email_prefix': email_prefix,
+            'email_forward_to': forward_to,
+            'phone_display': phone_display,
+            'phone_raw': phone_raw,
+            'licensed_states': licensed_states,
+            'bio': bio,
+            'status': 'provisioning',
+            'disclaimer_accepted': True,
+            'disclaimer_accepted_at': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()),
+            'provisioned_at': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()),
+        }
+
+    # Save availability check for potential resume
+    web_presence['avail_check'] = avail_check
 
     try:
-        # Step 1: Register domain on Porkbun
-        contact = {
-            'first_name': first_name,
-            'last_name': last_name,
-            'email': subscriber_email,
-            'phone': phone_raw,  # Already validated and formatted as +1XXXXXXXXXX
-            'street': street,
-            'city': city,
-            'state': state,
-            'zip': zip_code,
-        }
-        reg_result = _porkbun_register(domain, contact)
-        if reg_result.get('status') != 'SUCCESS':
-            raise Exception(f"Domain registration failed: {reg_result.get('message', 'Unknown error')}")
-        provisioning_log.append('domain_registered')
-        logger.info(f"[Domain] Registered {domain} via Porkbun")
+        # Restore provisioning log from previous attempt if resuming
+        if resume_from_step is not None:
+            provisioning_log = existing.get('provisioning_log', [])
 
-        # Step 2: Add zone to Cloudflare
-        zone = _cf_create_zone(domain)
-        web_presence['cloudflare_zone_id'] = zone['zone_id']
-        provisioning_log.append('zone_created')
+        # Step 1: Register domain on Porkbun (SKIP if already registered)
+        if 'domain_registered' not in provisioning_log:
+            contact = {
+                'first_name': first_name,
+                'last_name': last_name,
+                'email': subscriber_email,
+                'phone': phone_raw,  # Already validated and formatted as +1XXXXXXXXXX
+                'street': street,
+                'city': city,
+                'state': state,
+                'zip': zip_code,
+            }
+            reg_result = _porkbun_register(domain, contact, price_usd=avail_check.get('price'))
+            if reg_result.get('status') != 'SUCCESS':
+                raise Exception(f"Domain registration failed: {reg_result.get('message', 'Unknown error')}")
+            provisioning_log.append('domain_registered')
+            logger.info(f"[Domain] Registered {domain} via Porkbun")
+        else:
+            logger.info(f"[Domain] Skipping registration for {domain} (already registered in previous attempt)")
+
+        # Step 2: Add zone to Cloudflare (SKIP if already created)
+        if 'zone_created' not in provisioning_log:
+            zone = _cf_create_zone(domain)
+            web_presence['cloudflare_zone_id'] = zone['zone_id']
+            web_presence['cloudflare_nameservers'] = zone.get('nameservers', [])
+            provisioning_log.append('zone_created')
+        else:
+            logger.info(f"[Domain] Skipping zone creation for {domain} (already created)")
+            # Restore zone ID from previous attempt
+            zone = {
+                'zone_id': web_presence.get('cloudflare_zone_id'),
+                'nameservers': web_presence.get('cloudflare_nameservers', [])
+            }
+            if not zone['zone_id']:
+                raise Exception(f"Zone ID not found for {domain} in previous attempt")
 
         # Step 3: Update nameservers (raises on failure)
         if zone.get('nameservers'):
@@ -838,6 +917,21 @@ def domain_checkout():
             f'verification email from Cloudflare and click the link to activate forwarding.'
         )
     return jsonify(response)
+
+
+def _resume_from_failed_step(existing_presence, failed_step_index):
+    """Helper to determine which provisioning step to resume from.
+
+    Args:
+        existing_presence: dict with 'provisioning_log' of completed steps
+        failed_step_index: index of the step that will be retried
+
+    Returns:
+        step_to_resume_from: integer index (0-based)
+    """
+    log = existing_presence.get('provisioning_log', [])
+    # Resume from the step that failed (retry it)
+    return failed_step_index
 
 
 def _save_web_presence(location_id, web_presence):
