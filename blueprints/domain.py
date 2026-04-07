@@ -16,6 +16,7 @@ import os
 import re
 import time
 import requests
+from functools import wraps
 
 from flask import Blueprint, request, jsonify
 from flask_login import current_user, login_required
@@ -37,6 +38,57 @@ CRON_SECRET = os.getenv('CRON_SECRET', '')  # Used to authenticate auto-reply en
 
 PORKBUN_API_BASE = 'https://api-ipv4.porkbun.com/api/json/v3'
 CLOUDFLARE_API_BASE = 'https://api.cloudflare.com/client/v4'
+
+# Cloudflare Worker IP for landing page routing (your deployed worker endpoint)
+CLOUDFLARE_WORKER_IP = os.getenv('CLOUDFLARE_WORKER_IP', '192.0.2.1')  # NOTE: TEST-NET placeholder — set to actual IP
+
+
+# ═══════════════════════════════════════════════════════════════
+# RETRY LOGIC (exponential backoff for transient failures)
+# ═══════════════════════════════════════════════════════════════
+
+def _retry_with_backoff(max_attempts=3, backoff_base=2):
+    """Decorator for transient error retry with exponential backoff."""
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            last_error = None
+            for attempt in range(1, max_attempts + 1):
+                try:
+                    return func(*args, **kwargs)
+                except Exception as e:
+                    last_error = e
+                    if attempt < max_attempts:
+                        wait_time = backoff_base ** (attempt - 1)
+                        logger.warning(f"[Domain] {func.__name__} attempt {attempt} failed: {e}. Retrying in {wait_time}s...")
+                        time.sleep(wait_time)
+                    else:
+                        logger.error(f"[Domain] {func.__name__} failed after {max_attempts} attempts: {e}")
+            raise last_error
+        return wrapper
+    return decorator
+
+
+# ═══════════════════════════════════════════════════════════════
+# VALIDATION HELPERS
+# ═══════════════════════════════════════════════════════════════
+
+def _validate_phone(phone_display):
+    """Validate phone number has at least 10 digits (US format). Returns normalized or raises."""
+    if not phone_display:
+        raise ValueError("Phone number required")
+    phone_raw = re.sub(r'[^\d+]', '', phone_display)
+    # Strip leading + if present, check digit count
+    digits_only = re.sub(r'[^\d]', '', phone_raw)
+    if len(digits_only) < 10:
+        raise ValueError(f"Phone number must be at least 10 digits (got {len(digits_only)})")
+    # Return in +1XXXXXXXXXX format if US
+    if len(digits_only) == 10:
+        return f'+1{digits_only}'
+    elif len(digits_only) == 11 and digits_only[0] == '1':
+        return f'+{digits_only}'
+    else:
+        return f'+{digits_only}'
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -126,8 +178,11 @@ def _porkbun_register(domain, contact_info):
     return _porkbun_post('/domain/register', data)
 
 
+@_retry_with_backoff(max_attempts=4, backoff_base=3)
 def _porkbun_set_nameservers(domain, nameservers):
-    """Update nameservers for a domain on Porkbun. Returns True on success."""
+    """Update nameservers for a domain on Porkbun. Returns True on success.
+    Retries up to 4 times with exponential backoff (3s, 9s, 27s) for activation timing.
+    """
     result = _porkbun_post('/domain/updateNs', {'domain': domain, 'ns': nameservers})
     if result.get('status') != 'SUCCESS':
         raise Exception(f"Nameserver update failed: {result.get('message', 'Unknown error')}")
@@ -212,11 +267,14 @@ def _cf_add_dns_record(zone_id, record_type, name, content, priority=None, proxi
 def _cf_setup_dns(zone_id, domain, mailgun_dkim_records=None):
     """Configure all DNS records. Raises on critical failures (A record, MX)."""
     # A record — critical (landing page won't work without this)
-    if not _cf_add_dns_record(zone_id, 'A', '@', '192.0.2.1', proxied=True):
+    # Points to Cloudflare Worker for handling landing page
+    if not _cf_add_dns_record(zone_id, 'A', '@', CLOUDFLARE_WORKER_IP, proxied=True):
         raise Exception("Failed to create A record — landing page will not be reachable")
 
-    # CNAME www — non-critical
-    _cf_add_dns_record(zone_id, 'CNAME', 'www', domain, proxied=True)
+    # A record for www (same Worker, proxied)
+    # Using A record instead of CNAME to avoid CNAME chain issues
+    if not _cf_add_dns_record(zone_id, 'A', 'www', CLOUDFLARE_WORKER_IP, proxied=True):
+        logger.warning("[Domain] www A record failed — www subdomain may not work")
 
     # MX records — critical (email won't work without these)
     mx_ok = all([
@@ -315,6 +373,7 @@ def _cf_setup_worker_route(zone_id, domain):
     """Create Worker Route. Raises on failure since landing page depends on it."""
     worker_name = os.getenv('CLOUDFLARE_WORKER_NAME', 'omnisconn-agent-pages')
     try:
+        # Root domain route
         resp = requests.post(
             f'{CLOUDFLARE_API_BASE}/zones/{zone_id}/workers/routes',
             headers=_cf_headers(),
@@ -328,13 +387,20 @@ def _cf_setup_worker_route(zone_id, domain):
             if not any(e.get('code') == 10020 for e in errors):
                 raise Exception(f"Worker route failed: {errors}")
 
-        # www subdomain too
-        requests.post(
+        # www subdomain route (with error checking)
+        resp_www = requests.post(
             f'{CLOUDFLARE_API_BASE}/zones/{zone_id}/workers/routes',
             headers=_cf_headers(),
             json={'pattern': f'www.{domain}/*', 'script': worker_name},
             timeout=30,
         )
+        result_www = resp_www.json()
+        if not result_www.get('success'):
+            errors_www = result_www.get('errors', [])
+            # 10020 = route already exists — ok
+            if not any(e.get('code') == 10020 for e in errors_www):
+                logger.error(f"[Domain] www Worker route failed: {errors_www}")
+                # Non-critical but log it
     except Exception as e:
         logger.error(f"[Domain] Worker route setup failed: {e}")
         raise
@@ -540,9 +606,9 @@ def domain_checkout():
     forward_to = (data.get('forward_to') or current_user.email or '').strip()
     bio = (data.get('bio') or '').strip()
     phone_display = (data.get('phone_display') or '').strip()
-    phone_raw = re.sub(r'[^+\d]', '', phone_display)
     licensed_states = data.get('licensed_states', [])
     disclaimer_accepted = data.get('disclaimer_accepted', False)
+    promo_code = (data.get('promo_code') or '').strip()
 
     # ── Validation ──
     if not domain or not domain.endswith('.com'):
@@ -555,6 +621,12 @@ def domain_checkout():
         return jsonify({'error': 'A forwarding email address is required'}), 400
     if not phone_display:
         return jsonify({'error': 'A display phone number is required'}), 400
+
+    # Phone validation BEFORE proceeding
+    try:
+        phone_raw = _validate_phone(phone_display)
+    except ValueError as e:
+        return jsonify({'error': f'Invalid phone: {e}'}), 400
 
     # Require real address for ICANN compliance
     street = (data.get('street') or '').strip()
@@ -595,6 +667,25 @@ def domain_checkout():
     last_name = agent_name.split()[-1] if ' ' in agent_name else ''
     agent_email = f'{email_prefix}@{domain}'
 
+    # ── Validate promo code BEFORE provisioning (prevent free domains) ──
+    promo_code_id = None
+    if promo_code:
+        try:
+            promos = stripe.PromotionCode.list(code=promo_code, active=True, limit=1)
+            if not promos.data:
+                return jsonify({
+                    'status': 'promo_invalid',
+                    'error': f'Promo code "{promo_code}" is invalid or expired.'
+                }), 400
+            promo_code_id = promos.data[0].id
+            logger.info(f"[Domain] Validated promo code: {promo_code}")
+        except Exception as promo_err:
+            logger.error(f"[Domain] Promo code validation failed: {promo_err}")
+            return jsonify({
+                'status': 'promo_invalid',
+                'error': f'Could not validate promo code. Error: {promo_err}'
+            }), 400
+
     # ── Step 1: Check domain is STILL available (race condition guard) ──
     avail_check = _porkbun_check_available(domain)
     if not avail_check.get('available'):
@@ -625,7 +716,7 @@ def domain_checkout():
             'first_name': first_name,
             'last_name': last_name,
             'email': subscriber_email,
-            'phone': phone_raw if len(phone_raw) >= 10 else f'+1{phone_raw}',
+            'phone': phone_raw,  # Already validated and formatted as +1XXXXXXXXXX
             'street': street,
             'city': city,
             'state': state,
@@ -712,46 +803,11 @@ def domain_checkout():
                 'metadata': {'type': 'domain', 'domain': domain, 'location_id': location_id},
             }
 
-            # Resolve promotion code → coupon for discount
-            promo_code = (data.get('promo_code') or '').strip()
-            if promo_code:
-                try:
-                    promos = stripe.PromotionCode.list(code=promo_code, active=True, limit=1)
-                    if promos.data:
-                        sub_kwargs['promotion_code'] = promos.data[0].id
-                        web_presence['promo_code_applied'] = promo_code
-                        logger.info(f"[Domain] Applied promo code '{promo_code}' → {promos.data[0].id}")
-                    else:
-                        # Invalid code — do NOT charge full price silently.
-                        # Domain is provisioned but billing deferred until valid code.
-                        web_presence['promo_code_error'] = f'Invalid or expired code: {promo_code}'
-                        web_presence['status'] = 'active'
-                        web_presence['billing_note'] = 'Promo code invalid — billing deferred'
-                        web_presence['provisioning_log'] = provisioning_log
-                        _save_web_presence(location_id, web_presence)
-                        logger.warning(f"[Domain] Promo code not found: {promo_code} — billing skipped")
-                        return jsonify({
-                            'status': 'promo_invalid',
-                            'error': f'Promo code "{promo_code}" is invalid or expired. Your domain is live but you were not charged. Fix the code and try again.',
-                            'domain': domain,
-                            'email': agent_email,
-                            'website': f'https://{domain}',
-                        }), 400
-                except Exception as promo_err:
-                    logger.warning(f"[Domain] Promo code lookup failed: {promo_err}")
-                    web_presence['promo_code_error'] = str(promo_err)
-                    # Lookup failure — still don't charge without the discount
-                    web_presence['status'] = 'active'
-                    web_presence['billing_note'] = 'Promo code lookup failed — billing deferred'
-                    web_presence['provisioning_log'] = provisioning_log
-                    _save_web_presence(location_id, web_presence)
-                    return jsonify({
-                        'status': 'promo_invalid',
-                        'error': 'Could not validate your promo code. Your domain is live but you were not charged. Try again or remove the code.',
-                        'domain': domain,
-                        'email': agent_email,
-                        'website': f'https://{domain}',
-                    }), 400
+            # Promo code was already validated BEFORE provisioning
+            if promo_code_id:
+                sub_kwargs['promotion_code'] = promo_code_id
+                web_presence['promo_code_applied'] = promo_code
+                logger.info(f"[Domain] Applied promo code: {promo_code}")
 
             subscription = stripe.Subscription.create(**sub_kwargs)
             web_presence['stripe_subscription_id'] = subscription.id
