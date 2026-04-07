@@ -39,8 +39,8 @@ CRON_SECRET = os.getenv('CRON_SECRET', '')  # Used to authenticate auto-reply en
 PORKBUN_API_BASE = 'https://api-ipv4.porkbun.com/api/json/v3'
 CLOUDFLARE_API_BASE = 'https://api.cloudflare.com/client/v4'
 
-# Cloudflare Worker IP for landing page routing (your deployed worker endpoint)
-CLOUDFLARE_WORKER_IP = os.getenv('CLOUDFLARE_WORKER_IP', '192.0.2.1')  # NOTE: TEST-NET placeholder — set to actual IP
+# For Cloudflare Workers: A record and routing are auto-managed by Cloudflare.
+# No static IP needed. Worker routes handle traffic routing.
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -265,16 +265,11 @@ def _cf_add_dns_record(zone_id, record_type, name, content, priority=None, proxi
 
 
 def _cf_setup_dns(zone_id, domain, mailgun_dkim_records=None):
-    """Configure all DNS records. Raises on critical failures (A record, MX)."""
-    # A record — critical (landing page won't work without this)
-    # Points to Cloudflare Worker for handling landing page
-    if not _cf_add_dns_record(zone_id, 'A', '@', CLOUDFLARE_WORKER_IP, proxied=True):
-        raise Exception("Failed to create A record — landing page will not be reachable")
-
-    # A record for www (same Worker, proxied)
-    # Using A record instead of CNAME to avoid CNAME chain issues
-    if not _cf_add_dns_record(zone_id, 'A', 'www', CLOUDFLARE_WORKER_IP, proxied=True):
-        logger.warning("[Domain] www A record failed — www subdomain may not work")
+    """Configure DNS records. A records are auto-managed by Cloudflare for full zones.
+    Worker routes (created separately) handle landing page routing."""
+    # For Cloudflare Workers: no explicit A record needed — Cloudflare's full zone setup
+    # automatically assigns nameservers and anycast IPs. Worker routes (created in
+    # _cf_setup_worker_route) handle the actual traffic routing to the worker.
 
     # MX records — critical (email won't work without these)
     mx_ok = all([
