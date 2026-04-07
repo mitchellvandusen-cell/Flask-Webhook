@@ -179,11 +179,14 @@ def _porkbun_register(domain, contact_info, price_usd=None):
         check = _porkbun_check_available(domain)
         price_usd = check.get('price', '11.08')
 
-    # Porkbun expects cost as dollar string (e.g. "11.08"), NOT pennies
-    cost_str = str(price_usd)
+    # Porkbun expects cost as integer string in pennies (e.g. "1108" for $11.08)
+    try:
+        cost_pennies = str(int(round(float(price_usd) * 100)))
+    except (ValueError, TypeError):
+        cost_pennies = '1108'
 
     data = {
-        'cost': cost_str,
+        'cost': cost_pennies,
         'agreeToTerms': 'yes',
         'years': 1,
         'autoRenew': True,
