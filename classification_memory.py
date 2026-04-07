@@ -184,28 +184,8 @@ def _ensure_table():
     try:
         cur = conn.cursor()
 
-        cur.execute("""
-            CREATE TABLE IF NOT EXISTS learned_classifications (
-                id SERIAL PRIMARY KEY,
-                message_hash TEXT NOT NULL,
-                message_text TEXT NOT NULL,
-                embedding JSONB,
-                objection_type TEXT NOT NULL,
-                objection_nature TEXT,
-                stage TEXT,
-                confidence FLOAT DEFAULT 0.7,
-                location_id TEXT,
-                source TEXT DEFAULT 'llm',
-                confirmation_count INT DEFAULT 0,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-        """)
-
-        # Add context_text column (idempotent — safe to run on existing DBs)
-        cur.execute("ALTER TABLE learned_classifications ADD COLUMN IF NOT EXISTS context_text TEXT")
-
-        # Indexes
+        # Table and schema owned by migrations/versions/005_learned_classifications.py
+        # Only create indexes (idempotent, safe)
         cur.execute("CREATE INDEX IF NOT EXISTS idx_lc_hash ON learned_classifications (message_hash)")
         cur.execute("CREATE INDEX IF NOT EXISTS idx_lc_confidence ON learned_classifications (confidence)")
         cur.execute("CREATE INDEX IF NOT EXISTS idx_lc_type ON learned_classifications (objection_type)")

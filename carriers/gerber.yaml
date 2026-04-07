@@ -1,0 +1,80 @@
+# Gerber Life Guaranteed Life (Final Expense)
+# Source: Gerber Life Agent Portal & Rate Card (Data verified: Apr 2026)
+# Pure GI product - accepts everyone ages 50-80. 2-year waiting period.
+
+carrier_key: gerber
+carrier_name: Gerber Life
+source_document: Gerber Life Guaranteed Life Underwriting Guide
+
+products:
+  final_expense:
+    age_min: 50
+    age_max: 80
+    face_amount_min: 5000
+    face_amount_max: 25000
+    rules:
+      # GI PRODUCT - ALL CONDITIONS ACCEPTED
+      # We route all conditions to Guaranteed Issue automatically
+      
+      - condition: type_2_diabetes
+        criteria: {}
+        outcome: guaranteed_issue
+        detail: "GI Product - Accepts all risks, 2-year waiting period"
+        waiting_period: 24
+        priority: 1
+
+      - condition: copd
+        criteria: {}
+        outcome: guaranteed_issue
+        detail: "GI Product - Accepts all risks, 2-year waiting period"
+        waiting_period: 24
+        priority: 1
+
+      - condition: heart_attack
+        criteria: {}
+        outcome: guaranteed_issue
+        detail: "GI Product - Accepts all risks, 2-year waiting period"
+        waiting_period: 24
+        priority: 1
+
+      - condition: congestive_heart_failure
+        criteria: {}
+        outcome: guaranteed_issue
+        detail: "GI Product - Accepts all risks, 2-year waiting period"
+        waiting_period: 24
+        priority: 1
+
+      - condition: cancer_general
+        criteria: {}
+        outcome: guaranteed_issue
+        detail: "GI Product - Accepts all risks, 2-year waiting period"
+        waiting_period: 24
+        priority: 1
+
+      - condition: stroke_tia
+        criteria: {}
+        outcome: guaranteed_issue
+        detail: "GI Product - Accepts all risks, 2-year waiting period"
+        waiting_period: 24
+        priority: 1
+
+      - condition: alzheimers_dementia
+        criteria: {}
+        outcome: guaranteed_issue
+        detail: "GI Product - Accepts all risks, 2-year waiting period"
+        waiting_period: 24
+        priority: 1
+
+      - condition: hiv_aids
+        criteria: {}
+        outcome: guaranteed_issue
+        detail: "GI Product - Accepts all risks, 2-year waiting period"
+        waiting_period: 24
+        priority: 1
+        
+      - condition: adl_limitations
+        criteria: {}
+        outcome: guaranteed_issue
+        detail: "GI Product - Accepts all risks, 2-year waiting period"
+        waiting_period: 24
+        priority: 1

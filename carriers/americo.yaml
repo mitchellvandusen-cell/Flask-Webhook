@@ -1,0 +1,222 @@
+# Americo Eagle Premier Series (Final Expense)
+# Source: Americo Eagle Premier TeleApplication Worksheet & Agent Guide (Data verified: Apr 2026)
+# Pure Accept/Reject Product based on exact health questions.
+
+carrier_key: americo
+carrier_name: Americo
+source_document: Americo Eagle Premier Agent Guide & TeleApplication Worksheet
+
+products:
+  final_expense:
+    age_min: 50
+    age_max: 85
+    face_amount_min: 2000
+    face_amount_max: 30000
+    rules:
+      # =========================================================================
+      # DECLINE QUESTIONS (Part 1 - "Accept/Reject")
+      # Any "Yes" answer to Q1-Q8 or Q12 results in a DECLINE.
+      # =========================================================================
+
+      # Q1: HIV/AIDS
+      - condition: hiv_aids
+        criteria: {diagnosed: "yes"}
+        outcome: decline
+        detail: "Q1: Ever diagnosed or treated for AIDS or HIV? - decline"
+        source_page: "Health Question 1"
+        priority: 25
+
+      # Q2: Nursing Home / Bedridden / Terminal
+      - condition: adl_limitations
+        criteria: {nursing_facility: "yes"}
+        outcome: decline
+        detail: "Q2: Bedridden, confined to hospital/nursing home, or require assistance with ADLs? - decline"
+        source_page: "Health Question 2"
+        priority: 25
+        
+      - condition: adl_limitations
+        criteria: {adl_assistance: "yes"}
+        outcome: decline
+        detail: "Q2: Require assistance with ADLs? - decline"
+        source_page: "Health Question 2"
+        priority: 25
+
+      - condition: terminal_illness
+        criteria: {diagnosed: "yes"}
+        outcome: decline
+        detail: "Q2: Advised you have a terminal illness? - decline"
+        source_page: "Health Question 2"
+        priority: 25
+
+      # Q3: Oxygen
+      - condition: copd
+        criteria: {oxygen: "yes"}
+        outcome: decline
+        detail: "Q3: Do you currently use oxygen to assist in breathing? - decline"
+        source_page: "Health Question 3"
+        priority: 25
+
+      # Q4: Organ Transplant / Dialysis / Alzheimer's / Dementia / ALS / Heart Failure
+      - condition: organ_transplant
+        criteria: {transplant: "yes"}
+        outcome: decline
+        detail: "Q4: Ever received or been advised to have an organ transplant? - decline"
+        source_page: "Health Question 4"
+        priority: 25
+
+      - condition: chronic_kidney_disease
+        criteria: {dialysis: "yes"}
+        outcome: decline
+        detail: "Q4: Kidney failure or dialysis? - decline"
+        source_page: "Health Question 4"
+        priority: 25
+
+      - condition: alzheimers_dementia
+        criteria: {diagnosed: "yes"}
+        outcome: decline
+        detail: "Q4: Alzheimer's, Dementia, or memory loss? - decline"
+        source_page: "Health Question 4"
+        priority: 25
+
+      - condition: als
+        criteria: {diagnosed: "yes"}
+        outcome: decline
+        detail: "Q4: Amyotrophic Lateral Sclerosis (ALS/Lou Gehrig's)? - decline"
+        source_page: "Health Question 4"
+        priority: 25
+
+      - condition: congestive_heart_failure
+        criteria: {diagnosed: "yes"}
+        outcome: decline
+        detail: "Q4: Congestive Heart Failure (CHF)? - decline"
+        source_page: "Health Question 4"
+        priority: 25
+
+      # Q5: Cancer / Heart Attack / Stroke within 12 months
+      - condition: cancer_general
+        criteria: {time_since: within_12mo}
+        outcome: decline
+        detail: "Q5: Within past 12 months, treated for Cancer, Melanoma, or Leukemia? - decline"
+        source_page: "Health Question 5"
+        priority: 25
+
+      - condition: heart_attack
+        criteria: {time_since: within_12mo}
+        outcome: decline
+        detail: "Q5: Within past 12 months, treated for Heart Attack or Stroke? - decline"
+        source_page: "Health Question 5"
+        priority: 25
+        
+      - condition: stroke_tia
+        criteria: {time_since: within_12mo}
+        outcome: decline
+        detail: "Q5: Within past 12 months, treated for Stroke? - decline"
+        source_page: "Health Question 5"
+        priority: 25
+
+      - condition: coronary_artery_disease
+        criteria: {time_since: within_12mo}
+        outcome: decline
+        detail: "Q5: Within past 12 months, had heart surgery, bypass, angioplasty, or stent? - decline"
+        source_page: "Health Question 5"
+        priority: 25
+
+      # Q6: Angina / Aneurysm / Cardiomyopathy / Defibrillator / Valve replacement within 24 months
+      - condition: angina
+        criteria: {time_since: within_2yr}
+        outcome: decline
+        detail: "Q6: Within past 2 years, treated for Angina (chest pain)? - decline"
+        source_page: "Health Question 6"
+        priority: 25
+
+      - condition: aneurysm
+        criteria: {time_since: within_2yr}
+        outcome: decline
+        detail: "Q6: Within past 2 years, treated for Aneurysm? - decline"
+        source_page: "Health Question 6"
+        priority: 25
+
+      - condition: cardiomyopathy
+        criteria: {time_since: within_2yr}
+        outcome: decline
+        detail: "Q6: Within past 2 years, treated for Cardiomyopathy? - decline"
+        source_page: "Health Question 6"
+        priority: 25
+
+      - condition: pacemaker_defibrillator
+        criteria: {device: defibrillator, time_since: within_2yr}
+        outcome: decline
+        detail: "Q6: Within past 2 years, treated for Defibrillator implant? - decline"
+        source_page: "Health Question 6"
+        priority: 25
+
+      - condition: heart_valve_disease
+        criteria: {time_since: within_2yr}
+        outcome: decline
+        detail: "Q6: Within past 2 years, treated for Heart Valve Replacement? - decline"
+        source_page: "Health Question 6"
+        priority: 25
+
+      # Q7: Lung disease / Emphysema / COPD / Liver disease within 24 months
+      - condition: copd
+        criteria: {time_since: within_2yr}
+        outcome: decline
+        detail: "Q7: Within past 2 years, treated for Emphysema, COPD, or chronic lung disease? - decline"
+        source_page: "Health Question 7"
+        priority: 25
+        
+      - condition: cirrhosis
+        criteria: {time_since: within_2yr}
+        outcome: decline
+        detail: "Q7: Within past 2 years, treated for Cirrhosis or chronic liver disease? - decline"
+        source_page: "Health Question 7"
+        priority: 25
+
+      # Q8: Diabetes complications / Insulin before age 50 within 24 months
+      - condition: type_2_diabetes
+        criteria: {complications: "yes", time_since: within_2yr}
+        outcome: decline
+        detail: "Q8: Within past 2 years, diabetes with complications (eye/kidney/nerve/coma/amputation)? - decline"
+        source_page: "Health Question 8"
+        priority: 25
+
+      - condition: type_2_diabetes
+        criteria: {insulin: "yes", diagnosis_age: before_50, time_since: within_2yr}
+        outcome: decline
+        detail: "Q8: Within past 2 years, used insulin for diabetes diagnosed before age 50? - decline"
+        source_page: "Health Question 8"
+        priority: 25
+
+      # Q12: Pending tests
+      - condition: pending_tests
+        criteria: {status: pending}
+        outcome: decline
+        detail: "Q12: Advised to have tests, surgery, or hospitalization that has not been completed? - decline"
+        source_page: "Health Question 12"
+        priority: 25
+
+      # =========================================================================
+      # LEVEL (Accept) - Standard Rates
+      # =========================================================================
+
+      # If none of the decline conditions are met, the client is approved.
+      - condition: type_2_diabetes
+        criteria: {diagnosis_age: after_50, complications: "no"}
+        outcome: level
+        detail: "Diabetes diagnosed after 50 without complications > 2 years ago"
+        source_page: "Accept/Reject Logic"
+        priority: 10
+
+      - condition: heart_attack
+        criteria: {time_since: 2_plus_years}
+        outcome: level
+        detail: "Heart attack > 12 months ago"
+        source_page: "Accept/Reject Logic"
+        priority: 10
+
+      - condition: cancer_general
+        criteria: {time_since: 2_plus_years}
+        outcome: level
+        detail: "Cancer > 12 months ago"
+        source_page: "Accept/Reject Logic"
+        priority: 10

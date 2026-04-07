@@ -146,9 +146,9 @@ async def handle_voice_stream(ws):
     Core WebSocket handler: bridges Twilio Media Streams <-> XAI Realtime API.
     Called by flask-sock for each new Twilio stream connection.
 
-    Audio flow — mulaw 8kHz (Twilio) <-> PCM16 16kHz (xAI) with transcoding:
-        Lead speaks  -> Twilio (mulaw 8kHz base64) -> transcode -> xAI (PCM16 16kHz)
-        xAI responds -> (PCM16 16kHz base64 delta)  -> transcode -> Twilio (mulaw 8kHz)
+    Audio flow — mulaw 8kHz (Twilio) <-> PCM16 24kHz (xAI) with transcoding:
+        Lead speaks  -> Twilio (mulaw 8kHz base64) -> pass-through -> xAI (mulaw 8kHz native)
+        xAI responds -> (PCM 24kHz base64 delta)  -> DSP chain -> soxr downsample -> Twilio (mulaw 8kHz)
 
     ws: the Twilio-side WebSocket (flask-sock)
     """

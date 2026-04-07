@@ -196,6 +196,25 @@ from db.analytics import (
 )
 
 # ═══════════════════════════════════════════════════════════════
+# QUOTING ENGINE
+# ═══════════════════════════════════════════════════════════════
+from db.quoting import (
+    search_conditions,
+    get_all_conditions,
+    get_condition_questions,
+    search_medications,
+    get_drug_conditions,
+    evaluate_underwriting,
+    get_rate,
+    get_available_face_amounts,
+    calculate_bmi,
+    get_carrier_products,
+    get_quotes,
+    get_quotes_by_premium,
+    get_carrier_detail,
+)
+
+# ═══════════════════════════════════════════════════════════════
 # PUBLIC API — every name importable from `db`
 # ═══════════════════════════════════════════════════════════════
 __all__ = [
@@ -254,4 +273,10 @@ __all__ = [
     # Analytics
     "log_conversion_event", "get_conversion_stats", "get_conversion_events",
     "get_conversion_stats_multi",
+    # Quoting
+    "search_conditions", "get_all_conditions", "get_condition_questions",
+    "search_medications", "get_drug_conditions", "evaluate_underwriting",
+    "get_rate", "get_available_face_amounts", "calculate_bmi",
+    "get_carrier_products", "get_quotes", "get_quotes_by_premium",
+    "get_carrier_detail",
 ]

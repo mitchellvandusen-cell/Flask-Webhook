@@ -1,0 +1,608 @@
+/* static/css/dashboard/quote.css — Life insurance quoting engine styles
+ *
+ * iPhone-style UI with dark/light theme support.
+ * Follows brand discipline: solid backgrounds, var(--accent), no glassmorphism.
+ */
+
+/* ── LAYOUT ───────────────────────────────────────────────────────────────── */
+.qt-section {
+    margin-bottom: 10px;
+}
+.qt-columns {
+    display: flex;
+    gap: 10px;
+}
+.qt-col {
+    flex: 1;
+    min-width: 0;
+}
+.qt-row {
+    margin-bottom: 8px;
+}
+.qt-row:last-child {
+    margin-bottom: 0;
+}
+.qt-toggle-group {
+    display: flex;
+    gap: 4px;
+}
+.qt-search-wrap {
+    position: relative;
+}
+.qt-results-table-wrap {
+    overflow-x: auto;
+}
+.qt-full {
+    width: 100%;
+}
+.qt-sm {
+    max-width: 100px;
+}
+
+/* ── BASE STYLES ───────────────────────────────────────────────────────────── */
+.qt-card {
+    background: #0a0a0a;
+    border: 1px solid #1a1a1a;
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 12px;
+}
+.qt-card-title {
+    color: var(--accent);
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.qt-card-title i {
+    color: var(--accent);
+}
+
+/* ── FORM ELEMENTS ─────────────────────────────────────────────────────────── */
+.qt-input {
+    background: #0a0a0a;
+    border: 1px solid #333;
+    border-radius: 8px;
+    padding: 8px 12px;
+    color: #fff;
+    font-size: 0.9rem;
+    width: 100%;
+    box-sizing: border-box;
+}
+.qt-input:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px rgba(0, 255, 136, 0.15);
+}
+.qt-select {
+    background: #0a0a0a;
+    border: 1px solid #333;
+    border-radius: 8px;
+    padding: 8px 12px;
+    color: #fff;
+    font-size: 0.9rem;
+    width: 100%;
+    box-sizing: border-box;
+}
+.qt-select:focus {
+    outline: none;
+    border-color: var(--accent);
+}
+.qt-label {
+    display: block;
+    color: #ccc;
+    font-size: 0.8rem;
+    margin-bottom: 4px;
+    font-weight: 500;
+}
+
+/* ── TOGGLE BUTTONS ────────────────────────────────────────────────────────── */
+.qt-toggle {
+    background: #0a0a0a;
+    border: 1px solid #1e1e1e;
+    color: #ccc;
+    padding: 8px 16px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    transition: border-color 0.18s, color 0.18s;
+    flex: 1;
+}
+.qt-toggle:hover {
+    border-color: rgba(0, 255, 136, 0.35);
+    color: #fff;
+}
+.qt-toggle-active {
+    background: var(--accent);
+    color: #000;
+    border-color: var(--accent);
+    font-weight: 800;
+}
+
+/* ── AUTOCOMPLETE ──────────────────────────────────────────────────────────── */
+.qt-autocomplete {
+    background: #0a0a0a;
+    border: 1px solid #1a1a1a;
+    border-radius: 8px;
+    max-height: 200px;
+    overflow-y: auto;
+    position: absolute;
+    width: 100%;
+    z-index: 1000;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+    margin-top: 2px;
+}
+.qt-autocomplete-item {
+    padding: 10px 12px;
+    cursor: pointer;
+    border-bottom: 1px solid #1a1a1a;
+    color: #fff;
+}
+.qt-autocomplete-item:last-child {
+    border-bottom: none;
+}
+.qt-autocomplete-item:hover {
+    background: #1a1a1a;
+}
+.qt-autocomplete-sub {
+    font-size: 0.8rem;
+    color: #888;
+    margin-top: 2px;
+}
+
+/* ── MEDICATION PICKER ─────────────────────────────────────────────────────── */
+.qt-med-picker {
+    background: #0a0a0a;
+    border: 1px solid var(--accent);
+    border-radius: 8px;
+    padding: 12px;
+    position: absolute;
+    width: 100%;
+    z-index: 1001;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+    margin-top: 2px;
+}
+.qt-med-picker-title {
+    color: var(--accent);
+    font-weight: 600;
+    margin-bottom: 8px;
+}
+.qt-med-picker-btn {
+    background: #0a0a0a;
+    border: 1px solid #1e1e1e;
+    color: #ccc;
+    padding: 8px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    margin-right: 8px;
+    margin-bottom: 8px;
+    font-size: 0.85rem;
+    transition: border-color 0.18s, color 0.18s;
+}
+.qt-med-picker-btn:hover {
+    border-color: var(--accent);
+    color: #fff;
+}
+
+/* ── CONDITION CARDS ───────────────────────────────────────────────────────── */
+.qt-condition-card {
+    background: #0a0a0a;
+    border: 1px solid #1a1a1a;
+    border-radius: 8px;
+    padding: 12px;
+    margin-bottom: 8px;
+}
+.qt-condition-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+    color: var(--accent);
+    font-weight: 600;
+}
+.qt-close-btn {
+    background: none;
+    border: none;
+    color: #666;
+    font-size: 1.2rem;
+    cursor: pointer;
+    padding: 0;
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.qt-close-btn:hover {
+    color: #ccc;
+}
+.qt-q-row {
+    margin-bottom: 8px;
+}
+.qt-q-row:last-child {
+    margin-bottom: 0;
+}
+.qt-q-label {
+    display: block;
+    color: #ccc;
+    font-size: 0.8rem;
+    margin-bottom: 4px;
+    font-weight: 500;
+}
+.qt-checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: #ccc;
+    font-size: 0.85rem;
+    cursor: pointer;
+    margin-bottom: 4px;
+}
+.qt-checkbox-label input[type="checkbox"] {
+    margin: 0;
+}
+
+/* ── ACTION BUTTONS ────────────────────────────────────────────────────────── */
+.qt-run-btn {
+    background: var(--accent);
+    color: #000;
+    border: 1px solid var(--accent);
+    padding: 10px 20px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    font-weight: 800;
+    width: 100%;
+    margin-top: 12px;
+    transition: background 0.18s, border-color 0.18s;
+}
+.qt-run-btn:hover {
+    background: #00cc6a;
+    border-color: #00cc6a;
+}
+.qt-action-btn {
+    background: #0a0a0a;
+    border: 1px solid #1e1e1e;
+    color: #ccc;
+    padding: 8px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    transition: border-color 0.18s, color 0.18s;
+}
+.qt-action-btn:hover {
+    border-color: rgba(0, 255, 136, 0.35);
+    color: #fff;
+}
+.qt-action-btn:hover i {
+    color: var(--accent);
+}
+
+/* ── RESULTS TABLE ─────────────────────────────────────────────────────────── */
+.qt-results-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 12px;
+}
+.qt-results-table th {
+    background: var(--accent);
+    color: #000;
+    padding: 10px 8px;
+    text-align: left;
+    font-weight: 800;
+    font-size: 0.85rem;
+}
+.qt-results-table td {
+    padding: 10px 8px;
+    border-bottom: 1px solid #1a1a1a;
+    color: #fff;
+    font-size: 0.85rem;
+}
+.qt-results-table tr {
+    cursor: pointer;
+    transition: background 0.12s;
+}
+.qt-results-table tr:hover {
+    background: #1a1a1a;
+}
+.qt-results-summary {
+    color: #ccc;
+    font-size: 0.85rem;
+    margin-top: 8px;
+}
+
+/* ── BADGES (semantic colors allowed per brand rules) ─────────────────────── */
+.qt-badge {
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+.qt-badge-level {
+    background: rgba(0, 255, 136, 0.12);
+    color: var(--accent);
+}
+.qt-badge-graded {
+    background: rgba(245, 158, 11, 0.15);
+    color: #f59e0b;
+}
+.qt-badge-graded_modified {
+    background: rgba(245, 158, 11, 0.15);
+    color: #f59e0b;
+}
+.qt-badge-guaranteed_issue {
+    background: rgba(59, 130, 246, 0.15);
+    color: #3b82f6;
+}
+.qt-badge-decline {
+    background: rgba(239, 68, 68, 0.15);
+    color: #ef4444;
+}
+.qt-badge-postpone {
+    background: rgba(239, 68, 68, 0.15);
+    color: #ef4444;
+}
+
+/* ── DETAIL PANEL ──────────────────────────────────────────────────────────── */
+.qt-detail-panel {
+    background: #0a0a0a;
+    border: 1px solid #1a1a1a;
+    border-radius: 8px;
+    padding: 10px;
+    margin-top: 8px;
+}
+.qt-detail-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid #1a1a1a;
+}
+.qt-detail-row {
+    padding: 4px 0;
+    color: #ccc;
+    font-size: 0.85rem;
+}
+.qt-detail-btn {
+    background: none;
+    border: 1px solid #1e1e1e;
+    color: #888;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 0.65rem;
+    cursor: pointer;
+    transition: border-color 0.18s, color 0.18s;
+}
+.qt-detail-btn:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+}
+
+/* ── LOADING STATES ────────────────────────────────────────────────────────── */
+.qt-loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    color: #ccc;
+}
+.qt-loading i {
+    animation: qt-spin 1s linear infinite;
+    margin-right: 8px;
+}
+@keyframes qt-spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+/* ── FOCUS ACCESSIBILITY ───────────────────────────────────────────────────── */
+.qt-input:focus,
+.qt-select:focus,
+.qt-toggle:focus,
+.qt-autocomplete-item:focus,
+.qt-med-picker-btn:focus,
+.qt-run-btn:focus,
+.qt-action-btn:focus,
+.qt-detail-btn:focus {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+}
+
+/* ── RESPONSIVE ────────────────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+    .qt-columns {
+        flex-direction: column;
+    }
+    .qt-card {
+        padding: 12px;
+        margin-bottom: 8px;
+    }
+    .qt-input, .qt-select {
+        font-size: 16px; /* Prevent zoom on iOS */
+    }
+    .qt-results-table th,
+    .qt-results-table td {
+        padding: 8px 4px;
+        font-size: 0.8rem;
+    }
+    .qt-toggle {
+        padding: 6px 12px;
+        font-size: 0.85rem;
+    }
+}
+
+/* ── LIGHT THEME OVERRIDES ─────────────────────────────────────────────────── */
+body.light-theme .qt-card {
+    background: #ffffff;
+    border-color: #e5e7eb;
+}
+body.light-theme .qt-card-title {
+    color: #059669;
+}
+body.light-theme .qt-card-title i {
+    color: #059669;
+}
+body.light-theme .qt-input {
+    background: #ffffff;
+    border-color: #d1d5db;
+    color: #111;
+}
+body.light-theme .qt-input:focus {
+    border-color: #059669;
+    box-shadow: 0 0 0 2px rgba(5, 150, 105, 0.15);
+}
+body.light-theme .qt-select {
+    background: #ffffff;
+    border-color: #d1d5db;
+    color: #111;
+}
+body.light-theme .qt-select:focus {
+    border-color: #059669;
+}
+body.light-theme .qt-label {
+    color: #6b7280;
+}
+body.light-theme .qt-toggle {
+    background: #ffffff;
+    border-color: #e5e7eb;
+    color: #6b7280;
+}
+body.light-theme .qt-toggle:hover {
+    border-color: rgba(5, 150, 105, 0.35);
+    color: #111827;
+}
+body.light-theme .qt-toggle-active {
+    background: #059669;
+    color: #ffffff;
+    border-color: #059669;
+}
+body.light-theme .qt-autocomplete {
+    background: #ffffff;
+    border-color: #e5e7eb;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+body.light-theme .qt-autocomplete-item {
+    color: #374151;
+    border-color: #f3f4f6;
+}
+body.light-theme .qt-autocomplete-item:hover {
+    background: #f3f4f6;
+    color: #111;
+}
+body.light-theme .qt-autocomplete-sub {
+    color: #9ca3af;
+}
+body.light-theme .qt-med-picker {
+    background: #ffffff;
+    border-color: #059669;
+}
+body.light-theme .qt-med-picker-title {
+    color: #059669;
+}
+body.light-theme .qt-med-picker-btn {
+    background: #ffffff;
+    border-color: #e5e7eb;
+    color: #374151;
+}
+body.light-theme .qt-med-picker-btn:hover {
+    border-color: #059669;
+}
+body.light-theme .qt-condition-card {
+    background: #ffffff;
+    border-color: #e5e7eb;
+}
+body.light-theme .qt-condition-header {
+    color: #059669;
+}
+body.light-theme .qt-close-btn {
+    color: #9ca3af;
+}
+body.light-theme .qt-run-btn {
+    background: #059669;
+    color: #ffffff;
+    border-color: #059669;
+}
+body.light-theme .qt-run-btn:hover {
+    background: #047857;
+    border-color: #047857;
+}
+body.light-theme .qt-action-btn {
+    background: #ffffff;
+    border-color: #e5e7eb;
+    color: #6b7280;
+}
+body.light-theme .qt-action-btn:hover {
+    border-color: rgba(5, 150, 105, 0.4);
+    color: #111827;
+}
+body.light-theme .qt-results-table th {
+    background: #059669;
+    color: #ffffff;
+}
+body.light-theme .qt-results-table td {
+    color: #374151;
+    border-color: #f3f4f6;
+}
+body.light-theme .qt-results-table tr:hover {
+    background: #f9fafb;
+}
+body.light-theme .qt-results-summary {
+    color: #6b7280;
+}
+body.light-theme .qt-detail-panel {
+    background: #ffffff;
+    border-color: #e5e7eb;
+}
+body.light-theme .qt-detail-header {
+    border-color: #f3f4f6;
+}
+body.light-theme .qt-detail-row {
+    color: #374151;
+}
+body.light-theme .qt-detail-btn {
+    border-color: #e5e7eb;
+    color: #6b7280;
+}
+body.light-theme .qt-detail-btn:hover {
+    border-color: #059669;
+    color: #059669;
+}
+body.light-theme .qt-badge-level {
+    background: rgba(5, 150, 105, 0.1);
+    color: #059669;
+}
+body.light-theme .qt-badge-graded {
+    background: rgba(217, 119, 6, 0.1);
+    color: #d97706;
+}
+body.light-theme .qt-badge-graded_modified {
+    background: rgba(217, 119, 6, 0.1);
+    color: #d97706;
+}
+body.light-theme .qt-badge-guaranteed_issue {
+    background: rgba(37, 99, 235, 0.1);
+    color: #2563eb;
+}
+body.light-theme .qt-badge-decline {
+    background: rgba(220, 38, 38, 0.1);
+    color: #dc2626;
+}
+body.light-theme .qt-badge-postpone {
+    background: rgba(220, 38, 38, 0.1);
+    color: #dc2626;
+}
+body.light-theme .qt-loading {
+    color: #6b7280;
+}
+body.light-theme .qt-input:focus,
+body.light-theme .qt-select:focus,
+body.light-theme .qt-toggle:focus,
+body.light-theme .qt-run-btn:focus,
+body.light-theme .qt-action-btn:focus,
+body.light-theme .qt-detail-btn:focus {
+    outline-color: #059669;
+}

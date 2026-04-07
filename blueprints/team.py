@@ -7,14 +7,14 @@
 
 import json
 import os
-import secrets
 import logging
 from datetime import datetime, timedelta
 from functools import wraps
 
 import stripe
-from flask import Blueprint, request, jsonify, render_template, redirect, url_for, flash
+from flask import Blueprint, request, jsonify, render_template, redirect, url_for, flash, current_app
 from flask_login import login_required, current_user
+from itsdangerous import URLSafeTimedSerializer
 from psycopg2.extras import RealDictCursor
 from werkzeug.security import generate_password_hash
 
@@ -353,18 +353,26 @@ def invite_member():
         if cur.fetchone():
             return jsonify({"error": "This email is already a seat user"}), 409
 
-        invite_token = secrets.token_urlsafe(32)
         permissions = ROLE_DEFAULTS.get(role, DEFAULT_PERMISSIONS)
 
         cur.execute("""
             INSERT INTO location_users (location_id, email, full_name, ghl_user_id,
-                                         role, permissions, invite_token, invite_sent_at,
+                                         role, permissions, invite_sent_at,
                                          onboarding_status)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, NOW(), 'invited')
+            VALUES (%s, %s, %s, %s, %s, %s, NOW(), 'invited')
             RETURNING id
         """, (current_user.location_id, email, full_name, ghl_user_id or None,
-              role, json.dumps(permissions), invite_token))
+              role, json.dumps(permissions)))
         new_id = cur.fetchone()['id']
+        conn.commit()
+
+        # Generate signed 24-hour invite token containing location_users ID
+        serializer = URLSafeTimedSerializer(current_app.config['SECRET_KEY'])
+        invite_token = serializer.dumps(new_id)
+
+        # Update the record with the signed token
+        cur.execute("UPDATE location_users SET invite_token = %s WHERE id = %s",
+                   (invite_token, new_id))
         conn.commit()
 
         # Audit log
@@ -435,7 +443,10 @@ def resend_invite():
         if member['onboarding_status'] == 'claimed':
             return jsonify({"error": "User has already claimed their account"}), 400
 
-        invite_token = secrets.token_urlsafe(32)
+        # Generate signed 24-hour invite token containing location_users ID
+        serializer = URLSafeTimedSerializer(current_app.config['SECRET_KEY'])
+        invite_token = serializer.dumps(member_id)
+
         cur.execute("""
             UPDATE location_users
             SET invite_token = %s, invite_sent_at = NOW(), updated_at = NOW()
@@ -484,28 +495,31 @@ def claim_seat():
         return redirect(url_for('public.home'))
 
     try:
+        # Verify signed token (24hr expiry)
+        serializer = URLSafeTimedSerializer(current_app.config['SECRET_KEY'])
+        try:
+            member_id = serializer.loads(token, max_age=86400)  # 24 hours
+        except Exception:
+            flash("Invalid or expired invite link.", "danger")
+            return redirect(url_for('public.home'))
+
+        # Fetch seat by ID
         cur = conn.cursor(cursor_factory=RealDictCursor)
         cur.execute("""
             SELECT lu.*, s.full_name as manager_name
             FROM location_users lu
             JOIN subscribers s ON s.location_id = lu.location_id
-            WHERE lu.invite_token = %s
-        """, (token,))
+            WHERE lu.id = %s
+        """, (member_id,))
         seat = cur.fetchone()
 
         if not seat:
-            flash("Invalid or expired invite link.", "danger")
+            flash("Invalid invite link.", "danger")
             return redirect(url_for('public.home'))
 
         if seat['onboarding_status'] == 'claimed':
             flash("This account has already been claimed. Please log in.", "info")
             return redirect(url_for('auth.login'))
-
-        if seat.get('invite_sent_at'):
-            expiry = seat['invite_sent_at'] + timedelta(days=7)
-            if datetime.now() > expiry:
-                flash("This invite link has expired. Please ask your manager to resend.", "danger")
-                return redirect(url_for('public.home'))
 
         if request.method == 'GET':
             wl = _get_whitelabel_for_location(seat['location_id'], cur)

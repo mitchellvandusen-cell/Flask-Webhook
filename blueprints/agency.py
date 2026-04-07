@@ -11,16 +11,16 @@
 #   GET  /api/agency/agent-stats            — Per-agent stats breakdown
 #   GET  /api/agency/call-log               — Paginated call log across all agents
 
-import secrets
 import logging
 from datetime import datetime, timedelta
 
 import pytz
 from flask import (Blueprint, request, render_template, redirect,
-                   url_for, flash, session)
+                   url_for, flash, session, current_app)
 from flask import jsonify as flask_jsonify
 from flask_login import login_required, login_user, current_user
 from flask_mail import Message
+from itsdangerous import URLSafeTimedSerializer
 from psycopg2.extras import RealDictCursor
 from werkzeug.security import check_password_hash
 
@@ -353,7 +353,9 @@ def invite_sub_user():
         if sub['onboarding_status'] == 'claimed':
             return flask_jsonify({"error": "This user has already claimed their account"}), 400
 
-        invite_token = secrets.token_urlsafe(32)
+        # Generate signed 24-hour invite token containing location_id
+        serializer = URLSafeTimedSerializer(current_app.config['SECRET_KEY'])
+        invite_token = serializer.dumps(location_id)
 
         cur.execute("""
             UPDATE subscribers
@@ -496,7 +498,9 @@ def invite_all_sub_users():
 
         for sub in pending:
             try:
-                invite_token = secrets.token_urlsafe(32)
+                # Generate signed 24-hour invite token containing location_id
+                serializer = URLSafeTimedSerializer(current_app.config['SECRET_KEY'])
+                invite_token = serializer.dumps(sub['location_id'])
                 cur.execute("""
                     UPDATE subscribers
                     SET invite_token      = %s,

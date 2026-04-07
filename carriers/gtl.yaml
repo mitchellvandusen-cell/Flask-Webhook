@@ -1,0 +1,158 @@
+# GTL Heritage Plan (Final Expense)
+# Source: Guarantee Trust Life Heritage Plan Underwriting Guide (Data verified: Apr 2026)
+# Pure Graded Product - No Level Tier Exists. Accept/Reject basis.
+
+carrier_key: gtl
+carrier_name: Guarantee Trust Life (GTL)
+source_document: GTL Heritage Plan Underwriting Guide
+
+products:
+  final_expense:
+    age_min: 40
+    age_max: 90
+    face_amount_min: 2500
+    face_amount_max: 25000
+    rules:
+      # =========================================================================
+      # DECLINE QUESTIONS
+      # Any "Yes" answer to Q1-Q5 results in a DECLINE.
+      # =========================================================================
+
+      # Q1: Bedridden / Nursing Home / ADLs / Hospice / Terminal
+      - condition: adl_limitations
+        criteria: {nursing_facility: "yes"}
+        outcome: decline
+        detail: "Q1: Confined to a wheelchair, hospital, nursing home, or hospice? - decline"
+        source_page: "Health Question 1"
+        priority: 25
+
+      - condition: adl_limitations
+        criteria: {adl_assistance: "yes"}
+        outcome: decline
+        detail: "Q1: Require assistance with activities of daily living? - decline"
+        source_page: "Health Question 1"
+        priority: 25
+
+      - condition: terminal_illness
+        criteria: {diagnosed: "yes"}
+        outcome: decline
+        detail: "Q1: Diagnosed with a terminal illness? - decline"
+        source_page: "Health Question 1"
+        priority: 25
+
+      # Q2: Organ Transplant / Defibrillator / Amputation
+      - condition: organ_transplant
+        criteria: {transplant: "yes"}
+        outcome: decline
+        detail: "Q2: Received or been advised to receive an organ or bone marrow transplant? - decline"
+        source_page: "Health Question 2"
+        priority: 25
+
+      - condition: pacemaker_defibrillator
+        criteria: {device: defibrillator}
+        outcome: decline
+        detail: "Q2: Have an implanted defibrillator? - decline"
+        source_page: "Health Question 2"
+        priority: 25
+
+      - condition: type_2_diabetes
+        criteria: {amputation_diabetes: "yes"}
+        outcome: decline
+        detail: "Q2: Amputation due to disease? - decline"
+        source_page: "Health Question 2"
+        priority: 25
+
+      # Q3: Cancer / Heart Attack / Stroke within 24 months
+      - condition: cancer_general
+        criteria: {time_since: within_2yr}
+        outcome: decline
+        detail: "Q3: Within past 24 months, treated for Cancer or Leukemia? - decline"
+        source_page: "Health Question 3"
+        priority: 25
+
+      - condition: heart_attack
+        criteria: {time_since: within_2yr}
+        outcome: decline
+        detail: "Q3: Within past 24 months, treated for Heart Attack or Heart Surgery? - decline"
+        source_page: "Health Question 3"
+        priority: 25
+
+      - condition: stroke_tia
+        criteria: {time_since: within_2yr}
+        outcome: decline
+        detail: "Q3: Within past 24 months, treated for Stroke or TIA? - decline"
+        source_page: "Health Question 3"
+        priority: 25
+
+      # Q4: Alzheimer's / Dementia / ALS / Heart Failure / Oxygen / Dialysis
+      - condition: alzheimers_dementia
+        criteria: {diagnosed: "yes"}
+        outcome: decline
+        detail: "Q4: Ever diagnosed with Alzheimer's or Dementia? - decline"
+        source_page: "Health Question 4"
+        priority: 25
+
+      - condition: als
+        criteria: {diagnosed: "yes"}
+        outcome: decline
+        detail: "Q4: Ever diagnosed with ALS? - decline"
+        source_page: "Health Question 4"
+        priority: 25
+
+      - condition: congestive_heart_failure
+        criteria: {diagnosed: "yes"}
+        outcome: decline
+        detail: "Q4: Ever diagnosed with Congestive Heart Failure? - decline"
+        source_page: "Health Question 4"
+        priority: 25
+
+      - condition: chronic_kidney_disease
+        criteria: {dialysis: "yes"}
+        outcome: decline
+        detail: "Q4: Ever had Kidney Dialysis? - decline"
+        source_page: "Health Question 4"
+        priority: 25
+
+      - condition: copd
+        criteria: {oxygen: "yes"}
+        outcome: decline
+        detail: "Q4: Ever used Oxygen equipment? - decline"
+        source_page: "Health Question 4"
+        priority: 25
+
+      # Q5: HIV / AIDS
+      - condition: hiv_aids
+        criteria: {diagnosed: "yes"}
+        outcome: decline
+        detail: "Q5: Ever diagnosed or treated for AIDS or HIV? - decline"
+        source_page: "Health Question 5"
+        priority: 25
+
+      # =========================================================================
+      # GRADED (Accept) - There is NO Level Benefit
+      # =========================================================================
+
+      # If none of the decline conditions are met, the client is approved for Graded.
+      - condition: type_2_diabetes
+        criteria: {}
+        outcome: graded
+        detail: "Approved for Graded Benefit"
+        source_page: "Accept/Reject Logic"
+        priority: 10
+        waiting_period: 24
+
+      - condition: copd
+        criteria: {oxygen: "no"}
+        outcome: graded
+        detail: "Approved for Graded Benefit"
+        source_page: "Accept/Reject Logic"
+        priority: 10
+        waiting_period: 24
+
+      - condition: heart_attack
+        criteria: {time_since: 2_plus_years}
+        outcome: graded
+        detail: "Approved for Graded Benefit"
+        source_page: "Accept/Reject Logic"
+        priority: 10
+        waiting_period: 24

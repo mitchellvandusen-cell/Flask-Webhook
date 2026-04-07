@@ -1,0 +1,276 @@
+# Transamerica FE Solutions (Final Expense)
+# Source: Transamerica Solutions FE Underwriting Guide (Data verified: Apr 2026)
+# 3-Tier Product: Preferred (Level), Standard (Level), Easy Solution (Graded)
+
+carrier_key: transamerica
+carrier_name: Transamerica
+source_document: Transamerica FE Solutions Underwriting Guide
+
+products:
+  final_expense:
+    age_min: 0
+    age_max: 85
+    face_amount_min: 1000
+    face_amount_max: 50000
+    rules:
+      # =========================================================================
+      # DECLINE QUESTIONS (Part 1 - Uninsurable)
+      # Any "Yes" answer to Part 1 results in a DECLINE.
+      # =========================================================================
+
+      # Q1: HIV/AIDS
+      - condition: hiv_aids
+        criteria: {diagnosed: "yes"}
+        outcome: decline
+        detail: "Q1: Diagnosed or treated for AIDS or HIV? - decline"
+        source_page: "Part 1, Q1"
+        priority: 25
+
+      # Q2: Nursing Home / Bedridden / Terminal / Oxygen / ADLs
+      - condition: adl_limitations
+        criteria: {nursing_facility: "yes"}
+        outcome: decline
+        detail: "Q2: Confined to hospital, nursing facility, wheelchair, or bed? - decline"
+        source_page: "Part 1, Q2"
+        priority: 25
+        
+      - condition: terminal_illness
+        criteria: {diagnosed: "yes"}
+        outcome: decline
+        detail: "Q2: Diagnosed with terminal illness? - decline"
+        source_page: "Part 1, Q2"
+        priority: 25
+
+      - condition: copd
+        criteria: {oxygen: "yes"}
+        outcome: decline
+        detail: "Q2: Require oxygen equipment? - decline"
+        source_page: "Part 1, Q2"
+        priority: 25
+
+      - condition: adl_limitations
+        criteria: {adl_assistance: "yes"}
+        outcome: decline
+        detail: "Q2: Require assistance with ADLs? - decline"
+        source_page: "Part 1, Q2"
+        priority: 25
+
+      # Q3: ALS / CHF / Dialysis / Organ Transplant / Alzheimer's / Dementia
+      - condition: als
+        criteria: {diagnosed: "yes"}
+        outcome: decline
+        detail: "Q3: Ever diagnosed with ALS? - decline"
+        source_page: "Part 1, Q3"
+        priority: 25
+
+      - condition: congestive_heart_failure
+        criteria: {diagnosed: "yes"}
+        outcome: decline
+        detail: "Q3: Ever diagnosed with Congestive Heart Failure? - decline"
+        source_page: "Part 1, Q3"
+        priority: 25
+
+      - condition: organ_transplant
+        criteria: {transplant: "yes"}
+        outcome: decline
+        detail: "Q3: Organ or bone marrow transplant? - decline"
+        source_page: "Part 1, Q3"
+        priority: 25
+
+      - condition: alzheimers_dementia
+        criteria: {diagnosed: "yes"}
+        outcome: decline
+        detail: "Q3: Alzheimer's, dementia, or memory loss? - decline"
+        source_page: "Part 1, Q3"
+        priority: 25
+
+      - condition: chronic_kidney_disease
+        criteria: {dialysis: "yes"}
+        outcome: decline
+        detail: "Q3: Kidney disease requiring dialysis? - decline"
+        source_page: "Part 1, Q3"
+        priority: 25
+
+      # =========================================================================
+      # GRADED (Easy Solution) - Part 2 Questions
+      # Any "Yes" answer to Part 2 means Easy Solution (Graded)
+      # =========================================================================
+
+      # Q4: Heart Attack / Stroke / Cancer within 12 months (Transamerica exception: 12 mo Graded, not decline)
+      - condition: heart_attack
+        criteria: {time_since: within_12mo}
+        outcome: graded
+        detail: "Q4: Heart Attack, heart surgery, bypass, or stent in past 12 months - Graded (Easy Solution)"
+        source_page: "Part 2, Q4"
+        priority: 15
+        waiting_period: 24
+
+      - condition: stroke_tia
+        criteria: {time_since: within_12mo}
+        outcome: graded
+        detail: "Q4: Stroke or TIA in past 12 months - Graded"
+        source_page: "Part 2, Q4"
+        priority: 15
+        waiting_period: 24
+
+      - condition: angina
+        criteria: {time_since: within_12mo}
+        outcome: graded
+        detail: "Q4: Angina in past 12 months - Graded"
+        source_page: "Part 2, Q4"
+        priority: 15
+        waiting_period: 24
+
+      - condition: cancer_general
+        criteria: {time_since: within_12mo}
+        outcome: graded
+        detail: "Q4: Cancer or melanoma in past 12 months - Graded"
+        source_page: "Part 2, Q4"
+        priority: 15
+        waiting_period: 24
+
+      # Q5: Lung disease / Kidney / Liver
+      - condition: copd
+        criteria: {diagnosed_2yr: "yes"}
+        outcome: graded
+        detail: "Q5: Emphysema, COPD, chronic lung disease in past 2 years - Graded"
+        source_page: "Part 2, Q5"
+        priority: 15
+        waiting_period: 24
+
+      - condition: chronic_kidney_disease
+        criteria: {stage: 3, dialysis: "no"}
+        outcome: graded
+        detail: "Q5: Chronic kidney disease (no dialysis) - Graded"
+        source_page: "Part 2, Q5"
+        priority: 15
+        waiting_period: 24
+
+      - condition: cirrhosis
+        criteria: {diagnosed_2yr: "yes"}
+        outcome: graded
+        detail: "Q5: Cirrhosis or liver disease - Graded"
+        source_page: "Part 2, Q5"
+        priority: 15
+        waiting_period: 24
+
+      - condition: hepatitis_c
+        criteria: {diagnosed_2yr: "yes"}
+        outcome: graded
+        detail: "Q5: Hepatitis C in past 2 years - Graded"
+        source_page: "Part 2, Q5"
+        priority: 15
+        waiting_period: 24
+
+      # Q6: Diabetes complications
+      - condition: type_2_diabetes
+        criteria: {complications: "yes"}
+        outcome: graded
+        detail: "Q6: Diabetes with retinopathy, nephropathy, neuropathy - Graded"
+        source_page: "Part 2, Q6"
+        priority: 15
+        waiting_period: 24
+
+      - condition: type_2_diabetes
+        criteria: {insulin: "yes", diagnosis_age: before_50}
+        outcome: graded
+        detail: "Q6: Insulin used for diabetes diagnosed before age 50 - Graded"
+        source_page: "Part 2, Q6"
+        priority: 15
+        waiting_period: 24
+
+      - condition: type_2_diabetes
+        criteria: {insulin: "yes", time_since: within_2yr}
+        outcome: graded
+        detail: "Q6: Insulin used for diabetes within past 2 years - Graded"
+        source_page: "Part 2, Q6"
+        priority: 15
+        waiting_period: 24
+
+      # =========================================================================
+      # STANDARD (Level) - Part 3 Questions
+      # Any "Yes" answer to Part 3 means Standard (Level) instead of Preferred
+      # =========================================================================
+
+      # Q7: Heart / Cancer 1-2 years ago
+      - condition: heart_attack
+        criteria: {time_since: 1_2_years}
+        outcome: level
+        detail: "Q7: Heart Attack, surgery, bypass 1-2 years ago - Standard Level"
+        source_page: "Part 3, Q7"
+        priority: 10
+
+      - condition: stroke_tia
+        criteria: {time_since: 1_2_years}
+        outcome: level
+        detail: "Q7: Stroke or TIA 1-2 years ago - Standard Level"
+        source_page: "Part 3, Q7"
+        priority: 10
+
+      - condition: angina
+        criteria: {time_since: 1_2_years}
+        outcome: level
+        detail: "Q7: Angina 1-2 years ago - Standard Level"
+        source_page: "Part 3, Q7"
+        priority: 10
+
+      - condition: cancer_general
+        criteria: {time_since: 1_2_years}
+        outcome: level
+        detail: "Q7: Cancer or melanoma 1-2 years ago - Standard Level"
+        source_page: "Part 3, Q7"
+        priority: 10
+
+      # Q8: COPD / Depression / Bipolar / Lupus
+      - condition: copd
+        criteria: {time_since: 2_plus_years}
+        outcome: level
+        detail: "Q8: COPD / Emphysema > 2 years ago - Standard Level"
+        source_page: "Part 3, Q8"
+        priority: 10
+
+      - condition: depression
+        criteria: {hospitalized: "yes"}
+        outcome: level
+        detail: "Q8: Treated for Depression/Bipolar - Standard Level"
+        source_page: "Part 3, Q8"
+        priority: 10
+
+      - condition: lupus
+        criteria: {diagnosed: "yes"}
+        outcome: level
+        detail: "Q8: Systemic Lupus - Standard Level"
+        source_page: "Part 3, Q8"
+        priority: 10
+
+      - condition: epilepsy
+        criteria: {diagnosed: "yes"}
+        outcome: level
+        detail: "Q8: Epilepsy or seizures - Standard Level"
+        source_page: "Part 3, Q8"
+        priority: 10
+
+      - condition: parkinsons
+        criteria: {diagnosed: "yes"}
+        outcome: level
+        detail: "Q8: Parkinson's disease - Standard Level"
+        source_page: "Part 3, Q8"
+        priority: 10
+
+      # =========================================================================
+      # PREFERRED (Level) - "No" to all questions
+      # =========================================================================
+      
+      - condition: type_2_diabetes
+        criteria: {diagnosis_age: after_50, insulin: "no", complications: "no"}
+        outcome: level
+        detail: "Diabetes diagnosed after 50, no complications, no insulin - Preferred Level"
+        source_page: "Accept/Reject Logic"
+        priority: 5
+
+      - condition: hypertension
+        criteria: {controlled: "yes"}
+        outcome: level
+        detail: "Controlled Hypertension - Preferred Level"
+        source_page: "Accept/Reject Logic"
+        priority: 5

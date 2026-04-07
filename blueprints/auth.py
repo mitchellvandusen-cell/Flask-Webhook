@@ -516,27 +516,30 @@ def claim_account():
         return redirect(url_for('public.home'))
 
     try:
+        # Verify signed token (24hr expiry)
+        serializer = URLSafeTimedSerializer(app.config['SECRET_KEY'])
+        try:
+            location_id = serializer.loads(token, max_age=86400)  # 24 hours
+        except Exception:
+            flash("Invalid or expired invite link.", "danger")
+            return redirect(url_for('public.home'))
+
+        # Fetch subscriber by location_id (token contains the location_id)
         cur = conn.cursor(cursor_factory=RealDictCursor)
         cur.execute("""
-            SELECT location_id, agent_email, full_name, onboarding_status, invite_sent_at
+            SELECT location_id, agent_email, full_name, onboarding_status
             FROM subscribers
-            WHERE invite_token = %s
-        """, (token,))
+            WHERE location_id = %s
+        """, (location_id,))
         sub = cur.fetchone()
 
         if not sub:
-            flash("Invalid or expired invite link.", "danger")
+            flash("Invalid invite link.", "danger")
             return redirect(url_for('public.home'))
 
         if sub['onboarding_status'] == 'claimed':
             flash("This account has already been claimed. Please log in.", "info")
             return redirect(url_for('auth.login'))
-
-        if sub['invite_sent_at']:
-            expiry = sub['invite_sent_at'] + timedelta(days=7)
-            if datetime.now() > expiry:
-                flash("This invite link has expired. Please ask your agency owner to resend.", "danger")
-                return redirect(url_for('public.home'))
 
         if request.method == 'GET':
             return render_template('claim_account.html',

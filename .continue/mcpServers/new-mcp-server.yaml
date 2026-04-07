@@ -1,0 +1,11 @@
+name: Tavily Search Agent
+version: 0.0.1
+schema: v1
+mcpServers:
+  - name: tavily
+    command: npx
+    args:
+      - -y
+      - @tavily/mcp-server
+    env:
+      TAVILY_API_KEY: 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

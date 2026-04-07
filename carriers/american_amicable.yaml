@@ -1,0 +1,335 @@
+# American Amicable Lighthouse Legacy (Final Expense)
+# Source: American Amicable Home Service UW Guide (Data verified: Apr 2026)
+# 3-Tier Product: Immediate (Level), Graded, Return of Premium (ROP)
+
+carrier_key: american_amicable
+carrier_name: American Amicable
+source_document: American Amicable Lighthouse Legacy Underwriting Guide
+
+products:
+  final_expense:
+    age_min: 50
+    age_max: 85
+    face_amount_min: 2500
+    face_amount_max: 50000
+    rules:
+      # =========================================================================
+      # DECLINE QUESTIONS (Part 1 - Uninsurable)
+      # Any "Yes" answer to Q1-Q3 results in a DECLINE.
+      # =========================================================================
+
+      # Q1: Bedridden / Nursing Home / Wheelchair / Hospice / Terminal / Cancer (Current/Metastatic) / Oxygen / Amputation / ADLs
+      - condition: adl_limitations
+        criteria: {nursing_facility: "yes"}
+        outcome: decline
+        detail: "Q1: Confined to hospital, nursing facility, wheelchair, bed, or hospice? - decline"
+        source_page: "Health Question 1"
+        priority: 25
+        
+      - condition: wheelchair
+        criteria: {wheelchair: "yes"}
+        outcome: decline
+        detail: "Q1: Confined to a wheelchair? - decline"
+        source_page: "Health Question 1"
+        priority: 25
+
+      - condition: terminal_illness
+        criteria: {diagnosed: "yes"}
+        outcome: decline
+        detail: "Q1: Diagnosed with terminal illness? - decline"
+        source_page: "Health Question 1"
+        priority: 25
+
+      - condition: cancer_general
+        criteria: {treatment_status: in_treatment}
+        outcome: decline
+        detail: "Q1: Currently have cancer or history of metastatic cancer? - decline"
+        source_page: "Health Question 1"
+        priority: 25
+        
+      - condition: cancer_general
+        criteria: {metastasis: "yes"}
+        outcome: decline
+        detail: "Q1: History of metastatic cancer? - decline"
+        source_page: "Health Question 1"
+        priority: 25
+
+      - condition: copd
+        criteria: {oxygen: "yes"}
+        outcome: decline
+        detail: "Q1: Require oxygen equipment? - decline"
+        source_page: "Health Question 1"
+        priority: 25
+        
+      - condition: amputation
+        criteria: {disease_related: "yes"}
+        outcome: decline
+        detail: "Q1: Amputation caused by disease? - decline"
+        source_page: "Health Question 1"
+        priority: 25
+
+      - condition: adl_limitations
+        criteria: {adl_assistance: "yes"}
+        outcome: decline
+        detail: "Q1: Require assistance with ADLs? - decline"
+        source_page: "Health Question 1"
+        priority: 25
+
+      # Q2: ALS / CHF / Liver Failure / Kidney Dialysis / Organ Transplant / Alzheimer's / Dementia / Respiratory Failure
+      - condition: als
+        criteria: {diagnosed: "yes"}
+        outcome: decline
+        detail: "Q2: Diagnosed with ALS? - decline"
+        source_page: "Health Question 2"
+        priority: 25
+
+      - condition: congestive_heart_failure
+        criteria: {diagnosed: "yes"}
+        outcome: decline
+        detail: "Q2: Diagnosed with Congestive Heart Failure? - decline"
+        source_page: "Health Question 2"
+        priority: 25
+
+      - condition: organ_transplant
+        criteria: {transplant: "yes"}
+        outcome: decline
+        detail: "Q2: Advised to have organ transplant? - decline"
+        source_page: "Health Question 2"
+        priority: 25
+
+      - condition: alzheimers_dementia
+        criteria: {diagnosed: "yes"}
+        outcome: decline
+        detail: "Q2: Alzheimer's, dementia, or mental incapacity? - decline"
+        source_page: "Health Question 2"
+        priority: 25
+
+      - condition: chronic_kidney_disease
+        criteria: {dialysis: "yes"}
+        outcome: decline
+        detail: "Q2: Kidney dialysis? - decline"
+        source_page: "Health Question 2"
+        priority: 25
+        
+      - condition: liver_disease
+        criteria: {diagnosed: "yes"}
+        outcome: decline
+        detail: "Q2: Liver failure? - decline"
+        source_page: "Health Question 2"
+        priority: 25
+        
+      - condition: respiratory_failure
+        criteria: {diagnosed: "yes"}
+        outcome: decline
+        detail: "Q2: Respiratory failure? - decline"
+        source_page: "Health Question 2"
+        priority: 25
+
+      # Q3: HIV/AIDS
+      - condition: hiv_aids
+        criteria: {diagnosed: "yes"}
+        outcome: decline
+        detail: "Q3: Diagnosed or treated for AIDS or HIV? - decline"
+        source_page: "Health Question 3"
+        priority: 25
+
+      # =========================================================================
+      # RETURN OF PREMIUM (ROP) - Part 2 Questions
+      # Any "Yes" answer to Q4-Q7 means Return of Premium (ROP) Plan
+      # =========================================================================
+
+      # Q4: Diabetes complications / Insulin before age 50
+      - condition: type_2_diabetes
+        criteria: {complications: "yes"}
+        outcome: guaranteed_issue
+        detail: "Q4: Diabetes with retinopathy, nephropathy, neuropathy - Return of Premium"
+        source_page: "Health Question 4"
+        priority: 15
+        waiting_period: 36
+
+      - condition: type_2_diabetes
+        criteria: {insulin: "yes", diagnosis_age: before_50}
+        outcome: guaranteed_issue
+        detail: "Q4: Insulin used for diabetes prior to age 50 - Return of Premium"
+        source_page: "Health Question 4"
+        priority: 15
+        waiting_period: 36
+
+      # Q5: Cancer (Multiple) / Chronic Kidney Disease / Renal Insufficiency
+      - condition: cancer_general
+        criteria: {multiple_occurrences: "yes"}
+        outcome: guaranteed_issue
+        detail: "Q5: More than one occurrence of cancer - Return of Premium"
+        source_page: "Health Question 5"
+        priority: 15
+        waiting_period: 36
+
+      - condition: chronic_kidney_disease
+        criteria: {diagnosed: "yes", dialysis: "no"}
+        outcome: guaranteed_issue
+        detail: "Q5: Chronic kidney disease or renal insufficiency - Return of Premium"
+        source_page: "Health Question 5"
+        priority: 15
+        waiting_period: 36
+
+      # Q6: Pending Tests
+      - condition: pending_tests
+        criteria: {status: pending}
+        outcome: guaranteed_issue
+        detail: "Q6: Advised to have tests, surgery, or hospitalization that has not been completed - Return of Premium"
+        source_page: "Health Question 6"
+        priority: 15
+        waiting_period: 36
+
+      # Q7: Within past 2 years (Heart/Stroke/Cancer/COPD/Liver/Substance Abuse)
+      - condition: angina
+        criteria: {time_since: within_2yr}
+        outcome: guaranteed_issue
+        detail: "Q7a: Angina in past 2 years - Return of Premium"
+        source_page: "Health Question 7a"
+        priority: 15
+        waiting_period: 36
+
+      - condition: stroke_tia
+        criteria: {time_since: within_2yr}
+        outcome: guaranteed_issue
+        detail: "Q7a: Stroke or TIA in past 2 years - Return of Premium"
+        source_page: "Health Question 7a"
+        priority: 15
+        waiting_period: 36
+
+      - condition: copd
+        criteria: {diagnosed_2yr: "yes"}
+        outcome: guaranteed_issue
+        detail: "Q7a: Emphysema, COPD, chronic lung disease in past 2 years - Return of Premium"
+        source_page: "Health Question 7a"
+        priority: 15
+        waiting_period: 36
+        
+      - condition: cirrhosis
+        criteria: {diagnosed_2yr: "yes"}
+        outcome: guaranteed_issue
+        detail: "Q7a: Cirrhosis or chronic hepatitis in past 2 years - Return of Premium"
+        source_page: "Health Question 7a"
+        priority: 15
+        waiting_period: 36
+        
+      - condition: lupus
+        criteria: {diagnosed_2yr: "yes"}
+        outcome: guaranteed_issue
+        detail: "Q7a: Systemic Lupus in past 2 years - Return of Premium"
+        source_page: "Health Question 7a"
+        priority: 15
+        waiting_period: 36
+
+      - condition: heart_attack
+        criteria: {time_since: within_2yr}
+        outcome: guaranteed_issue
+        detail: "Q7b: Heart attack, heart surgery, bypass, stent, pacemaker, defibrillator in past 2 years - Return of Premium"
+        source_page: "Health Question 7b"
+        priority: 15
+        waiting_period: 36
+        
+      - condition: cancer_general
+        criteria: {time_since: within_2yr}
+        outcome: guaranteed_issue
+        detail: "Q7c: Cancer in past 2 years - Return of Premium"
+        source_page: "Health Question 7c"
+        priority: 15
+        waiting_period: 36
+
+      - condition: alcohol_abuse
+        criteria: {sobriety: under_2_years}
+        outcome: guaranteed_issue
+        detail: "Q7d: Alcohol/drug abuse treatment in past 2 years - Return of Premium"
+        source_page: "Health Question 7d"
+        priority: 15
+        waiting_period: 36
+
+      # =========================================================================
+      # GRADED (Accept) - Part 3 Questions
+      # Any "Yes" answer to Q8 means Graded instead of Immediate Level
+      # =========================================================================
+
+      # Q8: Heart/Stroke/Cancer/COPD/Liver in past 3 years (but more than 2 years ago)
+      - condition: heart_attack
+        criteria: {time_since: 2_3_years}
+        outcome: graded
+        detail: "Q8: Heart attack, surgery, bypass, pacemaker within past 3 years - Graded"
+        source_page: "Health Question 8a"
+        priority: 10
+        waiting_period: 24
+        
+      - condition: stroke_tia
+        criteria: {time_since: 2_3_years}
+        outcome: graded
+        detail: "Q8: Stroke or TIA within past 3 years - Graded"
+        source_page: "Health Question 8a"
+        priority: 10
+        waiting_period: 24
+
+      - condition: cancer_general
+        criteria: {time_since: 2_3_years}
+        outcome: graded
+        detail: "Q8: Cancer within past 3 years - Graded"
+        source_page: "Health Question 8b"
+        priority: 10
+        waiting_period: 24
+
+      - condition: copd
+        criteria: {time_since: 2_3_years}
+        outcome: graded
+        detail: "Q8: COPD/Emphysema within past 3 years - Graded"
+        source_page: "Health Question 8b"
+        priority: 10
+        waiting_period: 24
+
+      - condition: cirrhosis
+        criteria: {time_since: 2_3_years}
+        outcome: graded
+        detail: "Q8: Cirrhosis/Liver disease within past 3 years - Graded"
+        source_page: "Health Question 8b"
+        priority: 10
+        waiting_period: 24
+
+      - condition: parkinsons
+        criteria: {diagnosed_3yr: "yes"}
+        outcome: graded
+        detail: "Q8: Parkinson's disease within past 3 years - Graded"
+        source_page: "Health Question 8c"
+        priority: 10
+        waiting_period: 24
+
+      - condition: multiple_sclerosis
+        criteria: {diagnosed_3yr: "yes"}
+        outcome: graded
+        detail: "Q8: Multiple Sclerosis within past 3 years - Graded"
+        source_page: "Health Question 8c"
+        priority: 10
+        waiting_period: 24
+        
+      - condition: epilepsy
+        criteria: {diagnosed_3yr: "yes"}
+        outcome: graded
+        detail: "Q8: Seizures within past 3 years - Graded"
+        source_page: "Health Question 8c"
+        priority: 10
+        waiting_period: 24
+
+      # =========================================================================
+      # IMMEDIATE (Level) - "No" to all questions
+      # =========================================================================
+      
+      - condition: type_2_diabetes
+        criteria: {diagnosis_age: after_50, complications: "no"}
+        outcome: level
+        detail: "Diabetes diagnosed after 50, no complications - Immediate Level"
+        source_page: "Accept/Reject Logic"
+        priority: 5
+
+      - condition: hypertension
+        criteria: {controlled: "yes"}
+        outcome: level
+        detail: "Controlled Hypertension - Immediate Level"
+        source_page: "Accept/Reject Logic"
+        priority: 5
