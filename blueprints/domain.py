@@ -304,14 +304,48 @@ def _cf_add_dns_record(zone_id, record_type, name, content, priority=None, proxi
 
 
 def _cf_setup_dns(zone_id, domain):
-    """Configure DNS records for Worker route only.
-    Email routing DNS (MX, SPF, DKIM) is handled by Cloudflare automatically
-    when email routing is enabled — do NOT add them manually or they conflict."""
-    # Proxied A record required for Worker routes to fire.
-    # 192.0.2.1 (RFC 5737 TEST-NET) is a placeholder — Cloudflare intercepts
-    # all traffic at the edge before it reaches this IP.
+    """Configure A records for Worker route only.
+    Email DNS (MX, SPF, DKIM) is added by Cloudflare when email routing is enabled."""
     _cf_add_dns_record(zone_id, 'A', '@', '192.0.2.1', proxied=True)
     _cf_add_dns_record(zone_id, 'A', 'www', '192.0.2.1', proxied=True)
+
+
+def _cf_add_mailgun_dns(zone_id, domain, mailgun_dkim_records):
+    """After Cloudflare email routing adds its SPF, update it to also include Mailgun
+    (needed for outbound sending via Mailgun). Also adds Mailgun DKIM records."""
+
+    # Find and update the existing SPF record to include Mailgun
+    try:
+        resp = requests.get(
+            f'{CLOUDFLARE_API_BASE}/zones/{zone_id}/dns_records?type=TXT&name={domain}',
+            headers=_cf_headers(),
+            timeout=30,
+        )
+        data = resp.json()
+        for rec in data.get('result', []):
+            content = rec.get('content', '')
+            if content.startswith('v=spf1') and 'mailgun.org' not in content:
+                # Add Mailgun to existing SPF record
+                new_spf = content.replace('~all', 'include:mailgun.org ~all')
+                requests.put(
+                    f'{CLOUDFLARE_API_BASE}/zones/{zone_id}/dns_records/{rec["id"]}',
+                    headers=_cf_headers(),
+                    json={'type': 'TXT', 'name': '@', 'content': new_spf},
+                    timeout=30,
+                )
+                logger.info(f"[Domain] Updated SPF to include Mailgun: {new_spf}")
+                break
+        else:
+            # No SPF exists yet — create one with both
+            _cf_add_dns_record(zone_id, 'TXT', '@',
+                               'v=spf1 include:_spf.mx.cloudflare.net include:mailgun.org ~all')
+    except Exception as e:
+        logger.warning(f"[Domain] SPF update for Mailgun failed: {e}")
+
+    # Add Mailgun DKIM records (different hostname, no conflict)
+    if mailgun_dkim_records:
+        for rec in mailgun_dkim_records:
+            _cf_add_dns_record(zone_id, rec.get('type', 'TXT'), rec['name'], rec['value'])
 
 
 def _cf_setup_email_routing(zone_id, domain, forward_to):
@@ -847,26 +881,31 @@ def domain_checkout():
         else:
             logger.info(f"[Domain] Skipping nameserver update for {domain} (already done)")
 
-        # Step 4: Mailgun step removed — Cloudflare email routing handles
-        # MX, SPF, and DKIM automatically. Adding Mailgun records conflicts.
-        if 'mailgun_domain_added' not in provisioning_log:
-            provisioning_log.append('mailgun_domain_added')  # Skip but mark done for idempotency
-
-        # Step 5: Configure DNS (A records for Worker routes only)
-        # Email DNS (MX, SPF, DKIM) is added by Cloudflare when email routing is enabled in Step 6.
+        # Step 4: Configure DNS (A records for Worker routes only)
         if 'dns_configured' not in provisioning_log:
             _cf_setup_dns(zone['zone_id'], domain)
             provisioning_log.append('dns_configured')
         else:
             logger.info(f"[Domain] Skipping DNS config for {domain} (already done)")
 
-        # Step 6: Set up email routing
+        # Step 5: Enable Cloudflare email routing (adds MX, SPF, DKIM automatically)
         if 'email_routing_configured' not in provisioning_log:
             email_result = _cf_setup_email_routing(zone['zone_id'], domain, forward_to)
             web_presence['email_verification_needed'] = email_result.get('email_verification_needed', False)
             provisioning_log.append('email_routing_configured')
         else:
             logger.info(f"[Domain] Skipping email routing for {domain} (already done)")
+
+        # Step 6: Register domain with Mailgun (for outbound sending / auto-reply)
+        # Then update Cloudflare SPF to include Mailgun + add Mailgun DKIM records
+        if 'mailgun_domain_added' not in provisioning_log:
+            mg_result = _mailgun_add_domain(domain)
+            web_presence['mailgun_domain_added'] = mg_result.get('success', False)
+            # Update SPF to include both Cloudflare + Mailgun, add DKIM
+            _cf_add_mailgun_dns(zone['zone_id'], domain, mg_result.get('dkim_records', []))
+            provisioning_log.append('mailgun_domain_added')
+        else:
+            logger.info(f"[Domain] Skipping Mailgun setup for {domain} (already done)")
 
         # Step 7: Worker route (handles duplicates via Cloudflare error code 10020)
         if 'worker_route_created' not in provisioning_log:
