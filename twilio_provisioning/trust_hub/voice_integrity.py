@@ -6,14 +6,14 @@ from twilio.base.exceptions import TwilioRestException
 from ..client import (
     get_sub_account_client_native,
     _ensure_sub_account_auth_token,
-    _find_primary_profile_sid,
-    _find_or_create_secondary_profile,
     _trusthub_update_status,
 )
 from .base import (
     VOICE_INTEGRITY_POLICY_SID,
     VOICE_INTEGRITY_CARRIERS,
     unassign_numbers_from_trust_product,
+    _find_primary_profile_sid,
+    _find_or_create_secondary_profile,
 )
 
 logger = logging.getLogger("twilio_provisioning")
