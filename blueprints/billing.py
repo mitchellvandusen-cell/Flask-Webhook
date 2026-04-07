@@ -1153,12 +1153,12 @@ def checkout_solo_predictive():
 
     Erlang-C predictive dialing for solo agents. When the dialer dials multiple
     lines and more than one lead answers, the first call bridges to the human
-
-    Guard: Prevent users with active subscriptions from checking out again."""
-    if current_user.stripe_status == 'active' and current_user.subscription_tier:
-        return redirect(url_for('dashboard.dashboard'))
     and overflow calls bridge to Voice AI which books the appointment.
     """
+    # Guard: Prevent users with active subscriptions from checking out again
+    if current_user.stripe_status == 'active' and current_user.subscription_tier:
+        return redirect(url_for('dashboard.dashboard'))
+
     # Terms acceptance handled in Stripe Checkout
     try:
         price_id = os.getenv("STRIPE_PREDICTIVE_DIALER_PRICE_ID")
