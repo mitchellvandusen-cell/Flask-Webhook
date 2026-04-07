@@ -271,6 +271,14 @@
                             </label>
                             <input type="url" id="onbWebsite" class="onb-input" placeholder="https://www.yourbusiness.com" oninput="onbCheckWebUrl()">
                         </div>
+                        <div class="onb-field-group" id="onbWebEmailGroup" style="display:none;">
+                            <label class="onb-label">
+                                Business Email
+                                <span class="onb-info-tip" data-tooltip="An email address on your business domain (e.g. john@yourbusiness.com). Carriers require a business email that matches your website — personal emails like Gmail will be rejected."><i class="fa-solid fa-circle-info"></i></span>
+                            </label>
+                            <input type="email" id="onbWebEmail" class="onb-input" placeholder="you@yourbusiness.com" oninput="onbCheckWebUrl()">
+                            <span class="onb-field-hint">Must match your website domain — Gmail, Yahoo, etc. will be rejected by carriers</span>
+                        </div>
                     </div>
 
                     <!-- Needs website — our domain service -->

@@ -320,7 +320,16 @@
     window.onbCheckWebUrl = function () {
         if (!hasWebsite) return;
         var url = valOf('onbWebsite');
-        enableBtn('onbStep3Btn', url.length > 5 && url.indexOf('.') > 0);
+        var emailGroup = document.getElementById('onbWebEmailGroup');
+        var hasUrl = url.length > 5 && url.indexOf('.') > 0;
+
+        // Show business email field once a valid URL is entered
+        if (emailGroup) emailGroup.style.display = hasUrl ? '' : 'none';
+
+        // Require both URL and business email to continue
+        var email = valOf('onbWebEmail');
+        var hasEmail = email.length > 3 && email.indexOf('@') > 0;
+        enableBtn('onbStep3Btn', hasUrl && hasEmail);
     };
 
     window.onbSearchDomain = function () {
@@ -463,16 +472,17 @@
         // Website (required — either their own or our domain)
         setText('onbRevWebsite', web || '—');
 
-        // Show business email (domain email) — this is what carriers see
+        // Show business email — what carriers see
         var emailDomainWrap = document.getElementById('onbRevEmailDomainWrap');
-        if (!hasWebsite && selectedDomain && provisionedEmail) {
-            setText('onbRevEmailDomain', provisionedEmail);
+        var bizEmail = provisionedEmail || valOf('onbWebEmail') || '';
+        if (bizEmail) {
+            setText('onbRevEmailDomain', bizEmail);
             if (emailDomainWrap) emailDomainWrap.style.display = '';
         } else {
             if (emailDomainWrap) emailDomainWrap.style.display = 'none';
         }
 
-        // Show email forwarding destination — where domain emails actually arrive
+        // Show email forwarding destination (only for provisioned domains, not existing websites)
         var fwdWrap = document.getElementById('onbRevEmailFwdWrap');
         if (!hasWebsite && selectedDomain && provisionedEmail) {
             setText('onbRevEmailFwd', valOf('onbContactEmail') || '—');
@@ -799,7 +809,7 @@
             website:        website,
             contact_name:   valOf('onbContactName'),
             contact_title:  valOf('onbContactRole'),
-            contact_email:  provisionedEmail || valOf('onbContactEmail'),
+            contact_email:  provisionedEmail || valOf('onbWebEmail') || valOf('onbContactEmail'),
             contact_phone:  valOf('onbContactPhone')
         };
 
