@@ -17,6 +17,76 @@ a2p_bp = Blueprint('voice_a2p', __name__)
 TWILIO_MASTER_SID = os.getenv("TWILIO_ACCOUNT_SID", "")
 
 
+# ═══════════════════════════════════════════════════════════════
+# DBA HELPER — Format business names with legal/friendly split
+# ═══════════════════════════════════════════════════════════════
+# Per Twilio A2P 10DLC documentation, the business name field accepts
+# DBA (Doing Business As) designations when an entity operates under a
+# different brand name than its legal business name.
+# See: https://www.twilio.com/docs/messaging/compliance/a2p-10dlc/onboarding-isv-api
+
+def _build_dba_business_name(legal_name: str, friendly_name: str) -> str:
+    """
+    Build DBA-formatted business name per Twilio A2P 10DLC standard.
+
+    Twilio's business_name field accepts: "[Legal Entity Name] DBA [Brand Name]"
+    to indicate a Doing Business As designation for the business.
+
+    If legal_name == friendly_name, returns the name as-is (no DBA needed).
+    If they differ, returns: "[legal_name] DBA [friendly_name]" per Twilio standard.
+
+    Example (Twilio A2P 10DLC standard):
+      legal_name = "Van Dusen Home Automation, LLC" (EIN: 99-1234567)
+      friendly_name = "Van Dusen Life Insurance" (brand name on website)
+      → Sent to Twilio as: "Van Dusen Home Automation, LLC DBA Van Dusen Life Insurance"
+
+    Twilio documentation reference:
+      https://www.twilio.com/docs/messaging/compliance/a2p-10dlc/onboarding-isv-api#brand-registration
+    """
+    legal = (legal_name or '').strip()
+    friendly = (friendly_name or '').strip()
+
+    if not legal or not friendly:
+        return legal or friendly  # Return whichever exists
+
+    # If they're the same, no DBA needed
+    if legal.lower() == friendly.lower():
+        return legal
+
+    # Return DBA-formatted name
+    return f"{legal} DBA {friendly}"
+
+
+def _extract_business_names_from_subscriber(subscriber, vc):
+    """
+    Extract legal and friendly business names from subscriber data.
+
+    Returns dict with:
+      - legal_name: legal business name (from voice_config or subscriber info)
+      - friendly_name: DBA/business name (from web_presence.dba_name or bot settings)
+      - suggested_business_name: DBA-formatted if they differ
+    """
+    vc = vc or {}
+    web_presence = vc.get('web_presence', {})
+    bot_settings = vc.get('bot_settings', {})
+
+    # Friendly name: from domain registration, then bot settings
+    friendly_name = web_presence.get('dba_name', '').strip() or bot_settings.get('business_name', '').strip()
+
+    # Legal name: we'll add this as a field in voice_config when user registers A2P
+    # For now, check if it's already stored from a previous A2P registration
+    legal_name = vc.get('legal_business_name', '').strip()
+
+    # Build suggested name
+    suggested = _build_dba_business_name(legal_name, friendly_name)
+
+    return {
+        'legal_name': legal_name,
+        'friendly_name': friendly_name,
+        'suggested_business_name': suggested or friendly_name or '',
+    }
+
+
 def _log_a2p_event(sub_sid, event_type, status, summary, details=None):
     """Log an A2P operation to webhook_logs with best-effort location_id."""
     try:
@@ -150,6 +220,9 @@ def a2p_status():
                 })
             logger.warning(f"Failed to fetch MS phone numbers (non-fatal): {e}")
 
+    # Extract business name info for DBA prepopulation
+    names_info = _extract_business_names_from_subscriber(subscriber, vc)
+
     return jsonify({
         "registered": is_registered,
         "brand_sid": a2p.get('brand_sid', ''),
@@ -162,6 +235,11 @@ def a2p_status():
         "is_sub_user": is_sub_user,
         "a2p_fee_paid": a2p.get('a2p_fee_paid', False),
         "registered_number_sids": registered_number_sids,
+        # DBA formatting hints for form prepopulation
+        "legal_business_name": names_info['legal_name'],
+        "friendly_business_name": names_info['friendly_name'],
+        "suggested_business_name": names_info['suggested_business_name'],
+        "has_dba": names_info['legal_name'] and names_info['friendly_name'] and names_info['legal_name'].lower() != names_info['friendly_name'].lower(),
     })
 
 
@@ -322,6 +400,7 @@ def a2p_register_brand():
     data = request.get_json() or {}
 
     # Validate required fields
+    legal_business_name = data.get('legal_business_name', '').strip()
     business_name = data.get('business_name', '').strip()
     ein = data.get('ein', '').strip()
     contact_email = data.get('contact_email', '').strip()
@@ -329,6 +408,17 @@ def a2p_register_brand():
     brand_type = data.get('brand_type', 'LOW_VOLUME').upper().strip()
     if not business_name:
         return jsonify({"error": "Business name is required"}), 400
+
+    # ── DBA Logic: If legal_business_name differs, format as DBA ──
+    # If user provided a separate legal business name, use DBA format for Twilio
+    if legal_business_name and legal_business_name.lower() != business_name.lower():
+        # Store the legal name separately
+        vc['legal_business_name'] = legal_business_name
+        # Format the name to send to Twilio as "[legal] DBA [friendly]"
+        formatted_name_for_twilio = _build_dba_business_name(legal_business_name, business_name)
+        logger.info(f"[A2P] Formatting A2P brand name: legal='{legal_business_name}' friendly='{business_name}' → Twilio='{formatted_name_for_twilio}'")
+    else:
+        formatted_name_for_twilio = business_name
     if brand_type != 'SOLE_PROPRIETOR' and not ein:
         return jsonify({"error": "EIN is required for non-Sole Proprietor brands"}), 400
     if not contact_email:
@@ -344,9 +434,10 @@ def a2p_register_brand():
 
     sub_auth_token = (vc or {}).get('twilio_auth_token', '')
     try:
+        # Use DBA-formatted name when submitting to Twilio
         result = twilio_provisioning.create_a2p_brand(
             sub_account_sid=sub_sid,
-            business_name=business_name,
+            business_name=formatted_name_for_twilio,  # DBA-formatted if legal name differs
             ein=ein,
             street=data.get('street', ''),
             city=data.get('city', ''),
@@ -365,13 +456,15 @@ def a2p_register_brand():
             job_position=data.get('job_position', 'CEO'),
         )
 
-        # Persist to voice_config
+        # Persist to voice_config — store both legal and friendly names
         a2p.update({
             "brand_sid": result["brand_sid"],
             "brand_status": result["status"],
             "profile_sid": result.get("profile_sid", ""),
             "trust_product_sid": result.get("trust_product_sid", ""),
-            "business_name": business_name,
+            "business_name": formatted_name_for_twilio,  # What we sent to Twilio (DBA-formatted if applicable)
+            "friendly_business_name": business_name,  # The DBA/friendly name
+            "legal_business_name": legal_business_name or business_name,  # The legal name
             "brand_type": brand_type,
             "registered_at": datetime.utcnow().isoformat(),
             "_sub_sid": sub_sid,
@@ -380,9 +473,12 @@ def a2p_register_brand():
         _save_voice_config(current_user.email, vc)
 
         _log_a2p_event(sub_sid, "a2p_brand_registered", "success",
-                       f"SMS brand registered: {business_name}",
+                       f"SMS brand registered: {formatted_name_for_twilio}",
                        {"brand_sid": result["brand_sid"], "status": result["status"],
-                        "business_name": business_name, "brand_type": brand_type})
+                        "business_name": formatted_name_for_twilio,
+                        "legal_business_name": legal_business_name or business_name,
+                        "friendly_business_name": business_name,
+                        "brand_type": brand_type})
 
         return jsonify({
             "brand_sid": result["brand_sid"],

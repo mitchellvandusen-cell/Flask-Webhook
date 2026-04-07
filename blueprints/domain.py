@@ -661,6 +661,7 @@ def domain_checkout():
     first_name = agent_name.split()[0] if ' ' in agent_name else agent_name
     last_name = agent_name.split()[-1] if ' ' in agent_name else ''
     agent_email = f'{email_prefix}@{domain}'
+    legal_business_name = (data.get('legal_business_name') or '').strip()  # Optional: legal entity name
 
     # ── Validate promo code BEFORE provisioning (prevent free domains) ──
     promo_code_id = None
@@ -691,6 +692,7 @@ def domain_checkout():
     web_presence = {
         'domain': domain,
         'dba_name': dba_name,
+        'legal_business_name': legal_business_name,  # For A2P DBA formatting
         'agent_name': agent_name,
         'email': agent_email,
         'email_prefix': email_prefix,
@@ -756,6 +758,7 @@ def domain_checkout():
         _cf_store_agent_config(domain, {
             'agent_name': agent_name,
             'dba_name': dba_name,
+            'legal_business_name': legal_business_name,  # For A2P DBA prepopulation
             'phone_display': phone_display,
             'phone_raw': phone_raw,
             'email': agent_email,
