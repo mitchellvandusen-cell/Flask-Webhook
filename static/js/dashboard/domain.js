@@ -233,12 +233,8 @@
                         status.innerHTML = '<i class="fa-solid fa-circle-check"></i> ' + (d.discount || 'Discount applied');
                         status.className = 'domain-promo-status success';
                     }
-                    // Update purchase button to reflect discount
-                    var purchaseBtn = document.getElementById('domainPurchaseBtn');
-                    if (purchaseBtn) {
-                        var priceText = (d.price_after || '$0') + ' first month, then $10/mo';
-                        purchaseBtn.innerHTML = '<i class="fa-solid fa-rocket"></i> Get My Domain — ' + priceText;
-                    }
+                    // Promo applied — button stays clean, status line shows the discount
+
                 } else {
                     if (status) {
                         status.textContent = d.error || 'Invalid code';
@@ -334,7 +330,7 @@
                 } else {
                     _updateProvisioningSteps(d.provisioning_log || [], false, d.error);
                     btn.disabled = false;
-                    btn.innerHTML = '<i class="fa-solid fa-rocket"></i> Get My Domain — $10/month';
+                    btn.innerHTML = 'Get My Domain';
                     if (typeof _showDashToast === 'function') _showDashToast(false, d.error || 'Provisioning failed');
                 }
             })

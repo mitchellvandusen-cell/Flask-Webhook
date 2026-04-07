@@ -1653,41 +1653,61 @@
         /* Details form */
         .domain-details-sub { font-size: 0.82rem; color: #777; margin-bottom: 1.25rem; }
         #domainDetailsForm {
-            background: #0a0a0a; border: 1px solid #1a1a1a; border-radius: 10px; padding: 1.5rem; margin-top: 1.5rem;
+            background: #0a0a0a; border: 1px solid #1a1a1a; border-radius: 10px;
+            padding: 2rem; margin-top: 1.5rem;
         }
-        .domain-disclaimer-box { margin: 1.25rem 0; }
+        #domainDetailsForm .domain-section-title {
+            font-size: 1rem; font-weight: 800; letter-spacing: -0.01em;
+        }
+        .domain-disclaimer-box {
+            margin: 1.5rem 0; padding: 1.25rem; background: #111;
+            border: 1px solid #1a1a1a; border-radius: 8px;
+        }
         .domain-disclaimer-label {
-            display: flex; gap: 0.6rem; align-items: flex-start; cursor: pointer;
+            display: flex; gap: 0.75rem; align-items: flex-start; cursor: pointer;
         }
         .domain-disclaimer-label input[type="checkbox"] {
-            margin-top: 0.2rem; flex-shrink: 0; accent-color: var(--accent, #00ff88);
+            margin-top: 0.25rem; flex-shrink: 0; accent-color: var(--accent, #00ff88);
+            width: 16px; height: 16px;
         }
-        .domain-disclaimer-label span { font-size: 0.7rem; color: #666; line-height: 1.55; }
-        .domain-purchase-btn { width: 100%; justify-content: center; padding: 0.8rem; font-size: 0.95rem; margin-top: 0.5rem; }
+        .domain-disclaimer-label span {
+            font-size: 0.72rem; color: #555; line-height: 1.6;
+        }
+        .domain-purchase-btn {
+            width: 100%; justify-content: center; padding: 1rem;
+            font-size: 1rem; font-weight: 800; margin-top: 0.75rem;
+            letter-spacing: 0.01em; border-radius: 8px;
+            transition: background 0.18s, transform 0.1s;
+        }
+        .domain-purchase-btn:hover { opacity: 1; background: #00cc6a; }
+        .domain-purchase-btn:active { transform: scale(0.985); }
 
         /* Promo Code */
-        .domain-promo-code-row { margin-top: 0.75rem; }
-        .domain-promo-toggle { font-size: 0.8rem; color: #666; cursor: pointer; transition: color 0.15s; }
+        .domain-promo-code-row { margin-top: 1.25rem; }
+        .domain-promo-toggle {
+            font-size: 0.78rem; color: #555; cursor: pointer;
+            transition: color 0.15s; font-weight: 500;
+        }
         .domain-promo-toggle:hover { color: var(--accent, #00ff88); }
         body.light-theme .domain-promo-toggle { color: #9ca3af; }
         body.light-theme .domain-promo-toggle:hover { color: #059669; }
-        .domain-promo-code-row label { font-size: 0.8rem; }
-        .domain-optional { color: #666; font-weight: 400; }
+        .domain-promo-code-row label { font-size: 0.78rem; font-weight: 500; }
+        .domain-optional { color: #555; font-weight: 400; }
         .domain-promo-input-row { display: flex; gap: 0.5rem; align-items: center; }
         .domain-promo-input-row input { flex: 1; }
         .domain-promo-apply-btn {
-            background: #1a1a1a; color: #ccc; border: 1px solid #2a2a2a; border-radius: 6px;
-            padding: 0.45rem 0.9rem; font-size: 0.8rem; font-weight: 600; cursor: pointer;
-            transition: border-color 0.15s, color 0.15s; white-space: nowrap;
+            background: #0a0a0a; color: #ccc; border: 1px solid #1e1e1e; border-radius: 6px;
+            padding: 0.55rem 1rem; font-size: 0.8rem; font-weight: 600; cursor: pointer;
+            transition: border-color 0.18s, color 0.18s; white-space: nowrap;
         }
-        .domain-promo-apply-btn:hover { border-color: var(--accent, #00ff88); color: #fff; }
+        .domain-promo-apply-btn:hover { border-color: rgba(0,255,136,0.35); color: #fff; }
         .domain-promo-apply-btn:disabled { opacity: 0.5; cursor: default; }
-        .domain-promo-status { display: block; font-size: 0.75rem; margin-top: 0.3rem; min-height: 1rem; }
+        .domain-promo-status { display: block; font-size: 0.75rem; margin-top: 0.35rem; min-height: 1rem; }
         .domain-promo-status.success { color: var(--accent, #00ff88); }
         .domain-promo-status.error { color: #ef4444; }
         .domain-promo-status i { margin-right: 0.25rem; }
-        body.light-theme .domain-promo-apply-btn { background: #f3f4f6; color: #374151; border-color: #e5e7eb; }
-        body.light-theme .domain-promo-apply-btn:hover { border-color: #059669; color: #111; }
+        body.light-theme .domain-promo-apply-btn { background: #fff; color: #374151; border-color: #e5e7eb; }
+        body.light-theme .domain-promo-apply-btn:hover { border-color: rgba(5,150,105,0.4); color: #111; }
         body.light-theme .domain-optional { color: #9ca3af; }
         body.light-theme .domain-promo-status.success { color: #059669; }
 
@@ -1746,7 +1766,10 @@
         body.light-theme .domain-prov-step { background: #f8f8f8; }
         body.light-theme .domain-prov-label { color: #444; }
         body.light-theme .domain-email-preview { background: #f8f8f8; border-color: #ddd; }
-        body.light-theme .domain-disclaimer-label span { color: #888; }
+        body.light-theme .domain-disclaimer-box { background: #f9fafb; border-color: #e5e7eb; }
+        body.light-theme .domain-disclaimer-label span { color: #6b7280; }
+        body.light-theme .domain-purchase-btn { background: #059669; color: #fff; border-color: #059669; }
+        body.light-theme .domain-purchase-btn:hover { background: #047857; }
         body.light-theme .domain-shimmer { background: linear-gradient(90deg, #eee 25%, #f5f5f5 50%, #eee 75%); background-size: 200% 100%; }
 
         @media (max-width: 640px) {
