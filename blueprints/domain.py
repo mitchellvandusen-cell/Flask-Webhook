@@ -716,6 +716,28 @@ def domain_checkout():
     first_name = agent_name.split()[0] if ' ' in agent_name else agent_name
     last_name = agent_name.split()[-1] if ' ' in agent_name else ''
     agent_email = f'{email_prefix}@{domain}'
+
+    # Persist agent name to subscriber record if not already set
+    if data.get('agent_name'):
+        try:
+            conn2 = get_db_connection()
+            if conn2:
+                cur2 = conn2.cursor()
+                cur2.execute("""
+                    UPDATE subscribers
+                    SET full_name = COALESCE(NULLIF(full_name, ''), %s),
+                        voice_config = jsonb_set(
+                            COALESCE(voice_config, '{}'::jsonb),
+                            '{operator_name}',
+                            to_jsonb(%s::text)
+                        )
+                    WHERE email = %s AND (full_name IS NULL OR full_name = '')
+                """, (data['agent_name'], data['agent_name'], current_user.email))
+                conn2.commit()
+                cur2.close()
+                return_db_connection(conn2)
+        except Exception as e:
+            logger.warning(f"[Domain] Failed to update subscriber name: {e}")
     legal_business_name = (data.get('legal_business_name') or '').strip()  # Optional: legal entity name
 
     # ── Check if this domain was previously registered but provisioning failed ──
