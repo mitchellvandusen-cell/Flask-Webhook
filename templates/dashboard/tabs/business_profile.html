@@ -91,6 +91,40 @@
                                 </div>
                             </div>
 
+                            <!-- EIN Document Upload (new EINs under 60 days) -->
+                            <div id="spEinDocSection" class="biz-prof-ein-doc-section" style="display:none;">
+                                <div class="biz-prof-ein-doc-box">
+                                    <div class="biz-prof-ein-doc-heading">
+                                        <i class="fa-solid fa-file-arrow-up me-1"></i>EIN Confirmation Letter (CP 575)
+                                    </div>
+                                    <div class="biz-prof-ein-doc-text">
+                                        If your EIN was issued within the last 60 days, Twilio may require your IRS confirmation letter (CP 575 or 147C) as a supporting document to verify your business identity.
+                                    </div>
+                                    <div class="biz-prof-ein-doc-toggle">
+                                        <label class="biz-prof-field-label-sm">Was your EIN issued in the last 60 days?</label>
+                                        <div class="d-flex gap-2 mt-1">
+                                            <button type="button" id="spEinNewYes" onclick="spSetEinNew(true)" class="biz-prof-ein-btn biz-prof-ein-btn-yes-sm">Yes</button>
+                                            <button type="button" id="spEinNewNo" onclick="spSetEinNew(false)" class="biz-prof-ein-btn biz-prof-ein-btn-no-sm">No</button>
+                                        </div>
+                                    </div>
+                                    <div id="spEinUploadArea" style="display:none;">
+                                        <label class="biz-prof-field-label-sm mt-2">Upload EIN Confirmation (PDF, JPG, or PNG — max 5MB)</label>
+                                        <div class="biz-prof-upload-zone" id="spEinDropZone" onclick="document.getElementById('spEinFileInput').click()">
+                                            <input type="file" id="spEinFileInput" accept=".pdf,.jpg,.jpeg,.png" style="display:none" onchange="spHandleEinFile(this)">
+                                            <div id="spEinUploadPrompt">
+                                                <i class="fa-solid fa-cloud-arrow-up me-2"></i>
+                                                <span>Click to upload or drag & drop</span>
+                                            </div>
+                                            <div id="spEinUploadedInfo" style="display:none;">
+                                                <i class="fa-solid fa-file-check me-2"></i>
+                                                <span id="spEinFileName"></span>
+                                                <button type="button" onclick="spClearEinFile(event)" class="biz-prof-upload-clear"><i class="fa-solid fa-xmark"></i></button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
                             <!-- Business Address -->
                             <div class="biz-prof-section-title">
                                 <i class="fa-solid fa-location-dot me-1 biz-prof-icon-orange"></i> Business Address

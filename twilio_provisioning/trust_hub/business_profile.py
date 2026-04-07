@@ -1,5 +1,6 @@
 """Module extracted from twilio_provisioning.py."""
 
+import json
 import logging
 import io
 from twilio.base.exceptions import TwilioRestException
@@ -8,6 +9,8 @@ from ..client import (
     get_sub_account_client_native,
     _ensure_sub_account_auth_token,
     _trusthub_update_status,
+    _normalize_phone_e164,
+    US_STATE_ABBREVS,
 )
 from .base import (
     SECONDARY_CUSTOMER_PROFILE_POLICY_SID,
@@ -30,7 +33,11 @@ def register_business_profile(sub_account_sid: str, business_name: str,
                                 existing_profile_sid: str = "",
                                 ein_document_data: str = "",
                                 ein_document_type: str = "",
-                                ein_document_name: str = "") -> dict:
+                                ein_document_name: str = "",
+                                existing_end_user_sid: str = "",
+                                existing_auth_rep_sid: str = "",
+                                existing_address_sid: str = "",
+                                existing_supporting_doc_sid: str = "") -> dict:
     """
     Register a business profile for CNAM / spam protection on a Twilio sub-account.
 
@@ -90,7 +97,10 @@ def register_business_profile(sub_account_sid: str, business_name: str,
         results["errors"].append(f"Customer Profile: {e}")
         # Can't proceed without a profile — still do CNAM at minimum
 
-    # ── Step 2: Create EndUser (business info) ──
+    # ── Step 2: Create or Update EndUser (business info) ──
+    # Per Twilio docs: POST /v1/EndUsers/{Sid} updates attributes in place.
+    # If we have an existing end_user_sid, update it instead of creating a new one.
+    # This prevents orphaned EndUser entities on re-registration.
     end_user_sid = ""
     state_upper = (state or "").strip().upper()
     if profile_sid:
@@ -99,9 +109,6 @@ def register_business_profile(sub_account_sid: str, business_name: str,
             if len(state_upper) > 2:
                 state_upper = US_STATE_ABBREVS.get(state_upper.lower(), state_upper[:2])
 
-            # Map UI business_type to Twilio's expected enum values.
-            # Twilio requires EXACT strings — "Limited Liability Corporation"
-            # (NOT "Limited Liability Company" which is the common legal term).
             _BIZ_TYPE_MAP = {
                 "Corporation": "Corporation",
                 "Limited Liability Company": "Limited Liability Corporation",
@@ -116,63 +123,64 @@ def register_business_profile(sub_account_sid: str, business_name: str,
                 business_type, business_type or "Corporation"
             )
 
-            # Registration identifier: use EIN when the user provided one,
-            # SSN only for sole props who explicitly don't have an EIN.
-            # Our onboarding wizard requires an EIN for ALL users, so this
-            # should always be "EIN" in practice.  The old code forced "SSN"
-            # for every sole prop, which caused evaluation to fail when the
-            # number was actually an EIN (wrong identifier → noncompliant).
             is_sole_prop = resolved_biz_type == "Sole Proprietorship"
             ein_looks_valid = bool(ein and len(ein.replace("-", "")) == 9)
             reg_identifier = "EIN" if ein_looks_valid else ("SSN" if is_sole_prop else "EIN")
-
-            # business_identity: sub-account customers are "direct_customer"
-            # (the platform/ISV is "isv_reseller_or_partner" — but that's the
-            # master account, not the sub-account's customer)
             biz_identity = "direct_customer"
 
-            end_user = client.trusthub.v1.end_users.create(
-                friendly_name=f"Business: {business_name}",
-                type="customer_profile_business_information",
-                attributes={
-                    "business_name": business_name,
-                    "business_identity": biz_identity,
-                    "business_type": resolved_biz_type,
-                    "business_industry": "INSURANCE",
-                    "business_registration_identifier": reg_identifier,
-                    "business_registration_number": ein,
-                    "business_regions_of_operation": "USA_AND_CANADA",
-                    "website_url": website or "",
-                    "social_media_profile_urls": "",
-                },
-            )
-            end_user_sid = end_user.sid
+            biz_attributes = {
+                "business_name": business_name,
+                "business_identity": biz_identity,
+                "business_type": resolved_biz_type,
+                "business_industry": "INSURANCE",
+                "business_registration_identifier": reg_identifier,
+                "business_registration_number": ein,
+                "business_regions_of_operation": "USA_AND_CANADA",
+                "website_url": website or "",
+                "social_media_profile_urls": "",
+            }
+
+            if existing_end_user_sid:
+                # Update existing EndUser in place (Twilio REST API supports this)
+                try:
+                    client.trusthub.v1.end_users(existing_end_user_sid).update(
+                        friendly_name=f"Business: {business_name}",
+                        attributes=biz_attributes,
+                    )
+                    end_user_sid = existing_end_user_sid
+                    logger.info(f"[SpamProtection] Updated existing business EndUser: {end_user_sid}")
+                except TwilioRestException as update_err:
+                    logger.warning(f"[SpamProtection] EndUser update failed ({update_err}), creating new")
+                    existing_end_user_sid = ""  # fall through to create
+
+            if not existing_end_user_sid:
+                end_user = client.trusthub.v1.end_users.create(
+                    friendly_name=f"Business: {business_name}",
+                    type="customer_profile_business_information",
+                    attributes=biz_attributes,
+                )
+                end_user_sid = end_user.sid
+                logger.info(f"[SpamProtection] Created business EndUser: {end_user_sid}")
+
             results["end_user_sid"] = end_user_sid
             results["steps"].append({
                 "name": "end_user_business",
                 "status": "ok",
                 "sid": end_user_sid,
             })
-            logger.info(f"[SpamProtection] Created business EndUser: {end_user_sid}")
         except TwilioRestException as e:
             logger.error(f"[SpamProtection] Business EndUser creation failed: {e}")
             results["errors"].append(f"Business EndUser: {e}")
 
-    # ── Step 3: Create Authorized Representative EndUser ──
+    # ── Step 3: Create or Update Authorized Representative EndUser ──
     auth_rep_sid = ""
     if profile_sid and contact_name:
         try:
-            # Split contact name into first/last — last_name is REQUIRED by Twilio
             name_parts = contact_name.strip().split(None, 1)
             first_name = name_parts[0] if name_parts else contact_name
             last_name = name_parts[1] if len(name_parts) > 1 else first_name
-
-            # Use user-provided title, fallback to "Owner"
             resolved_title = contact_title or "Owner"
 
-            # Twilio requires job_position to be one of these exact enum values:
-            # Director, GM, VP, CEO, CFO, General Counsel
-            # business_title is free-text. Map common titles to valid job_position.
             _JOB_POSITION_MAP = {
                 "owner": "CEO", "ceo": "CEO", "president": "CEO",
                 "cfo": "CFO", "finance": "CFO",
@@ -185,72 +193,118 @@ def register_business_profile(sub_account_sid: str, business_name: str,
             job_position = _JOB_POSITION_MAP.get(
                 resolved_title.lower().strip(), "CEO"
             )
-
-            # Normalize phone to E.164 format for Twilio
             norm_phone = _normalize_phone_e164(contact_phone)
 
-            auth_rep = client.trusthub.v1.end_users.create(
-                friendly_name=f"Auth Rep: {contact_name}",
-                type="authorized_representative_1",
-                attributes={
-                    "first_name": first_name,
-                    "last_name": last_name,
-                    "email": contact_email,
-                    "phone_number": norm_phone,
-                    "business_title": resolved_title,
-                    "job_position": job_position,
-                },
-            )
-            auth_rep_sid = auth_rep.sid
+            rep_attributes = {
+                "first_name": first_name,
+                "last_name": last_name,
+                "email": contact_email,
+                "phone_number": norm_phone,
+                "business_title": resolved_title,
+                "job_position": job_position,
+            }
+
+            if existing_auth_rep_sid:
+                try:
+                    client.trusthub.v1.end_users(existing_auth_rep_sid).update(
+                        friendly_name=f"Auth Rep: {contact_name}",
+                        attributes=rep_attributes,
+                    )
+                    auth_rep_sid = existing_auth_rep_sid
+                    logger.info(f"[SpamProtection] Updated existing Auth Rep: {auth_rep_sid}")
+                except TwilioRestException as update_err:
+                    logger.warning(f"[SpamProtection] Auth Rep update failed ({update_err}), creating new")
+                    existing_auth_rep_sid = ""
+
+            if not existing_auth_rep_sid:
+                auth_rep = client.trusthub.v1.end_users.create(
+                    friendly_name=f"Auth Rep: {contact_name}",
+                    type="authorized_representative_1",
+                    attributes=rep_attributes,
+                )
+                auth_rep_sid = auth_rep.sid
+                logger.info(f"[SpamProtection] Created Auth Rep: {auth_rep_sid}")
+
+            results["auth_rep_sid"] = auth_rep_sid
             results["steps"].append({
                 "name": "auth_representative",
                 "status": "ok",
                 "sid": auth_rep_sid,
             })
-            logger.info(f"[SpamProtection] Created Auth Rep: {auth_rep_sid}")
         except TwilioRestException as e:
             logger.error(f"[SpamProtection] Auth Rep creation failed: {e}")
             results["errors"].append(f"Auth Rep: {e}")
 
-    # ── Step 4: Create Address + SupportingDocument ──
+    # ── Step 4: Create or Update Address + SupportingDocument ──
     # Twilio requires a TWO-STEP address process:
     #   1. Create an Address resource (AD... SID)
     #   2. Wrap it in a SupportingDocument of type "customer_profile_address"
     #      with attributes.address_sids = the AD SID (RD... SID)
     #   3. Assign the RD SID (not AD SID) to the profile
-    # Without the SupportingDocument, evaluation fails with "Address sids list is empty".
+    # If we already have an address SID, update it in place.
     address_sid = ""
     supporting_doc_sid = ""
     if profile_sid and street:
         try:
-            address = client.addresses.create(
-                friendly_name=f"{business_name} Address",
-                customer_name=business_name,
-                street=street,
-                city=city,
-                region=state_upper,
-                postal_code=zip_code,
-                iso_country="US",
-            )
-            address_sid = address.sid
-            logger.info(f"[SpamProtection] Created Address: {address_sid}")
+            if existing_address_sid:
+                try:
+                    client.addresses(existing_address_sid).update(
+                        friendly_name=f"{business_name} Address",
+                        customer_name=business_name,
+                        street=street,
+                        city=city,
+                        region=state_upper,
+                        postal_code=zip_code,
+                    )
+                    address_sid = existing_address_sid
+                    logger.info(f"[SpamProtection] Updated existing Address: {address_sid}")
+                except TwilioRestException as update_err:
+                    logger.warning(f"[SpamProtection] Address update failed ({update_err}), creating new")
+                    existing_address_sid = ""
 
-            # Wrap in SupportingDocument — this is what gets assigned to the profile
-            supporting_doc = client.trusthub.v1.supporting_documents.create(
-                friendly_name=f"{business_name} Address Document",
-                type="customer_profile_address",
-                attributes={
-                    "address_sids": address_sid,
-                },
-            )
-            supporting_doc_sid = supporting_doc.sid
+            if not existing_address_sid:
+                address = client.addresses.create(
+                    friendly_name=f"{business_name} Address",
+                    customer_name=business_name,
+                    street=street,
+                    city=city,
+                    region=state_upper,
+                    postal_code=zip_code,
+                    iso_country="US",
+                )
+                address_sid = address.sid
+                logger.info(f"[SpamProtection] Created Address: {address_sid}")
+
+            # Reuse existing SupportingDocument if we have one, otherwise create new
+            if existing_supporting_doc_sid and address_sid:
+                try:
+                    client.trusthub.v1.supporting_documents(existing_supporting_doc_sid).update(
+                        friendly_name=f"{business_name} Address Document",
+                        attributes={"address_sids": address_sid},
+                    )
+                    supporting_doc_sid = existing_supporting_doc_sid
+                    logger.info(f"[SpamProtection] Updated existing SupportingDocument: {supporting_doc_sid}")
+                except TwilioRestException as update_err:
+                    logger.warning(f"[SpamProtection] SupportingDocument update failed ({update_err}), creating new")
+                    existing_supporting_doc_sid = ""
+
+            if not existing_supporting_doc_sid and address_sid:
+                supporting_doc = client.trusthub.v1.supporting_documents.create(
+                    friendly_name=f"{business_name} Address Document",
+                    type="customer_profile_address",
+                    attributes={"address_sids": address_sid},
+                )
+                supporting_doc_sid = supporting_doc.sid
+                logger.info(f"[SpamProtection] Created SupportingDocument: {supporting_doc_sid} (wraps {address_sid})")
+
+            results["address_sid"] = address_sid
+            results["supporting_doc_sid"] = supporting_doc_sid
             results["steps"].append({
                 "name": "address",
                 "status": "ok",
                 "sid": supporting_doc_sid,
                 "address_sid": address_sid,
             })
-            logger.info(f"[SpamProtection] Created SupportingDocument: {supporting_doc_sid} (wraps {address_sid})")
 
         except TwilioRestException as e:
             logger.error(f"[SpamProtection] Address/SupportingDocument creation failed: {e}")

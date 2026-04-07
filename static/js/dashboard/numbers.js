@@ -315,8 +315,40 @@
                     }
                     _sv('spContactEmail', d.contact_email);
                     _sv('spContactPhone', d.contact_phone);
-                    // Collapse form if already registered
-                    if (formEl) formEl.style.display = 'none';
+                    _sv('spContactTitle', d.contact_title);
+                    _sv('spWebsite',      d.website);
+                    // Restore business type select
+                    var btSelect = document.getElementById('spBizType');
+                    if (btSelect && d.business_type) {
+                        btSelect.value = d.business_type;
+                        spBizTypeChanged();
+                    }
+                    // Restore EIN document state
+                    if (d.ein_document_name) {
+                        var einDocSection = document.getElementById('spEinDocSection');
+                        var einUploadArea = document.getElementById('spEinUploadArea');
+                        var einUploadedInfo = document.getElementById('spEinUploadedInfo');
+                        var einUploadPrompt = document.getElementById('spEinUploadPrompt');
+                        var einFileName = document.getElementById('spEinFileName');
+                        if (einDocSection) einDocSection.style.display = 'block';
+                        if (einUploadArea) einUploadArea.style.display = 'block';
+                        if (einUploadedInfo) einUploadedInfo.style.display = 'flex';
+                        if (einUploadPrompt) einUploadPrompt.style.display = 'none';
+                        if (einFileName) einFileName.textContent = d.ein_document_name + ' (uploaded)';
+                    }
+                    // Restore ein_is_new toggle state
+                    if (d.ein_is_new) {
+                        var einDocSection = document.getElementById('spEinDocSection');
+                        if (einDocSection) einDocSection.style.display = 'block';
+                        spSetEinNew(true);
+                    }
+                    // Show form if rejected (user needs to fix and resubmit)
+                    if (isRejected) {
+                        if (formEl) formEl.style.display = 'block';
+                    } else {
+                        // Collapse form if already registered
+                        if (formEl) formEl.style.display = 'none';
+                    }
                 }
 
                 // Render number protection list
@@ -389,6 +421,9 @@
             var bizNameInput = document.getElementById('spBizName');
 
             if (hint) hint.style.display = isSoleProp ? 'block' : 'none';
+            // Show EIN doc upload section for sole props
+            var einDocSection = document.getElementById('spEinDocSection');
+            if (einDocSection) einDocSection.style.display = isSoleProp ? 'block' : 'none';
 
             // Reset EIN toggle state when switching away from sole prop
             if (!isSoleProp) {
@@ -399,6 +434,7 @@
                 if (yesBtn) { yesBtn.style.background = 'rgba(0,0,0,0)'; yesBtn.style.color = '#aaa'; }
                 if (noBtn) { noBtn.style.background = 'rgba(0,0,0,0)'; noBtn.style.color = '#aaa'; }
                 _spEinBypassWarning = false;
+                spClearEinFile(null);
             }
 
             if (einLabel) einLabel.textContent = 'EIN (Tax ID)';
@@ -476,6 +512,81 @@
         }
         window._spContinueWithSsn = _spContinueWithSsn;
 
+        // ── EIN Document Upload ──
+        var _spEinDocData = '';
+        var _spEinDocType = '';
+        var _spEinDocName = '';
+
+        function spSetEinNew(isNew) {
+            var yesBtn = document.getElementById('spEinNewYes');
+            var noBtn = document.getElementById('spEinNewNo');
+            var uploadArea = document.getElementById('spEinUploadArea');
+
+            if (isNew) {
+                if (yesBtn) { yesBtn.style.background = 'rgba(255,165,0,0.15)'; yesBtn.style.color = '#ffa500'; yesBtn.style.borderColor = 'rgba(255,165,0,0.5)'; }
+                if (noBtn) { noBtn.style.background = 'rgba(0,0,0,0)'; noBtn.style.color = '#aaa'; noBtn.style.borderColor = 'rgba(255,255,255,0.1)'; }
+                if (uploadArea) uploadArea.style.display = 'block';
+            } else {
+                if (noBtn) { noBtn.style.background = 'rgba(0,255,136,0.15)'; noBtn.style.color = '#00ff88'; noBtn.style.borderColor = 'rgba(0,255,136,0.5)'; }
+                if (yesBtn) { yesBtn.style.background = 'rgba(0,0,0,0)'; yesBtn.style.color = '#aaa'; yesBtn.style.borderColor = 'rgba(255,255,255,0.1)'; }
+                if (uploadArea) uploadArea.style.display = 'none';
+                _spEinDocData = '';
+                _spEinDocType = '';
+                _spEinDocName = '';
+            }
+        }
+        window.spSetEinNew = spSetEinNew;
+
+        function spHandleEinFile(input) {
+            var file = input.files && input.files[0];
+            if (!file) return;
+
+            // Validate file size (5MB max)
+            if (file.size > 5 * 1024 * 1024) {
+                alert('File must be under 5MB');
+                input.value = '';
+                return;
+            }
+
+            // Validate file type
+            var validTypes = ['application/pdf', 'image/jpeg', 'image/jpg', 'image/png'];
+            if (!validTypes.includes(file.type)) {
+                alert('Please upload a PDF, JPG, or PNG file');
+                input.value = '';
+                return;
+            }
+
+            var reader = new FileReader();
+            reader.onload = function(e) {
+                _spEinDocData = e.target.result; // data:mimetype;base64,...
+                _spEinDocType = file.type;
+                _spEinDocName = file.name;
+
+                var prompt = document.getElementById('spEinUploadPrompt');
+                var info = document.getElementById('spEinUploadedInfo');
+                var nameEl = document.getElementById('spEinFileName');
+                if (prompt) prompt.style.display = 'none';
+                if (info) info.style.display = 'flex';
+                if (nameEl) nameEl.textContent = file.name;
+            };
+            reader.readAsDataURL(file);
+        }
+        window.spHandleEinFile = spHandleEinFile;
+
+        function spClearEinFile(e) {
+            if (e) e.stopPropagation();
+            _spEinDocData = '';
+            _spEinDocType = '';
+            _spEinDocName = '';
+            var input = document.getElementById('spEinFileInput');
+            var prompt = document.getElementById('spEinUploadPrompt');
+            var info = document.getElementById('spEinUploadedInfo');
+            if (input) input.value = '';
+            if (prompt) prompt.style.display = 'flex';
+            if (info) info.style.display = 'none';
+        }
+        window.spClearEinFile = spClearEinFile;
+
         async function registerSpamProtection() {
             // If sole prop selected "No EIN" and hasn't acknowledged the warning yet, show modal first
             var isSoleProp = (document.getElementById('spBizType')?.value || '') === 'Sole Proprietorship';
@@ -509,6 +620,12 @@
                 contact_email: document.getElementById('spContactEmail')?.value?.trim() || '',
                 contact_phone: document.getElementById('spContactPhone')?.value?.trim() || '',
             };
+            // Include EIN document if uploaded
+            if (_spEinDocData) {
+                payload.ein_document_data = _spEinDocData;
+                payload.ein_document_type = _spEinDocType;
+                payload.ein_document_name = _spEinDocName;
+            }
             if (!payload.business_name) { result.innerHTML = '<span style="color:#ef4444;">Business name is required</span>'; return; }
             if (!payload.ein) { result.innerHTML = '<span style="color:#ef4444;">' + (payload.business_type === 'Sole Proprietorship' ? 'SSN is required' : 'EIN is required') + '</span>'; return; }
             if (!payload.business_type) { result.innerHTML = '<span style="color:#ef4444;">Business type is required</span>'; return; }

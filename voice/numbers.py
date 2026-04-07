@@ -1188,12 +1188,25 @@ def save_trust_hub():
     vc['trust_hub'] = trust_hub
     _save_voice_config(current_user.email, vc)
 
+    # Partial save mode: save progress without requiring all fields.
+    # Users can come back and fill in the rest later.
+    partial = data.get('partial', False)
+
     # Mark business profile as submitted (onboarding gate)
-    # Website is required — profiles without one are rejected by carriers.
     required_fields = ('business_name', 'ein', 'website', 'street', 'city', 'state', 'zip',
                        'contact_name', 'contact_email')
     missing = [f for f in required_fields if not trust_hub.get(f, '').strip()]
     has_required = len(missing) == 0
+
+    if partial:
+        # Partial save — just save what we have, report completeness
+        filled = [f for f in required_fields if trust_hub.get(f, '').strip()]
+        return jsonify({
+            "status": "saved",
+            "filled_fields": filled,
+            "missing_fields": missing,
+            "complete": has_required,
+        })
 
     if missing:
         return jsonify({"error": f"Missing required fields: {', '.join(missing)}", "missing": missing}), 400
@@ -1297,8 +1310,15 @@ def register_spam_protection():
     _save_voice_config(current_user.email, vc)
 
     # Step 2: Register with Twilio Trust Hub (Customer Profile)
+    # Pass existing entity SIDs so we update-in-place instead of creating duplicates.
     sub_auth_token = (vc or {}).get('twilio_auth_token', '')
     existing_profile = trust_hub.get('profile_sid', '')
+
+    # EIN document data (base64 from frontend file upload)
+    ein_doc_data = data.get('ein_document_data') or trust_hub.get('ein_document_data', '')
+    ein_doc_type = data.get('ein_document_type') or trust_hub.get('ein_document_type', '')
+    ein_doc_name = data.get('ein_document_name') or trust_hub.get('ein_document_name', '')
+
     results = twilio_provisioning.register_business_profile(
         sub_account_sid=sub_sid,
         business_name=business_name,
@@ -1315,6 +1335,13 @@ def register_spam_protection():
         contact_phone=contact_phone,
         sub_account_auth_token=sub_auth_token,
         existing_profile_sid=existing_profile,
+        ein_document_data=ein_doc_data,
+        ein_document_type=ein_doc_type,
+        ein_document_name=ein_doc_name,
+        existing_end_user_sid=trust_hub.get('end_user_sid', ''),
+        existing_auth_rep_sid=trust_hub.get('auth_rep_sid', ''),
+        existing_address_sid=trust_hub.get('address_sid', ''),
+        existing_supporting_doc_sid=trust_hub.get('supporting_doc_sid', ''),
     )
 
     # Step 3: Only mark protection active if a profile was actually created
@@ -1343,9 +1370,10 @@ def register_spam_protection():
         if profile_step:
             trust_hub['profile_sid'] = profile_step['sid']
 
-    # Save end_user_sid for reuse
-    if results.get('end_user_sid'):
-        trust_hub['end_user_sid'] = results['end_user_sid']
+    # Save entity SIDs for update-in-place on re-registration
+    for sid_key in ('end_user_sid', 'auth_rep_sid', 'address_sid', 'supporting_doc_sid', 'ein_document_sid'):
+        if results.get(sid_key):
+            trust_hub[sid_key] = results[sid_key]
 
     # Check if profile was submitted for review or had evaluation issues
     eval_step = next((s for s in results.get('steps', []) if s.get('name') == 'evaluation'), None)
@@ -1885,14 +1913,20 @@ def spam_protection_status():
         "profile_approved": profile_approved,
         "business_name": business_name,
         "ein": trust_hub.get('ein', ''),
+        "business_type": trust_hub.get('business_type', ''),
+        "website": trust_hub.get('website', ''),
         "street": trust_hub.get('street', ''),
         "city": trust_hub.get('city', ''),
         "state": trust_hub.get('state', ''),
         "zip": trust_hub.get('zip', ''),
         "contact_name": trust_hub.get('contact_name', ''),
+        "contact_title": trust_hub.get('contact_title', ''),
         "contact_email": trust_hub.get('contact_email', ''),
         "contact_phone": trust_hub.get('contact_phone', ''),
         "registered_at": trust_hub.get('registered_at', ''),
+        "ein_is_new": trust_hub.get('ein_is_new', False),
+        "ein_document_name": trust_hub.get('ein_document_name', ''),
+        "ein_document_uploaded_at": trust_hub.get('ein_document_uploaded_at', ''),
         "numbers_protected": protected_count,
         "numbers_total": len(numbers_detail),
         "numbers": numbers_detail,

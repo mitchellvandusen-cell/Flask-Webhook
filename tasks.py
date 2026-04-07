@@ -2510,6 +2510,10 @@ def submit_trust_hub_registration(email: str) -> dict:
             ein_document_data=trust_hub.get('ein_document_data', ''),
             ein_document_type=trust_hub.get('ein_document_type', ''),
             ein_document_name=trust_hub.get('ein_document_name', ''),
+            existing_end_user_sid=trust_hub.get('end_user_sid', ''),
+            existing_auth_rep_sid=trust_hub.get('auth_rep_sid', ''),
+            existing_address_sid=trust_hub.get('address_sid', ''),
+            existing_supporting_doc_sid=trust_hub.get('supporting_doc_sid', ''),
         )
 
         # ── Process results ──
@@ -2551,12 +2555,13 @@ def submit_trust_hub_registration(email: str) -> dict:
             fresh_th['review_status'] = review_status
         if eval_issues:
             fresh_th['evaluation_issues'] = eval_issues
-        end_user_sid = results.get('end_user_sid', '')
-        if end_user_sid:
-            fresh_th['end_user_sid'] = end_user_sid
+        # Save all entity SIDs for update-in-place on re-registration
+        for sid_key in ('end_user_sid', 'auth_rep_sid', 'address_sid',
+                        'supporting_doc_sid', 'ein_document_sid'):
+            sid_val = results.get(sid_key, '')
+            if sid_val:
+                fresh_th[sid_key] = sid_val
         ein_doc_sid = results.get('ein_document_sid', '')
-        if ein_doc_sid:
-            fresh_th['ein_document_sid'] = ein_doc_sid
 
         # Clear base64 document data from DB after successful upload (saves ~MB per subscriber)
         if ein_doc_sid and fresh_th.get('ein_document_data'):
