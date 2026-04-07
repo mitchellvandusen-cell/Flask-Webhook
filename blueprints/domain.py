@@ -168,12 +168,12 @@ def _porkbun_check_available(domain):
     return {'available': available, 'price': str(price)}
 
 
-@_retry_with_backoff(max_attempts=4, backoff_base=2)
+@_retry_with_backoff(max_attempts=3, backoff_base=12)
 def _porkbun_register(domain, contact_info, price_usd=None):
     """Register a .com domain via Porkbun API.
     Endpoint: POST /domain/create/{domain}
-    Requires cost (dollars as string, matching checkDomain price) and agreeToTerms.
-    Retries up to 4 times with exponential backoff (2s, 4s, 8s) for transient failures."""
+    Requires cost (integer pennies) and agreeToTerms.
+    Retries up to 3 times with 12s backoff (clears Porkbun's 10s rate limit)."""
     # Get current price if not provided
     if price_usd is None:
         check = _porkbun_check_available(domain)
