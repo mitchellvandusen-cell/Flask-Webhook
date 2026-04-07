@@ -125,6 +125,16 @@ def api_cron_refresh_tokens():
         return safe_jsonify({"error": "Unauthorized"}), 401
 
     try:
+        # Quick DNS/network health check before attempting token refreshes
+        try:
+            import socket
+            socket.gethostbyname('services.leadconnectorhq.com')
+            logger.debug("DNS check for GHL OK")
+        except socket.gaierror as e:
+            logger.error(f"DNS resolution for GHL failed: {e}")
+        except Exception as e:
+            logger.warning(f"DNS check error: {e}")
+
         from ghl_api import refresh_tokens_proactively
         buffer_minutes = int(request.args.get("buffer", 60))
         stats = refresh_tokens_proactively(buffer_minutes=buffer_minutes)

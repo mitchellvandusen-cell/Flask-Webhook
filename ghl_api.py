@@ -355,13 +355,24 @@ def _build_cred_sets(oauth_app_type, marketplace_id, marketplace_secret, private
     return cred_sets
 
 
-def _attempt_token_refresh(location_id, refresh_token, cred, oauth_app_type):
-    """Try refreshing a token with a single credential set, trying both user_types.
+def _attempt_token_refresh(location_id, refresh_token, cred, oauth_app_type, user_type=None):
+    """Try refreshing a token with a single credential set.
+
+    Args:
+        user_type: Specific user type to try ("Location" or "Company").
+                  If None, tries only "Location" for location tokens.
+
     Returns (new_access_token, new_refresh_token, expires_in, used_type) on success,
     or (None, None, None, error_reason) on failure.
     error_reason: 'auth_error', 'network_error', 'server_error', 'no_access_token'"""
 
-    for user_type in _USER_TYPES:
+    # Determine which user_type(s) to try
+    if user_type:
+        user_types_to_try = [user_type]
+    else:
+        user_types_to_try = ["Location"]  # Default to Location if not specified
+
+    for user_type in user_types_to_try:
         payload = {
             "client_id": cred["id"],
             "client_secret": cred["secret"],
@@ -405,11 +416,19 @@ def _attempt_token_refresh(location_id, refresh_token, cred, oauth_app_type):
                     # 5xx or other — retry same request
                     last_err = 'server_error'
                     logger.warning(f"Token refresh attempt {attempt+1}/2 HTTP {status} "
-                                  f"({cred['label']}, user_type={user_type})")
-            except (requests.Timeout, requests.ConnectionError) as e:
+                                  f"({cred['label']}, user_type={user_type}) exc_type={type(e).__name__}")
+            except requests.Timeout as e:
                 last_err = 'network_error'
-                logger.warning(f"Token refresh attempt {attempt+1}/2 network error "
-                              f"({cred['label']}, user_type={user_type}): {e}")
+                logger.warning(f"Token refresh attempt {attempt+1}/2 timeout "
+                              f"({cred['label']}, user_type={user_type}): {str(e)[:200]}")
+            except requests.ConnectionError as e:
+                last_err = 'network_error'
+                logger.warning(f"Token refresh attempt {attempt+1}/2 connection_error "
+                              f"({cred['label']}, user_type={user_type}): {str(e)[:200]}")
+            except requests.RequestException as e:
+                last_err = 'network_error'
+                logger.warning(f"Token refresh attempt {attempt+1}/2 request_error {type(e).__name__} "
+                              f"({cred['label']}, user_type={user_type}): {str(e)[:200]}")
 
             if attempt == 0:
                 _time.sleep(2)
@@ -979,7 +998,7 @@ def refresh_tokens_proactively(buffer_minutes: int = 60):
             refreshed_company = False
             for cred in cred_sets:
                 new_access, new_refresh, expires_in, _ = _attempt_token_refresh(
-                    loc_id, company_refresh_tok, cred, oauth_type)
+                    loc_id, company_refresh_tok, cred, oauth_type, user_type="Company")
                 if new_access:
                     # Write company token columns inline (update_subscriber_token doesn't cover these)
                     conn3 = get_db_connection()
