@@ -903,7 +903,12 @@ def stripe_webhook():
 # ── Checkout pages ────────────────────────────────────────────────────────────
 
 @billing_bp.route("/checkout")
+@login_required
 def checkout():
+    # Guard: Prevent users with active subscriptions from checking out again
+    if current_user.stripe_status == 'active' and current_user.subscription_tier:
+        return redirect(url_for('dashboard.dashboard'))
+
     # Terms acceptance handled in Stripe Checkout
     try:
         price_id = os.getenv("STRIPE_PRICE_ID")
@@ -983,8 +988,13 @@ def checkout():
 
 
 @billing_bp.route("/checkout/sms-bot")
+@login_required
 def checkout_sms_bot():
     """SMS Bot plan checkout — AI texting only, no dialer/voice features."""
+    # Guard: Prevent users with active subscriptions from checking out again
+    if current_user.stripe_status == 'active' and current_user.subscription_tier:
+        return redirect(url_for('dashboard.dashboard'))
+
     # Terms acceptance handled in Stripe Checkout
     try:
         price_id = os.getenv("STRIPE_SMS_BOT_PRICE_ID")
@@ -1052,8 +1062,13 @@ def checkout_sms_bot():
 
 
 @billing_bp.route("/checkout/pro-dialer")
+@login_required
 def checkout_pro_dialer():
     """Pro Dialer plan checkout — multi-line dialing + predictive features."""
+    # Guard: Prevent users with active subscriptions from checking out again
+    if current_user.stripe_status == 'active' and current_user.subscription_tier:
+        return redirect(url_for('dashboard.dashboard'))
+
     # Terms acceptance handled in Stripe Checkout
     try:
         price_id = os.getenv("STRIPE_PRO_DIALER_PRICE_ID")
@@ -1132,11 +1147,16 @@ def checkout_pro_dialer():
 
 @billing_bp.route("/checkout/predictive-dialer")
 @billing_bp.route("/checkout/solo-predictive")
+@login_required
 def checkout_solo_predictive():
     """Solo Predictive + AI Overflow checkout — $349/mo with 2000 AI minutes included.
 
     Erlang-C predictive dialing for solo agents. When the dialer dials multiple
     lines and more than one lead answers, the first call bridges to the human
+
+    Guard: Prevent users with active subscriptions from checking out again."""
+    if current_user.stripe_status == 'active' and current_user.subscription_tier:
+        return redirect(url_for('dashboard.dashboard'))
     and overflow calls bridge to Voice AI which books the appointment.
     """
     # Terms acceptance handled in Stripe Checkout
