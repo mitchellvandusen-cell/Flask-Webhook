@@ -507,14 +507,16 @@
         statusDiv.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Provisioning your website and email...';
         if (btn) btn.disabled = true;
 
-        // Extract first name for email
-        var firstName = (BOOT.first_name || valOf('onbSolePropName') || valOf('onbBizName') || 'info').split(' ')[0].toLowerCase();
+        // Agent's full name for website display + first name for email prefix
+        var agentFullName = valOf('onbContactName') || valOf('onbSolePropName') || valOf('onbBizName') || BOOT.first_name || '';
+        var firstName = agentFullName.split(' ')[0].toLowerCase() || 'info';
         var dbaName = hasDba ? valOf('onbDbaName') : valOf('onbSolePropName');
 
         // Prepare checkout data
         var checkoutData = {
             domain: selectedDomain,
             dba_name: dbaName,
+            agent_name: agentFullName,
             email_prefix: firstName,
             forward_to: valOf('onbContactEmail'),
             phone_display: valOf('onbContactPhone'),
