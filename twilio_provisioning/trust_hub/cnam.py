@@ -13,6 +13,7 @@ from .base import (
     CNAM_TRUST_PRODUCT_POLICY_SID,
     _find_primary_profile_sid,
     _find_or_create_secondary_profile,
+    unassign_numbers_from_trust_product,
 )
 
 logger = logging.getLogger("twilio_provisioning")

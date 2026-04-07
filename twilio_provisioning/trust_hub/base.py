@@ -319,3 +319,49 @@ def _find_primary_profile_sid() -> str:
     )
 
 
+def unassign_numbers_from_trust_product(
+    sub_account_sid: str,
+    trust_product_sid: str,
+    phone_number_sids: list,
+    sub_account_auth_token: str = "",
+) -> dict:
+    """
+    Remove phone number ChannelEndpointAssignments from a Trust Product.
+
+    Twilio only allows a phone number to be assigned to one Trust Product
+    at a time. When re-registering after rejection, the old assignments
+    must be removed before numbers can be assigned to a new Trust Product.
+    """
+    client = get_sub_account_client_native(sub_account_sid, sub_account_auth_token)
+    removed = 0
+    failed = []
+
+    # Fetch all current assignments on the old trust product
+    try:
+        assignments = client.trusthub.v1.trust_products(trust_product_sid) \
+            .trust_products_channel_endpoint_assignment.list(limit=200)
+    except TwilioRestException as e:
+        logger.warning(f"[TrustHub] Could not list assignments on {trust_product_sid}: {e}")
+        return {"removed": 0, "failed": [], "total": len(phone_number_sids)}
+
+    # Build lookup: channel_endpoint_sid → assignment SID
+    assignment_map = {a.channel_endpoint_sid: a.sid for a in assignments}
+
+    target_sids = set(phone_number_sids) if phone_number_sids else set(assignment_map.keys())
+
+    for pn_sid in target_sids:
+        assign_sid = assignment_map.get(pn_sid)
+        if not assign_sid:
+            continue  # not assigned to this trust product
+        try:
+            client.trusthub.v1.trust_products(trust_product_sid) \
+                .trust_products_channel_endpoint_assignment(assign_sid).delete()
+            removed += 1
+            logger.info(f"[TrustHub] Unassigned {pn_sid} from {trust_product_sid}")
+        except TwilioRestException as e:
+            failed.append({"sid": pn_sid, "error": str(e)})
+            logger.warning(f"[TrustHub] Failed to unassign {pn_sid}: {e}")
+
+    return {"removed": removed, "failed": failed, "total": len(target_sids)}
+
+
