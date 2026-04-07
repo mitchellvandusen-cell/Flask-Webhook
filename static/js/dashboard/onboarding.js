@@ -36,13 +36,10 @@
     var FREE_ALLOWANCE = 5;    // max free phone numbers
 
     /* ── Restore step from sessionStorage ── */
-    // If domain was already provisioned, user can safely resume at step 5+
-    // (steps 1-4 data is in the DB, not needed again).
-    // For earlier steps, restart from 1 since form state is lost on reload.
-    if (provisioned) {
-        var savedStep = parseInt(sessionStorage.getItem('onb_step') || '5', 10);
-        if (savedStep >= 5) currentStep = savedStep;
-    }
+    // Resume at step 5+ on refresh if user already passed step 4.
+    // Steps 1-4 form data is lost on reload, but step 5+ only needs review/submit.
+    var savedStep = parseInt(sessionStorage.getItem('onb_step') || '0', 10);
+    if (savedStep >= 5) currentStep = savedStep;
 
     /* ── Init on DOM ready ── */
     document.addEventListener('DOMContentLoaded', function () {
@@ -821,19 +818,18 @@
         .then(function (r) { return r.json(); })
         .then(function (result) {
             saving = false;
-            setBtnLoading('onbStep6Btn', false);
             if (result.error) {
-                if (typeof _showDashToast === 'function') _showDashToast(false, result.error);
-                return;
+                // Profile save failed — log it but still continue to save states
+                // (profile can be re-submitted later, don't block the wizard)
+                console.warn('Trust hub save error:', result.error);
             }
-            if (typeof _showDashToast === 'function')
-                _showDashToast(true, 'Business profile saved.');
             if (callback) callback();
         })
-        .catch(function () {
+        .catch(function (err) {
             saving = false;
-            setBtnLoading('onbStep6Btn', false);
-            if (typeof _showDashToast === 'function') _showDashToast(false, 'Save failed. Please try again.');
+            console.error('Trust hub save network error:', err);
+            // Still continue — don't block the wizard on network errors
+            if (callback) callback();
         });
     }
 
