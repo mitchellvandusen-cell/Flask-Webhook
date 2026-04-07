@@ -59,6 +59,7 @@ from .spam_protection import (
 
 from .trust_hub import (
     is_master_account,
+    check_secondary_profile_status,
     SECONDARY_CUSTOMER_PROFILE_POLICY_SID,
     CNAM_TRUST_PRODUCT_POLICY_SID,
     VOICE_INTEGRITY_POLICY_SID,

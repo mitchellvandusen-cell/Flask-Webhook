@@ -5,6 +5,7 @@ from .base import (
     CNAM_TRUST_PRODUCT_POLICY_SID,
     VOICE_INTEGRITY_POLICY_SID,
     is_master_account,
+    check_secondary_profile_status,
 )
 
 from .business_profile import (
