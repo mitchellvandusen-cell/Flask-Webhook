@@ -121,7 +121,8 @@ def _check_rate_limit(key, max_requests, window_seconds):
 # ═══════════════════════════════════════════════════════════════
 
 def _porkbun_post(endpoint, extra_data=None):
-    """Make authenticated POST to Porkbun API. Handles non-JSON responses."""
+    """Make authenticated POST to Porkbun API. Parses JSON body even on HTTP errors
+    (Porkbun returns useful error messages like RATE_LIMIT_EXCEEDED in the body)."""
     data = {
         'apikey': PORKBUN_API_KEY,
         'secretapikey': PORKBUN_SECRET_KEY,
@@ -131,24 +132,35 @@ def _porkbun_post(endpoint, extra_data=None):
     try:
         resp = requests.post(f'{PORKBUN_API_BASE}{endpoint}',
                              json=data, timeout=30)
-        resp.raise_for_status()
-        return resp.json()
-    except requests.exceptions.JSONDecodeError:
-        logger.error(f"[Domain] Porkbun non-JSON response for {endpoint}: {resp.status_code} {resp.text[:200]}")
-        return {'status': 'ERROR', 'message': f'Porkbun returned non-JSON response (HTTP {resp.status_code})'}
+        # Parse JSON first — Porkbun returns error details in body even on 400
+        try:
+            result = resp.json()
+        except (ValueError, requests.exceptions.JSONDecodeError):
+            logger.error(f"[Domain] Porkbun non-JSON response for {endpoint}: {resp.status_code} {resp.text[:200]}")
+            return {'status': 'ERROR', 'message': f'Porkbun returned non-JSON response (HTTP {resp.status_code})'}
+        # Log non-200 responses with the actual Porkbun error message
+        if resp.status_code >= 400:
+            msg = result.get('message', resp.text[:200])
+            logger.warning(f"[Domain] Porkbun {endpoint} HTTP {resp.status_code}: {msg}")
+        return result
     except requests.exceptions.RequestException as e:
         logger.error(f"[Domain] Porkbun request failed for {endpoint}: {e}")
-        return {'status': 'ERROR', 'message': str(e)}
+        raise  # Let retry decorator handle network errors
 
 
 def _porkbun_check_available(domain):
     """Check domain availability AND get current pricing via Porkbun API.
     Endpoint: POST /domain/checkDomain/{domain}
     Response: {status, response: {avail: "yes"/"no", price: "9.73", ...}}
-    Returns dict with 'available' (bool) and 'price' (str, USD)."""
-    result = _porkbun_post(f'/domain/checkDomain/{domain}')
+    Returns dict with 'available' (bool) and 'price' (str, USD).
+    Never raises — returns unavailable on any error (safe for parallel search)."""
+    try:
+        result = _porkbun_post(f'/domain/checkDomain/{domain}')
+    except Exception as e:
+        logger.warning(f"[Domain] Porkbun checkDomain failed for {domain}: {e}")
+        return {'available': False, 'price': '11.08'}
     if result.get('status') == 'ERROR':
-        logger.warning(f"[Domain] Porkbun checkDomain failed for {domain}: {result.get('message')}")
+        logger.warning(f"[Domain] Porkbun checkDomain error for {domain}: {result.get('message')}")
         return {'available': False, 'price': '11.08'}
     resp = result.get('response', {})
     available = resp.get('avail', 'no').lower() == 'yes'
@@ -191,7 +203,16 @@ def _porkbun_register(domain, contact_info, price_usd=None):
         data[f'{prefix}PostalCode'] = contact_info.get('zip', '')
         data[f'{prefix}Country'] = 'US'
 
-    return _porkbun_post(f'/domain/create/{domain}', data)
+    result = _porkbun_post(f'/domain/create/{domain}', data)
+    if result.get('status') == 'ERROR':
+        msg = result.get('message', 'Unknown error')
+        code = result.get('code', '')
+        # Rate limit is transient — raise so retry decorator fires
+        if code == 'RATE_LIMIT_EXCEEDED' or 'rate' in msg.lower():
+            raise Exception(f"Porkbun rate limited: {msg}")
+        # Other errors — raise so retry can attempt (network blip, etc.)
+        raise Exception(f"Porkbun registration failed: {msg}")
+    return result
 
 
 @_retry_with_backoff(max_attempts=4, backoff_base=3)
