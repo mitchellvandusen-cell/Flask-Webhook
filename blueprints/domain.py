@@ -303,30 +303,15 @@ def _cf_add_dns_record(zone_id, record_type, name, content, priority=None, proxi
     return True
 
 
-def _cf_setup_dns(zone_id, domain, mailgun_dkim_records=None):
-    """Configure DNS records for Worker route + email routing."""
+def _cf_setup_dns(zone_id, domain):
+    """Configure DNS records for Worker route only.
+    Email routing DNS (MX, SPF, DKIM) is handled by Cloudflare automatically
+    when email routing is enabled — do NOT add them manually or they conflict."""
     # Proxied A record required for Worker routes to fire.
     # 192.0.2.1 (RFC 5737 TEST-NET) is a placeholder — Cloudflare intercepts
     # all traffic at the edge before it reaches this IP.
     _cf_add_dns_record(zone_id, 'A', '@', '192.0.2.1', proxied=True)
     _cf_add_dns_record(zone_id, 'A', 'www', '192.0.2.1', proxied=True)
-
-    # MX records — critical (email won't work without these)
-    mx_ok = all([
-        _cf_add_dns_record(zone_id, 'MX', '@', 'route1.mx.cloudflare.net', priority=1),
-        _cf_add_dns_record(zone_id, 'MX', '@', 'route2.mx.cloudflare.net', priority=2),
-        _cf_add_dns_record(zone_id, 'MX', '@', 'route3.mx.cloudflare.net', priority=3),
-    ])
-    if not mx_ok:
-        logger.warning("[Domain] Some MX records failed — email routing may not work")
-
-    # SPF — important for email deliverability
-    _cf_add_dns_record(zone_id, 'TXT', '@', 'v=spf1 include:mailgun.org ~all')
-
-    # DKIM from Mailgun — important for email deliverability
-    if mailgun_dkim_records:
-        for rec in mailgun_dkim_records:
-            _cf_add_dns_record(zone_id, rec['type'], rec['name'], rec['value'])
 
 
 def _cf_setup_email_routing(zone_id, domain, forward_to):
@@ -862,19 +847,15 @@ def domain_checkout():
         else:
             logger.info(f"[Domain] Skipping nameserver update for {domain} (already done)")
 
-        # Step 4: Add domain to Mailgun (v3 API)
+        # Step 4: Mailgun step removed — Cloudflare email routing handles
+        # MX, SPF, and DKIM automatically. Adding Mailgun records conflicts.
         if 'mailgun_domain_added' not in provisioning_log:
-            mg_result = _mailgun_add_domain(domain)
-            web_presence['mailgun_domain_added'] = mg_result.get('success', False)
-            web_presence['mailgun_dkim_records'] = mg_result.get('dkim_records', [])
-            provisioning_log.append('mailgun_domain_added')
-        else:
-            logger.info(f"[Domain] Skipping Mailgun add for {domain} (already done)")
-            mg_result = {'success': True, 'dkim_records': web_presence.get('mailgun_dkim_records', [])}
+            provisioning_log.append('mailgun_domain_added')  # Skip but mark done for idempotency
 
-        # Step 5: Configure DNS (handles duplicates via Cloudflare error code 81057)
+        # Step 5: Configure DNS (A records for Worker routes only)
+        # Email DNS (MX, SPF, DKIM) is added by Cloudflare when email routing is enabled in Step 6.
         if 'dns_configured' not in provisioning_log:
-            _cf_setup_dns(zone['zone_id'], domain, mg_result.get('dkim_records', []))
+            _cf_setup_dns(zone['zone_id'], domain)
             provisioning_log.append('dns_configured')
         else:
             logger.info(f"[Domain] Skipping DNS config for {domain} (already done)")
