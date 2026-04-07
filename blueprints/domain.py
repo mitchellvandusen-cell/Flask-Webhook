@@ -172,21 +172,18 @@ def _porkbun_check_available(domain):
 def _porkbun_register(domain, contact_info, price_usd=None):
     """Register a .com domain via Porkbun API.
     Endpoint: POST /domain/create/{domain}
-    Requires cost (pennies) and agreeToTerms.
+    Requires cost (dollars as string, matching checkDomain price) and agreeToTerms.
     Retries up to 4 times with exponential backoff (2s, 4s, 8s) for transient failures."""
     # Get current price if not provided
     if price_usd is None:
         check = _porkbun_check_available(domain)
         price_usd = check.get('price', '11.08')
 
-    # Convert USD string to pennies (e.g. '9.73' -> 973)
-    try:
-        cost_pennies = int(round(float(price_usd) * 100))
-    except (ValueError, TypeError):
-        cost_pennies = 1108  # fallback ~$11.08
+    # Porkbun expects cost as dollar string (e.g. "11.08"), NOT pennies
+    cost_str = str(price_usd)
 
     data = {
-        'cost': cost_pennies,
+        'cost': cost_str,
         'agreeToTerms': 'yes',
         'years': 1,
         'autoRenew': True,
