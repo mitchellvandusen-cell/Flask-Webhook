@@ -809,44 +809,64 @@ def domain_checkout():
             if not zone['zone_id']:
                 raise Exception(f"Zone ID not found for {domain} in previous attempt")
 
-        # Step 3: Update nameservers (raises on failure)
-        if zone.get('nameservers'):
-            _porkbun_set_nameservers(domain, zone['nameservers'])
-            provisioning_log.append('nameservers_updated')
+        # Step 3: Update nameservers (idempotent — safe to re-run)
+        if 'nameservers_updated' not in provisioning_log:
+            if zone.get('nameservers'):
+                _porkbun_set_nameservers(domain, zone['nameservers'])
+                provisioning_log.append('nameservers_updated')
+        else:
+            logger.info(f"[Domain] Skipping nameserver update for {domain} (already done)")
 
         # Step 4: Add domain to Mailgun (v3 API)
-        mg_result = _mailgun_add_domain(domain)
-        web_presence['mailgun_domain_added'] = mg_result.get('success', False)
-        provisioning_log.append('mailgun_domain_added')
+        if 'mailgun_domain_added' not in provisioning_log:
+            mg_result = _mailgun_add_domain(domain)
+            web_presence['mailgun_domain_added'] = mg_result.get('success', False)
+            web_presence['mailgun_dkim_records'] = mg_result.get('dkim_records', [])
+            provisioning_log.append('mailgun_domain_added')
+        else:
+            logger.info(f"[Domain] Skipping Mailgun add for {domain} (already done)")
+            mg_result = {'success': True, 'dkim_records': web_presence.get('mailgun_dkim_records', [])}
 
-        # Step 5: Configure DNS (raises on critical failures)
-        _cf_setup_dns(zone['zone_id'], domain, mg_result.get('dkim_records', []))
-        provisioning_log.append('dns_configured')
+        # Step 5: Configure DNS (handles duplicates via Cloudflare error code 81057)
+        if 'dns_configured' not in provisioning_log:
+            _cf_setup_dns(zone['zone_id'], domain, mg_result.get('dkim_records', []))
+            provisioning_log.append('dns_configured')
+        else:
+            logger.info(f"[Domain] Skipping DNS config for {domain} (already done)")
 
         # Step 6: Set up email routing
-        email_result = _cf_setup_email_routing(zone['zone_id'], domain, forward_to)
-        web_presence['email_verification_needed'] = email_result.get('email_verification_needed', False)
-        provisioning_log.append('email_routing_configured')
+        if 'email_routing_configured' not in provisioning_log:
+            email_result = _cf_setup_email_routing(zone['zone_id'], domain, forward_to)
+            web_presence['email_verification_needed'] = email_result.get('email_verification_needed', False)
+            provisioning_log.append('email_routing_configured')
+        else:
+            logger.info(f"[Domain] Skipping email routing for {domain} (already done)")
 
-        # Step 7: Worker route (raises on failure)
-        _cf_setup_worker_route(zone['zone_id'], domain)
-        provisioning_log.append('worker_route_created')
+        # Step 7: Worker route (handles duplicates via Cloudflare error code 10020)
+        if 'worker_route_created' not in provisioning_log:
+            _cf_setup_worker_route(zone['zone_id'], domain)
+            provisioning_log.append('worker_route_created')
+        else:
+            logger.info(f"[Domain] Skipping worker route for {domain} (already done)")
 
-        # Step 8: Store KV config (raises on failure)
-        accent = vc.get('whitelabel_config', {}).get('accent_color', '#1a6b4a')
-        _cf_store_agent_config(domain, {
-            'agent_name': agent_name,
-            'dba_name': dba_name,
-            'legal_business_name': legal_business_name,  # For A2P DBA prepopulation
-            'phone_display': phone_display,
-            'phone_raw': phone_raw,
-            'email': agent_email,
-            'licensed_states': licensed_states,
-            'bio': bio,
-            'accent_color': accent,
-            'location_id': location_id,
-        })
-        provisioning_log.append('kv_config_stored')
+        # Step 8: Store KV config (PUT = upsert, safe to re-run)
+        if 'kv_config_stored' not in provisioning_log:
+            accent = vc.get('whitelabel_config', {}).get('accent_color', '#1a6b4a')
+            _cf_store_agent_config(domain, {
+                'agent_name': agent_name,
+                'dba_name': dba_name,
+                'legal_business_name': legal_business_name,
+                'phone_display': phone_display,
+                'phone_raw': phone_raw,
+                'email': agent_email,
+                'licensed_states': licensed_states,
+                'bio': bio,
+                'accent_color': accent,
+                'location_id': location_id,
+            })
+            provisioning_log.append('kv_config_stored')
+        else:
+            logger.info(f"[Domain] Skipping KV config for {domain} (already done)")
 
     except Exception as e:
         logger.error(f"[Domain] Provisioning failed at step {len(provisioning_log)}: {e}", exc_info=True)
