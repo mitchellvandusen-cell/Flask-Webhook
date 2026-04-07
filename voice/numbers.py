@@ -1184,9 +1184,14 @@ def save_trust_hub():
 
     # Mark business profile as submitted (onboarding gate)
     # Website is required — profiles without one are rejected by carriers.
-    has_required = all(trust_hub.get(f, '').strip() for f in
-                       ('business_name', 'ein', 'website', 'street', 'city', 'state', 'zip',
-                        'contact_name', 'contact_email'))
+    required_fields = ('business_name', 'ein', 'website', 'street', 'city', 'state', 'zip',
+                       'contact_name', 'contact_email')
+    missing = [f for f in required_fields if not trust_hub.get(f, '').strip()]
+    has_required = len(missing) == 0
+
+    if missing:
+        return jsonify({"error": f"Missing required fields: {', '.join(missing)}", "missing": missing}), 400
+
     if has_required:
         conn = get_db_connection()
         try:

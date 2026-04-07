@@ -815,21 +815,25 @@
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(data)
         })
-        .then(function (r) { return r.json(); })
+        .then(function (resp) {
+            return resp.json().then(function (result) {
+                if (!resp.ok) throw new Error(result.error || 'Save failed (HTTP ' + resp.status + ')');
+                return result;
+            });
+        })
         .then(function (result) {
             saving = false;
-            if (result.error) {
-                // Profile save failed — log it but still continue to save states
-                // (profile can be re-submitted later, don't block the wizard)
-                console.warn('Trust hub save error:', result.error);
-            }
+            setBtnLoading('onbStep6Btn', false);
             if (callback) callback();
         })
         .catch(function (err) {
             saving = false;
-            console.error('Trust hub save network error:', err);
-            // Still continue — don't block the wizard on network errors
-            if (callback) callback();
+            setBtnLoading('onbStep6Btn', false);
+            var msg = err.message || 'Failed to save business profile.';
+            if (msg.indexOf('Missing required') !== -1 || msg.indexOf('missing') !== -1) {
+                msg = 'Some business information is missing. Please go back and complete all fields, then try again.';
+            }
+            if (typeof _showDashToast === 'function') _showDashToast(false, msg);
         });
     }
 
