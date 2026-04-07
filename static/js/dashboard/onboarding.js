@@ -152,8 +152,8 @@
             if (contactInput && !contactInput.value.trim()) {
                 contactInput.value = valOf('onbSolePropName') || valOf('onbBizName') || '';
             }
-            // Show provisioning section; hide Continue button until provisioned
-            if (!provisioned) {
+            // Show provisioning section ONLY if user needs a website (said "No" in Step 3)
+            if (!hasWebsite && !provisioned) {
                 showIf('onbStep4Provisioning', true);
                 enableBtn('onbStep4Btn', false);
             } else {
