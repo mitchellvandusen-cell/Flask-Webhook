@@ -350,9 +350,19 @@ def _cf_add_mailgun_dns(zone_id, domain, mailgun_dkim_records):
 
 
 def _cf_setup_email_routing(zone_id, domain, forward_to):
-    """Enable email routing and create catch-all forward rule.
+    """Enable email routing and route through Email Worker.
+
+    Instead of forwarding directly to the agent's personal email, emails
+    are routed through our Email Worker (omnisconn-email-handler) which:
+      1. Intercepts Twilio verification emails and auto-replies via Mailgun
+      2. Forwards everything else to the agent's personal email
+
+    The forward_to address is stored in KV so the multi-tenant worker can
+    look up the correct destination per domain.
+
     Returns dict with email_verification_needed flag."""
     result = {'email_routing_ok': False, 'email_verification_needed': False}
+    email_worker_name = os.getenv('CLOUDFLARE_EMAIL_WORKER_NAME', 'omnisconn-email-handler')
 
     # Enable email routing on the zone (POST, not PUT — per CF API docs)
     try:
@@ -373,25 +383,79 @@ def _cf_setup_email_routing(zone_id, domain, forward_to):
         result['email_verification_needed'] = True
         logger.info(f"[Domain] Email verification sent to {forward_to} — routing will activate after click")
 
-    # Create catch-all rule
+    # Store forward_to in KV so the Email Worker can look it up per domain.
+    # Key: email:{domain} → JSON with forward_to address.
+    try:
+        _cf_store_email_config(domain, {'forward_to': forward_to})
+    except Exception as e:
+        logger.warning(f"[Domain] KV email config failed: {e}")
+
+    # Create catch-all rule pointing to Email Worker (not direct forward).
+    # The worker intercepts Twilio emails for auto-reply, then forwards
+    # everything to the agent's personal email via message.forward().
     try:
         resp = requests.post(
             f'{CLOUDFLARE_API_BASE}/zones/{zone_id}/email/routing/rules',
             headers=_cf_headers(),
             json={
                 'matchers': [{'type': 'all'}],
-                'actions': [{'type': 'forward', 'value': [forward_to]}],
+                'actions': [{'type': 'worker', 'value': [email_worker_name]}],
                 'enabled': True,
-                'name': f'Forward all to {forward_to}',
+                'name': f'Route all through {email_worker_name}',
             },
             timeout=30,
         )
         resp_data = resp.json()
-        result['email_routing_ok'] = resp_data.get('success', False)
+        if resp_data.get('success'):
+            result['email_routing_ok'] = True
+            logger.info(f"[Domain] Email routing → worker '{email_worker_name}' for {domain}")
+        else:
+            # Fallback: if worker rule fails (worker not deployed yet),
+            # create a direct forward rule so email still works
+            errors = resp_data.get('errors', [])
+            logger.warning(f"[Domain] Worker rule failed ({errors}), falling back to direct forward")
+            resp2 = requests.post(
+                f'{CLOUDFLARE_API_BASE}/zones/{zone_id}/email/routing/rules',
+                headers=_cf_headers(),
+                json={
+                    'matchers': [{'type': 'all'}],
+                    'actions': [{'type': 'forward', 'value': [forward_to]}],
+                    'enabled': True,
+                    'name': f'Forward all to {forward_to}',
+                },
+                timeout=30,
+            )
+            result['email_routing_ok'] = resp2.json().get('success', False)
     except Exception as e:
         logger.error(f"[Domain] Email routing rule failed: {e}")
 
     return result
+
+
+def _cf_store_email_config(domain, config):
+    """Store email routing config in Workers KV for the Email Worker to read.
+
+    Key pattern: email:{domain} (separate from the landing page config key {domain}).
+    The Email Worker reads this to find the forward_to address for each domain.
+    """
+    kv_ns_id = os.getenv('CLOUDFLARE_KV_NAMESPACE_ID', '')
+    if not kv_ns_id:
+        logger.warning("[Domain] CLOUDFLARE_KV_NAMESPACE_ID not set — skipping email KV config")
+        return
+
+    resp = requests.put(
+        f'{CLOUDFLARE_API_BASE}/accounts/{CLOUDFLARE_ACCOUNT_ID}/storage/kv/namespaces/{kv_ns_id}/values/email:{domain}',
+        headers={
+            'Authorization': f'Bearer {CLOUDFLARE_API_TOKEN}',
+            'Content-Type': 'application/json',
+        },
+        data=json.dumps(config),
+        timeout=30,
+    )
+    if resp.status_code not in (200, 201):
+        logger.error(f"[Domain] KV email config write failed: {resp.status_code} {resp.text[:200]}")
+    else:
+        logger.info(f"[Domain] Stored email config in KV for {domain}")
 
 
 def _cf_check_email_verified(email):

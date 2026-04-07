@@ -1,9 +1,14 @@
 /**
  * Omnisconn Email Handler — Cloudflare Email Worker
  *
- * Intercepts inbound email on agent domains.
- * - Twilio verification emails → auto-reply via Flask API (Mailgun)
- * - Everything else → forward to agent's personal email
+ * Multi-tenant email worker. Routes through Workers KV to find the
+ * forward_to address per domain (stored as key "email:{domain}").
+ *
+ * Flow:
+ *   1. Extract domain from recipient address
+ *   2. Look up forward_to in KV (key: "email:{domain}")
+ *   3. If from Twilio → auto-reply via Flask API (Mailgun)
+ *   4. Forward everything to the agent's personal email
  */
 
 export default {
@@ -11,6 +16,23 @@ export default {
     const from = message.from || '';
     const to = message.to || '';
     const subject = message.headers.get('subject') || '';
+    const domain = to.split('@')[1] || '';
+
+    // Look up forward_to from KV (multi-tenant: each domain has its own destination)
+    let forwardTo = '';
+    if (env.AGENT_KV && domain) {
+      try {
+        const raw = await env.AGENT_KV.get(`email:${domain}`);
+        if (raw) {
+          const config = JSON.parse(raw);
+          forwardTo = config.forward_to || '';
+        }
+      } catch (e) {
+        console.error(`KV lookup failed for email:${domain}:`, e);
+      }
+    }
+    // Fallback chain: KV → env → original recipient
+    if (!forwardTo) forwardTo = env.FORWARD_TO || to;
 
     // Check if this is from Twilio (verification email)
     const isTwilio = from.includes('twilio.com') ||
@@ -51,18 +73,15 @@ export default {
             to_email: to,
             subject: subject,
             body_preview: body.substring(0, 2000),
-            domain: to.split('@')[1] || '',
+            domain: domain,
           }),
         });
       } catch (e) {
-        // Log but don't fail — still forward the email
         console.error('Auto-reply API call failed:', e);
       }
     }
 
-    // Always forward to the agent's personal email
-    // The forwarding destination is configured in Cloudflare Email Routing
-    // This worker just handles the Twilio interception before forwarding
-    await message.forward(env.FORWARD_TO || message.to);
+    // Forward to agent's personal email
+    await message.forward(forwardTo);
   },
 };

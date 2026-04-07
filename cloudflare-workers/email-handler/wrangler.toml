@@ -7,3 +7,11 @@ API_BASE_URL = "https://app.omnisconn.com"
 
 # CRON_SECRET is set via `wrangler secret put CRON_SECRET`
 # It authenticates auto-reply requests to the Flask API
+
+# KV namespace binding — same namespace as agent landing pages.
+# The email worker reads "email:{domain}" keys to find forward_to addresses.
+# Replace the id with your actual KV namespace ID from Cloudflare dashboard,
+# or set CLOUDFLARE_KV_NAMESPACE_ID env var in the Flask app.
+[[kv_namespaces]]
+binding = "AGENT_KV"
+id = "" # Set via: wrangler kv namespace list → copy the ID
