@@ -123,12 +123,12 @@ def _porkbun_register(domain, contact_info):
         data[f'{prefix}PostalCode'] = contact_info.get('zip', '')
         data[f'{prefix}Country'] = 'US'
 
-    return _porkbun_post(f'/domain/register/{domain}', data)
+    return _porkbun_post('/domain/register', data)
 
 
 def _porkbun_set_nameservers(domain, nameservers):
     """Update nameservers for a domain on Porkbun. Returns True on success."""
-    result = _porkbun_post(f'/domain/updateNs/{domain}', {'ns': nameservers})
+    result = _porkbun_post('/domain/updateNs', {'domain': domain, 'ns': nameservers})
     if result.get('status') != 'SUCCESS':
         raise Exception(f"Nameserver update failed: {result.get('message', 'Unknown error')}")
     return True
