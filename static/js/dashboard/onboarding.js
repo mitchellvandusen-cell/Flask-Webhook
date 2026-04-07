@@ -26,6 +26,14 @@
     var selectedNumbers = [];
     var selectedDomain = '';
     var einFileData = null;    // { data: base64, type: mime, name: filename }
+    var promoCode = '';        // promo code text
+    var promoValidated = false; // true if promo code validated and valid
+    var provisioned = false;   // true after website provisioned in Step 4
+    var provisionedEmail = ''; // business email from provisioning
+    var selectedStates = [];   // array of 2-letter state codes
+    var selectedPhoneNumbers = []; // array of {phone, state, selected: bool}
+    var availableNumbers = {}; // {state: [phone, phone, ...]}
+    var FREE_ALLOWANCE = 5;    // max free phone numbers
 
     /* ── Restore step from sessionStorage ── */
     // Only restore step if wizard state (Yes/No answers) is also preserved.
@@ -143,10 +151,21 @@
             if (contactInput && !contactInput.value.trim()) {
                 contactInput.value = valOf('onbSolePropName') || valOf('onbBizName') || '';
             }
+            // Show provisioning section; hide Continue button until provisioned
+            if (!provisioned) {
+                showIf('onbStep4Provisioning', true);
+                enableBtn('onbStep4Btn', false);
+            } else {
+                showIf('onbStep4Provisioning', false);
+                enableBtn('onbStep4Btn', true);
+            }
         }
 
         // Pre-fill review step when arriving at step 5
         if (step === 5) prefillReview();
+
+        // Initialize Step 6: populate states grid
+        if (step === 6) initStep6();
     };
 
     window.onbNext = function () {
@@ -344,18 +363,65 @@
                     document.getElementById('onbSelectedDomain').value = selectedDomain;
                     resultsDiv.querySelectorAll('.onb-domain-option').forEach(function (o) { o.classList.remove('selected'); });
                     el.classList.add('selected');
-                    // Show confirmation with generated website + email
+                    // Show confirmation with generated website + email using first name
                     var urlSpan = document.getElementById('onbConfirmUrl');
                     var emailSpan = document.getElementById('onbConfirmEmail');
                     if (urlSpan) urlSpan.textContent = 'https://' + selectedDomain;
-                    if (emailSpan) emailSpan.textContent = 'you@' + selectedDomain;
+                    // Extract first name from BOOT or Step 1 data
+                    var firstName = (BOOT.first_name || valOf('onbSolePropName') || valOf('onbBizName') || 'info').split(' ')[0].toLowerCase();
+                    if (emailSpan) emailSpan.textContent = firstName + '@' + selectedDomain;
                     showIf('onbDomainConfirm', true);
+                    // Enable Step 3 Continue button — promo code is optional
                     enableBtn('onbStep3Btn', true);
                 });
             });
         })
         .catch(function () {
             resultsDiv.innerHTML = '<div class="onb-info"><div class="onb-info-text">Search failed. Please try again.</div></div>';
+        });
+    };
+
+    /* ── Promo code handler (Step 3, optional) ── */
+
+    window.onbCheckPromo = function () {
+        var code = valOf('onbPromoCode').trim();
+        promoCode = code;
+        var statusDiv = document.getElementById('onbPromoStatus');
+
+        if (!code) {
+            promoValidated = false;
+            statusDiv.style.display = 'none';
+            return;
+        }
+
+        // Show loading
+        statusDiv.style.display = 'block';
+        statusDiv.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Validating...';
+        statusDiv.style.color = '#888';
+
+        fetch('/api/domain/validate-promo', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ code: code })
+        })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+            if (data.valid) {
+                promoValidated = true;
+                statusDiv.innerHTML = '<i class="fa-solid fa-circle-check" style="color: #00ff88;"></i> ' +
+                    escHtml(data.discount) + ' — ' + escHtml(data.coupon_name);
+                statusDiv.style.color = '#00ff88';
+            } else {
+                promoValidated = false;
+                statusDiv.innerHTML = '<i class="fa-solid fa-circle-xmark" style="color: #ef4444;"></i> ' +
+                    escHtml(data.error || 'Invalid code');
+                statusDiv.style.color = '#ef4444';
+            }
+        })
+        .catch(function () {
+            promoValidated = false;
+            statusDiv.innerHTML = '<i class="fa-solid fa-circle-xmark" style="color: #ef4444;"></i> Validation failed';
+            statusDiv.style.color = '#ef4444';
         });
     };
 
@@ -416,9 +482,93 @@
         // Contact
         setText('onbRevContact', valOf('onbContactName') || '—');
         setText('onbRevRole', valOf('onbContactRole') || '—');
-        setText('onbRevEmail', valOf('onbContactEmail') || '—');
+        setText('onbRevEmail', provisionedEmail || valOf('onbContactEmail') || '—');
         setText('onbRevPhone', valOf('onbContactPhone') || '—');
     }
+
+    window.onbProvisionWebsite = function () {
+        if (saving) return;
+        // Validate Step 4 fields before provisioning
+        if (!validateStep(4)) return;
+
+        saving = true;
+        var statusDiv = document.getElementById('onbProvisionStatus');
+        var btn = document.getElementById('onbStep4ProvisionBtn');
+        statusDiv.style.display = 'block';
+        statusDiv.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Provisioning your website and email...';
+        if (btn) btn.disabled = true;
+
+        // Extract first name for email
+        var firstName = (BOOT.first_name || valOf('onbSolePropName') || valOf('onbBizName') || 'info').split(' ')[0].toLowerCase();
+        var dbaName = hasDba ? valOf('onbDbaName') : valOf('onbSolePropName');
+
+        // Prepare checkout data
+        var checkoutData = {
+            domain: selectedDomain,
+            dba_name: dbaName,
+            email_prefix: firstName,
+            forward_to: valOf('onbContactEmail'),
+            phone_display: valOf('onbContactPhone'),
+            street: valOf('onbStreet'),
+            city: valOf('onbCity'),
+            state: valOf('onbState'),
+            zip: valOf('onbZip'),
+            legal_business_name: valOf('onbSolePropName') || valOf('onbBizName'),
+            disclaimer_accepted: true
+        };
+
+        // Include promo code if entered and validated
+        if (promoValidated && promoCode) {
+            checkoutData.promo_code = promoCode;
+        }
+
+        fetch('/api/domain/checkout', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(checkoutData)
+        })
+        .then(function (r) { return r.json(); })
+        .then(function (result) {
+            saving = false;
+            if (btn) btn.disabled = false;
+
+            if (result.error) {
+                statusDiv.innerHTML = '<i class="fa-solid fa-circle-xmark" style="color: #ef4444;"></i> ' + escHtml(result.error);
+                statusDiv.style.color = '#ef4444';
+                if (typeof _showDashToast === 'function')
+                    _showDashToast(false, 'Provisioning failed: ' + result.error);
+                return;
+            }
+
+            // Success!
+            provisioned = true;
+            provisionedEmail = result.email || (firstName + '@' + selectedDomain);
+            statusDiv.innerHTML = '<i class="fa-solid fa-circle-check" style="color: #00ff88;"></i> Website & email provisioned! <br>' +
+                'Email: <strong>' + escHtml(provisionedEmail) + '</strong>';
+            statusDiv.style.color = '#00ff88';
+
+            // Update email field
+            var emailInput = document.getElementById('onbContactEmail');
+            if (emailInput) {
+                emailInput.value = provisionedEmail;
+            }
+
+            // Enable Continue button
+            enableBtn('onbStep4Btn', true);
+            showIf('onbStep4Provisioning', false);
+
+            if (typeof _showDashToast === 'function')
+                _showDashToast(true, 'Website provisioned successfully!');
+        })
+        .catch(function (err) {
+            saving = false;
+            if (btn) btn.disabled = false;
+            statusDiv.innerHTML = '<i class="fa-solid fa-circle-xmark" style="color: #ef4444;"></i> Provisioning failed: ' + escHtml(err.message || 'Network error');
+            statusDiv.style.color = '#ef4444';
+            if (typeof _showDashToast === 'function')
+                _showDashToast(false, 'Provisioning failed. Please try again.');
+        });
+    };
 
     window.onbSubmitProfile = function () {
         if (saving) return;
@@ -859,5 +1009,248 @@
         return (s || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;')
                         .replace(/'/g, '&#39;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
     }
+
+    /* ════════════════════════════════════════════════════════════════
+       STEP 6: PHONE NUMBERS & STATES
+       ════════════════════════════════════════════════════════════════ */
+
+    var STATE_NAMES = {
+        "AL": "Alabama", "AK": "Alaska", "AZ": "Arizona", "AR": "Arkansas",
+        "CA": "California", "CO": "Colorado", "CT": "Connecticut", "DE": "Delaware",
+        "DC": "Washington DC", "FL": "Florida", "GA": "Georgia", "HI": "Hawaii",
+        "ID": "Idaho", "IL": "Illinois", "IN": "Indiana", "IA": "Iowa",
+        "KS": "Kansas", "KY": "Kentucky", "LA": "Louisiana", "ME": "Maine",
+        "MD": "Maryland", "MA": "Massachusetts", "MI": "Michigan", "MN": "Minnesota",
+        "MS": "Mississippi", "MO": "Missouri", "MT": "Montana", "NE": "Nebraska",
+        "NV": "Nevada", "NH": "New Hampshire", "NJ": "New Jersey", "NM": "New Mexico",
+        "NY": "New York", "NC": "North Carolina", "ND": "North Dakota", "OH": "Ohio",
+        "OK": "Oklahoma", "OR": "Oregon", "PA": "Pennsylvania", "RI": "Rhode Island",
+        "SC": "South Carolina", "SD": "South Dakota", "TN": "Tennessee", "TX": "Texas",
+        "UT": "Utah", "VT": "Vermont", "VA": "Virginia", "WA": "Washington",
+        "WV": "West Virginia", "WI": "Wisconsin", "WY": "Wyoming",
+        "PR": "Puerto Rico", "VI": "US Virgin Islands", "GU": "Guam", "AS": "American Samoa",
+    };
+
+    function initStep6() {
+        selectedStates = [];
+        selectedPhoneNumbers = [];
+        availableNumbers = {};
+        populateStatesGrid();
+    }
+
+    function populateStatesGrid() {
+        var grid = document.getElementById('onbStatesGrid');
+        if (!grid) return;
+        grid.innerHTML = '';
+
+        var stateKeys = Object.keys(STATE_NAMES).sort();
+        stateKeys.forEach(function (state) {
+            var card = document.createElement('div');
+            card.className = 'onb-state-card';
+            card.id = 'onbState_' + state;
+            card.dataset.state = state;
+            card.innerHTML = '<span>' + state + '</span><span class="onb-state-name">' + STATE_NAMES[state] + '</span>';
+            card.onclick = function () { onbToggleState(state); };
+            grid.appendChild(card);
+        });
+    }
+
+    window.onbToggleState = function (state) {
+        var idx = selectedStates.indexOf(state);
+        if (idx === -1) {
+            selectedStates.push(state);
+        } else {
+            selectedStates.splice(idx, 1);
+        }
+
+        // Update UI
+        var card = document.getElementById('onbState_' + state);
+        if (card) {
+            card.classList.toggle('selected', idx === -1);
+        }
+
+        // Show/hide numbers section
+        if (selectedStates.length > 0) {
+            document.getElementById('onbNumbersSection').style.display = 'block';
+            loadNumbersForStates();
+        } else {
+            document.getElementById('onbNumbersSection').style.display = 'none';
+            enableBtn('onbStep6Btn', false);
+        }
+
+        updateStatesHint();
+    };
+
+    function loadNumbersForStates() {
+        selectedPhoneNumbers = [];
+        availableNumbers = {};
+
+        // Load numbers for each selected state
+        var promises = selectedStates.map(function (state) {
+            return fetch('/voice/numbers/search?state=' + encodeURIComponent(state))
+                .then(function (r) { return r.json(); })
+                .then(function (data) {
+                    if (data.numbers && Array.isArray(data.numbers)) {
+                        var nums = data.numbers.slice(0, 4); // Show max 4 per state
+                        availableNumbers[state] = nums;
+                        nums.forEach(function (num) {
+                            selectedPhoneNumbers.push({
+                                phone: num.phone_number || num,
+                                state: state,
+                                selected: false
+                            });
+                        });
+                    }
+                })
+                .catch(function (e) { console.error('Number search failed:', e); });
+        });
+
+        Promise.all(promises).then(function () {
+            displayNumbersList();
+        });
+    }
+
+    function displayNumbersList() {
+        var list = document.getElementById('onbNumbersList');
+        if (!list) return;
+        list.innerHTML = '';
+
+        selectedStates.forEach(function (state) {
+            var nums = availableNumbers[state] || [];
+            if (nums.length === 0) return;
+
+            var stateSection = document.createElement('div');
+            stateSection.className = 'onb-numbers-state-section';
+            stateSection.innerHTML = '<div class="onb-numbers-state-header">' + STATE_NAMES[state] + '</div>';
+
+            nums.forEach(function (num) {
+                var phone = num.phone_number || num;
+                var phoneNum = selectedPhoneNumbers.find(function (p) { return p.phone === phone && p.state === state; });
+                if (!phoneNum) return;
+
+                var checkbox = document.createElement('label');
+                checkbox.className = 'onb-number-checkbox';
+                checkbox.innerHTML = '<input type="checkbox" class="onb-number-input" data-phone="' + escData(phone) + '" data-state="' + state + '" ' + (phoneNum.selected ? 'checked' : '') + '>' +
+                                     '<span class="onb-number-text">' + formatPhone(phone) + '</span>';
+                checkbox.querySelector('input').onchange = function () { onbSelectNumber(phone, state); };
+                stateSection.appendChild(checkbox);
+            });
+
+            list.appendChild(stateSection);
+        });
+
+        updateFreeCount();
+    }
+
+    window.onbSelectNumber = function (phone, state) {
+        var phoneNum = selectedPhoneNumbers.find(function (p) { return p.phone === phone && p.state === state; });
+        if (!phoneNum) return;
+
+        var selected = selectedPhoneNumbers.filter(function (p) { return p.selected; }).length;
+
+        if (!phoneNum.selected && selected >= FREE_ALLOWANCE) {
+            // Show buy more prompt
+            document.getElementById('onbBuyMorePrompt').style.display = 'block';
+            // Uncheck this one since we're at limit
+            var input = document.querySelector('input[data-phone="' + phone + '"][data-state="' + state + '"]');
+            if (input) input.checked = false;
+            return;
+        }
+
+        phoneNum.selected = !phoneNum.selected;
+        updateFreeCount();
+
+        var selected2 = selectedPhoneNumbers.filter(function (p) { return p.selected; }).length;
+        enableBtn('onbStep6Btn', selected2 > 0);
+    };
+
+    function updateFreeCount() {
+        var selected = selectedPhoneNumbers.filter(function (p) { return p.selected; }).length;
+        var remaining = FREE_ALLOWANCE - selected;
+        var freeEl = document.getElementById('onbFreeRemaining');
+        if (freeEl) freeEl.textContent = remaining;
+
+        if (selected >= FREE_ALLOWANCE) {
+            document.getElementById('onbBuyMorePrompt').style.display = 'block';
+        }
+    }
+
+    window.onbBuyMoreNumbers = function () {
+        // Save current selection, then redirect to full numbers page
+        saveStep6Numbers();
+    };
+
+    function updateStatesHint() {
+        var hint = document.getElementById('onbStatesHint');
+        if (hint) {
+            hint.textContent = selectedStates.length > 0 ? selectedStates.length + ' state(s) selected' : 'Select at least one state';
+        }
+    }
+
+    function saveStep6Numbers() {
+        // Save selected states to DB via /voice/licensed-states
+        var statesToSave = selectedStates;
+        if (statesToSave.length === 0) {
+            markError('onbNumbersList', 'Please select at least one state');
+            return false;
+        }
+
+        fetch('/voice/licensed-states', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ states: statesToSave })
+        })
+        .then(function (r) {
+            if (!r.ok) throw new Error('Failed to save states');
+            return r.json();
+        })
+        .then(function (data) {
+            // States saved successfully
+        })
+        .catch(function (e) {
+            console.error('Error saving states:', e);
+            markError('onbNumbersList', 'Failed to save states. Please try again.');
+        });
+
+        return true;
+    }
+
+    window.onbFinalSubmit = function () {
+        // Final step: save states, then show closing screen
+        if (selectedStates.length === 0) {
+            markError('onbNumbersList', 'Please select at least one state');
+            return;
+        }
+
+        setBtnLoading('onbStep6Btn', true);
+
+        // Save states to DB
+        fetch('/voice/licensed-states', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ states: selectedStates })
+        })
+        .then(function (r) {
+            if (!r.ok) throw new Error('Failed to save states');
+            return r.json();
+        })
+        .then(function (data) {
+            // States saved, show closing screen
+            var wizard = document.getElementById('onboardingWizard');
+            var closing = document.getElementById('onbClosing');
+            if (wizard) wizard.style.display = 'none';
+            if (closing) closing.style.display = 'flex';
+
+            // Optional: Reload dashboard after 3 seconds
+            setTimeout(function () {
+                window.location.reload();
+            }, 3000);
+        })
+        .catch(function (e) {
+            console.error('Error saving states:', e);
+            markError('onbNumbersList', 'Failed to submit. Please try again.');
+            setBtnLoading('onbStep6Btn', false);
+        });
+    };
 
 })();

@@ -1220,3 +1220,195 @@ body.light-theme .onb-info-tip::before,
 .onb-info.onb-info-sm .onb-info-text {
     font-size: 0.75rem;
 }
+
+/* ── STEP 6: States Grid ───────────────────────────────────── */
+.onb-states-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    gap: 12px;
+    margin-bottom: 24px;
+}
+
+.onb-state-card {
+    padding: 12px 16px;
+    background: #0a0a0a;
+    border: 1px solid #1a1a1a;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.18s ease;
+    text-align: center;
+    font-size: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.onb-state-card span:first-child {
+    font-weight: 700;
+    font-size: 14px;
+    color: #ffffff;
+}
+
+.onb-state-name {
+    color: #888888;
+    font-size: 11px;
+}
+
+.onb-state-card:hover {
+    border-color: rgba(0,255,136,0.25);
+}
+
+.onb-state-card.selected {
+    background: rgba(0,255,136,0.08);
+    border-color: rgba(0,255,136,0.4);
+}
+
+.onb-state-card.selected span:first-child {
+    color: var(--accent);
+}
+
+body.light-theme .onb-state-card {
+    background: #ffffff;
+    border-color: #e5e7eb;
+}
+
+body.light-theme .onb-state-card:hover {
+    border-color: rgba(5,150,105,0.3);
+}
+
+body.light-theme .onb-state-card.selected {
+    background: rgba(5,150,105,0.06);
+    border-color: rgba(5,150,105,0.4);
+}
+
+body.light-theme .onb-state-card.selected span:first-child {
+    color: var(--lt-accent);
+}
+
+/* ── Numbers List ──────────────────────────────────────────── */
+.onb-numbers-list {
+    border: 1px solid #1a1a1a;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.onb-numbers-state-section {
+    border-bottom: 1px solid #1a1a1a;
+}
+
+.onb-numbers-state-section:last-child {
+    border-bottom: none;
+}
+
+.onb-numbers-state-header {
+    padding: 12px 16px;
+    background: #0a0a0a;
+    font-weight: 700;
+    font-size: 13px;
+    color: #cccccc;
+    border-bottom: 1px solid #1a1a1a;
+}
+
+.onb-number-checkbox {
+    display: flex;
+    align-items: center;
+    padding: 12px 16px;
+    cursor: pointer;
+    border-bottom: 1px solid #1a1a1a;
+    transition: background 0.12s ease;
+}
+
+.onb-number-checkbox:last-child {
+    border-bottom: none;
+}
+
+.onb-number-checkbox:hover {
+    background: rgba(0,255,136,0.04);
+}
+
+.onb-number-input {
+    margin-right: 12px;
+    cursor: pointer;
+}
+
+.onb-number-text {
+    font-family: 'Courier New', monospace;
+    font-size: 13px;
+    color: #ffffff;
+    font-weight: 600;
+}
+
+.onb-free-allowance {
+    padding: 12px 16px;
+    background: rgba(0,255,136,0.08);
+    border: 1px solid rgba(0,255,136,0.2);
+    border-radius: 6px;
+    margin-bottom: 16px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #00ff88;
+}
+
+body.light-theme .onb-numbers-list {
+    border-color: #e5e7eb;
+}
+
+body.light-theme .onb-numbers-state-section {
+    border-bottom-color: #e5e7eb;
+}
+
+body.light-theme .onb-numbers-state-header {
+    background: #f5f5f5;
+    border-bottom-color: #e5e7eb;
+}
+
+body.light-theme .onb-number-checkbox {
+    border-bottom-color: #e5e7eb;
+}
+
+body.light-theme .onb-number-checkbox:hover {
+    background: rgba(5,150,105,0.04);
+}
+
+body.light-theme .onb-number-text {
+    color: #111827;
+}
+
+body.light-theme .onb-free-allowance {
+    background: rgba(5,150,105,0.08);
+    border-color: rgba(5,150,105,0.2);
+    color: var(--lt-accent);
+}
+
+/* ── Ghost Button (secondary action) ────────────────────────── */
+.onb-ghost-btn {
+    padding: 10px 16px;
+    background: #0a0a0a;
+    color: #cccccc;
+    border: 1px solid #1a1a1a;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.18s ease;
+}
+
+.onb-ghost-btn:hover {
+    color: #ffffff;
+    border-color: rgba(0,255,136,0.35);
+}
+
+.onb-ghost-btn i {
+    margin-right: 6px;
+}
+
+body.light-theme .onb-ghost-btn {
+    background: #ffffff;
+    color: #374151;
+    border-color: #e5e7eb;
+}
+
+body.light-theme .onb-ghost-btn:hover {
+    border-color: rgba(5,150,105,0.4);
+    color: #111827;
+}

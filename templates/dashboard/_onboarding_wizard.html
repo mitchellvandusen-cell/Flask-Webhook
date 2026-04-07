@@ -301,6 +301,16 @@
                         <div id="onbDomainResults" class="onb-domain-results"></div>
                         <input type="hidden" id="onbSelectedDomain" value="">
 
+                        <!-- Promo code (optional) -->
+                        <div class="onb-field-group">
+                            <label class="onb-label">
+                                Do you have a promo code?
+                                <span class="onb-info-tip" data-tooltip="Enter your code to get a discount on your first month."><i class="fa-solid fa-circle-info"></i></span>
+                            </label>
+                            <input type="text" id="onbPromoCode" class="onb-input" placeholder="(optional) Enter promo code" oninput="onbCheckPromo()">
+                            <div id="onbPromoStatus" style="margin-top: 8px; display: none;"></div>
+                        </div>
+
                         <!-- Selected domain confirmation -->
                         <div id="onbDomainConfirm" class="onb-conditional">
                             <div class="onb-info">
@@ -410,6 +420,17 @@
                             </label>
                             <input type="tel" id="onbContactPhone" class="onb-input" placeholder="(555) 123-4567" autocomplete="tel">
                         </div>
+                    </div>
+
+                    <!-- Website provisioning section -->
+                    <div id="onbStep4Provisioning" style="margin-top: 24px; padding: 12px; background: #0a0a0a; border: 1px solid #1a1a1a; border-radius: 8px; display: none;">
+                        <div style="margin-bottom: 12px;">
+                            <p style="margin: 0 0 12px 0; font-weight: 500; color: #cccccc;">Your website & email will be set up now</p>
+                            <button class="onb-continue-btn" id="onbStep4ProvisionBtn" onclick="onbProvisionWebsite()" style="width: 100%;">
+                                <i class="fa-solid fa-magic"></i> Provision Website & Email
+                            </button>
+                        </div>
+                        <div id="onbProvisionStatus" style="font-size: 0.9em; color: #888; display: none;"></div>
                     </div>
 
                     <div class="onb-nav-row">
@@ -533,60 +554,61 @@
                         </div>
                     </div>
 
-                    <!-- Submit CTA -->
+                    <!-- Navigation -->
                     <div class="onb-review-submit-wrap">
-                        <div class="onb-review-notice">
-                            <i class="fa-solid fa-shield-check"></i>
-                            By submitting, your business profile will be sent to phone carriers for identity verification. This typically takes 24 hours.
-                        </div>
                         <div class="onb-nav-row">
                             <button class="onb-back-btn" onclick="onbPrev()"><i class="fa-solid fa-arrow-left"></i> Back</button>
-                            <button class="onb-continue-btn onb-submit-btn" id="onbSubmitBtn" onclick="onbSubmitProfile()">
-                                <i class="fa-solid fa-paper-plane"></i> Submit for Carrier Verification
-                            </button>
+                            <button class="onb-continue-btn" id="onbStep5Btn" onclick="onbNext()">Continue <i class="fa-solid fa-arrow-right"></i></button>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <!-- ════════════════ STEP 6: Phone Numbers ════════════════ -->
+            <!-- ════════════════ STEP 6: Phone Numbers & States ════════════════ -->
             <div class="onb-slide" data-step="6">
                 <div class="onb-card">
-                    <h2 class="onb-title">Get Your Phone Numbers</h2>
-                    <p class="onb-subtitle">You get 5 phone numbers free with your plan. Search by area code to find numbers in your market.</p>
+                    <h2 class="onb-title">Select Your States & Phone Numbers</h2>
+                    <p class="onb-subtitle">Choose the states you operate in and claim up to 5 free phone numbers. You can purchase more anytime.</p>
 
-                    <div id="onbNumbersReady">
-                        <div class="onb-area-code-row">
-                            <div class="onb-field-group" style="flex:1; margin-bottom:0;">
-                                <label class="onb-label" style="display:none;">Area Code</label>
-                                <input type="text" id="onbAreaCode" class="onb-input" placeholder="Enter area code (e.g. 214)" maxlength="3" inputmode="numeric">
-                            </div>
-                            <span class="onb-info-tip" data-tooltip="Use the area code where most of your clients live. Your leads will see a local number from their area, which means more answered calls."><i class="fa-solid fa-circle-info"></i></span>
-                            <button class="onb-domain-search-btn" onclick="onbSearchNumbers()">
-                                <i class="fa-solid fa-magnifying-glass"></i> Search
+                    <!-- States Multi-Select -->
+                    <div class="onb-field-group">
+                        <label class="onb-label">
+                            Licensed States
+                            <span class="onb-info-tip" data-tooltip="Select all states where you're licensed to sell insurance. We'll show you available local numbers for each state."><i class="fa-solid fa-circle-info"></i></span>
+                        </label>
+                        <div class="onb-states-grid" id="onbStatesGrid">
+                            <!-- Populated by JS -->
+                        </div>
+                        <span class="onb-field-hint" id="onbStatesHint">Select at least one state</span>
+                    </div>
+
+                    <!-- Phone Numbers for Selected States -->
+                    <div id="onbNumbersSection" style="display: none; margin-top: 32px;">
+                        <h3 style="font-size: 14px; font-weight: 700; margin-bottom: 16px; color: #cccccc;">
+                            Available Numbers
+                        </h3>
+                        <div class="onb-free-allowance">
+                            <span id="onbFreeRemaining">0</span> free numbers remaining
+                        </div>
+                        <div class="onb-numbers-list" id="onbNumbersList">
+                            <!-- Populated by JS -->
+                        </div>
+                        <div id="onbBuyMorePrompt" style="display: none; margin-top: 16px; text-align: center;">
+                            <button class="onb-ghost-btn" onclick="onbBuyMoreNumbers()">
+                                <i class="fa-solid fa-plus"></i> Buy More Numbers
                             </button>
                         </div>
-
-                        <div class="onb-number-count" id="onbNumberCount">Select up to <strong>5</strong> numbers</div>
-                        <div class="onb-number-grid" id="onbNumberGrid"></div>
                     </div>
 
-                    <div id="onbNumbersNotReady" class="onb-conditional">
-                        <div class="onb-info">
-                            <i class="fa-solid fa-circle-info onb-info-icon"></i>
-                            <div class="onb-info-text">
-                                Your voice service is being set up. You'll be able to get your phone numbers from the workspace once it's ready.
-                            </div>
+                    <!-- Navigation -->
+                    <div class="onb-review-submit-wrap" style="margin-top: 40px;">
+                        <div class="onb-nav-row">
+                            <button class="onb-back-btn" onclick="onbPrev()"><i class="fa-solid fa-arrow-left"></i> Back</button>
+                            <button class="onb-continue-btn" id="onbStep6Btn" onclick="onbFinalSubmit()" disabled>
+                                <i class="fa-solid fa-paper-plane"></i> Submit for Carrier Verification
+                            </button>
                         </div>
                     </div>
-
-                    <div class="onb-nav-row">
-                        <button class="onb-back-btn" onclick="onbPrev()"><i class="fa-solid fa-arrow-left"></i> Back</button>
-                        <button class="onb-continue-btn" id="onbGetNumbersBtn" onclick="onbGetNumbers()">
-                            Get My Numbers <i class="fa-solid fa-phone"></i>
-                        </button>
-                    </div>
-                    <span class="onb-skip-link" onclick="onbSkipNumbers()">Skip — I'll get numbers later</span>
                 </div>
             </div>
 
