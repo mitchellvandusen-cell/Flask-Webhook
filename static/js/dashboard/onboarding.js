@@ -1042,10 +1042,31 @@
         "PR": "Puerto Rico", "VI": "US Virgin Islands", "GU": "Guam", "AS": "American Samoa",
     };
 
+    var existingNumberCount = 0;
+
     function initStep6() {
         selectedStates = [];
         selectedPhoneNumbers = [];
         availableNumbers = {};
+
+        // Check how many numbers user already has
+        fetch('/voice/numbers')
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                var nums = data.numbers || data.phone_numbers || [];
+                existingNumberCount = nums.length;
+                // Adjust free allowance display
+                var effectiveFree = Math.max(0, FREE_ALLOWANCE - existingNumberCount);
+                var freeEl = document.getElementById('onbFreeRemaining');
+                if (freeEl) freeEl.textContent = effectiveFree;
+
+                if (existingNumberCount > 0) {
+                    // User already has numbers — enable Continue and make selection optional
+                    enableBtn('onbStep6Btn', true);
+                }
+            })
+            .catch(function () { /* ignore — default to 5 free */ });
+
         populateStatesGrid();
     }
 
@@ -1159,7 +1180,8 @@
 
         var selected = selectedPhoneNumbers.filter(function (p) { return p.selected; }).length;
 
-        if (!phoneNum.selected && selected >= FREE_ALLOWANCE) {
+        var effectiveFree = Math.max(0, FREE_ALLOWANCE - existingNumberCount);
+        if (!phoneNum.selected && selected >= effectiveFree && effectiveFree > 0) {
             // Show buy more prompt
             document.getElementById('onbBuyMorePrompt').style.display = 'block';
             // Uncheck this one since we're at limit
@@ -1172,12 +1194,12 @@
         updateFreeCount();
 
         var selected2 = selectedPhoneNumbers.filter(function (p) { return p.selected; }).length;
-        enableBtn('onbStep6Btn', selected2 > 0);
+        enableBtn('onbStep6Btn', selected2 > 0 || existingNumberCount > 0);
     };
 
     function updateFreeCount() {
         var selected = selectedPhoneNumbers.filter(function (p) { return p.selected; }).length;
-        var remaining = FREE_ALLOWANCE - selected;
+        var remaining = Math.max(0, FREE_ALLOWANCE - existingNumberCount - selected);
         var freeEl = document.getElementById('onbFreeRemaining');
         if (freeEl) freeEl.textContent = remaining;
 
