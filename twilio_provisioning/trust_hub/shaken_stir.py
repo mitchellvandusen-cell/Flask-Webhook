@@ -1,5 +1,24 @@
 """Module extracted from twilio_provisioning.py."""
 
+import logging
+from twilio.base.exceptions import TwilioRestException
+
+from ..client import (
+    get_sub_account_client_native,
+    _ensure_sub_account_auth_token,
+    _find_primary_profile_sid,
+    _find_or_create_secondary_profile,
+    _trusthub_update_status,
+)
+from .base import (
+    SECONDARY_CUSTOMER_PROFILE_POLICY_SID,
+    unassign_numbers_from_trust_product,
+)
+
+logger = logging.getLogger("twilio_provisioning")
+
+SHAKEN_STIR_POLICY_SID = "RN7a97559effdf62d00f4298208492a5ea"
+
 # ──────────────────────────────────────────────────────────────
 # SHAKEN/STIR — ISV Sub-Account Trust Product
 # ──────────────────────────────────────────────────────────────
@@ -17,8 +36,6 @@
 #   3. Link Profile → Trust Product
 #   4. Assign phone numbers
 #   5. Evaluate + submit for review
-
-SHAKEN_STIR_POLICY_SID = "RN7a97559effdf62d00f4298208492a5ea"
 
 
 def create_shaken_stir_trust_product(

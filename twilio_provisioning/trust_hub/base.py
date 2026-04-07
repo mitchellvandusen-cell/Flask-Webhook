@@ -1,5 +1,17 @@
 """Module extracted from twilio_provisioning.py."""
 
+import logging
+import requests
+from twilio.base.exceptions import TwilioRestException
+
+from ..client import (
+    get_sub_account_client_native,
+    _trusthub_update_status,
+    TWILIO_ACCOUNT_SID,
+)
+
+logger = logging.getLogger("twilio_provisioning")
+
 # CNAM Trust Product policy SID — static across all Twilio accounts.
 # https://www.twilio.com/docs/voice/brand-your-calls-using-cnam
 CNAM_TRUST_PRODUCT_POLICY_SID = "RNf3db3cd1fe25fcfd3c3ded065c8fea53"

@@ -1,5 +1,13 @@
 """Module extracted from twilio_provisioning.py."""
 
+import logging
+from twilio.base.exceptions import TwilioRestException
+
+from .client import get_sub_account_client
+
+logger = logging.getLogger("twilio_provisioning")
+
+
 def get_spam_protection_status(sub_account_sid: str) -> dict:
     """Get current spam/CNAM protection status for a sub-account.
 

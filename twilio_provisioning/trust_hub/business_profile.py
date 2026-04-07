@@ -1,5 +1,21 @@
 """Module extracted from twilio_provisioning.py."""
 
+import logging
+import io
+from twilio.base.exceptions import TwilioRestException
+
+from ..client import (
+    get_sub_account_client_native,
+    _ensure_sub_account_auth_token,
+    _find_primary_profile_sid,
+    _find_or_create_secondary_profile,
+    _trusthub_update_status,
+)
+from .base import SECONDARY_CUSTOMER_PROFILE_POLICY_SID
+
+logger = logging.getLogger("twilio_provisioning")
+
+
 def register_business_profile(sub_account_sid: str, business_name: str,
                                 ein: str, street: str, city: str,
                                 state: str, zip_code: str,

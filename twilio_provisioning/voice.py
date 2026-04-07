@@ -1,5 +1,19 @@
 """Module extracted from twilio_provisioning.py."""
 
+import logging
+from twilio.base.exceptions import TwilioRestException
+from twilio.jwt.access_token import AccessToken
+from twilio.jwt.access_token.grants import VoiceGrant
+
+from .client import (
+    get_sub_account_client, get_master_client,
+    TWILIO_ACCOUNT_SID, TWILIO_API_KEY_SID, TWILIO_API_KEY_SECRET,
+    TWILIO_PHONE_NUMBER, _trusthub_update_status
+)
+
+logger = logging.getLogger("twilio_provisioning")
+
+
 def generate_voice_token(identity: str, twiml_app_sid: str,
                           sub_account_sid: str = "",
                           api_key_sid: str = "",

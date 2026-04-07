@@ -1,5 +1,20 @@
 """Module extracted from twilio_provisioning.py."""
 
+import logging
+import re
+from twilio.base.exceptions import TwilioRestException
+
+from ..client import (
+    get_sub_account_client_native,
+    _ensure_sub_account_auth_token,
+    _find_primary_profile_sid,
+    _find_or_create_secondary_profile,
+    _trusthub_update_status,
+)
+from .base import CNAM_TRUST_PRODUCT_POLICY_SID
+
+logger = logging.getLogger("twilio_provisioning")
+
 # ──────────────────────────────────────────────────────────────
 # CNAM TRUST PRODUCT — CALLER ID NAME REGISTRATION
 # ──────────────────────────────────────────────────────────────
@@ -27,10 +42,6 @@
 # Master account (direct customer): uses Primary Business Profile directly.
 #
 # State stored in voice_config["cnam"] JSONB.
-
-# CNAM Trust Product policy SID — static across all Twilio accounts.
-# https://www.twilio.com/docs/voice/brand-your-calls-using-cnam
-CNAM_TRUST_PRODUCT_POLICY_SID = "RNf3db3cd1fe25fcfd3c3ded065c8fea53"
 
 
 def validate_cnam_display_name(name: str) -> tuple:

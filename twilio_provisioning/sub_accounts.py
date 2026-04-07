@@ -1,5 +1,12 @@
 """Module extracted from twilio_provisioning.py."""
 
+import logging
+from twilio.base.exceptions import TwilioRestException
+
+from .client import get_master_client, get_sub_account_client
+
+logger = logging.getLogger("twilio_provisioning")
+
 
 def create_sub_account(friendly_name: str) -> dict:
     """
