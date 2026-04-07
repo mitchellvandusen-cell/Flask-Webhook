@@ -986,6 +986,13 @@ def domain_checkout():
 
     _save_web_presence(location_id, web_presence)
 
+    # Auto-populate Business Profile with domain website + email so the
+    # user doesn't have to re-enter them in the Spam Protection form.
+    try:
+        _populate_trust_hub_from_domain(location_id, domain, agent_email)
+    except Exception as e:
+        logger.warning(f"[Domain] Failed to populate trust_hub from domain: {e}")
+
     log_webhook_event(location_id, 'domain_provisioned', 'success',
                       f"Domain {domain} is live",
                       details={'domain': domain, 'steps': provisioning_log})
@@ -996,6 +1003,7 @@ def domain_checkout():
         'email': agent_email,
         'website': f'https://{domain}',
         'provisioning_log': provisioning_log,
+        'email_verification_needed': web_presence.get('email_verification_needed', False),
     }
     if web_presence.get('email_verification_needed'):
         response['email_notice'] = (
@@ -1036,6 +1044,54 @@ def _save_web_presence(location_id, web_presence):
         cur.close()
     except Exception as e:
         logger.error(f"[Domain] DB save failed: {e}")
+        try:
+            conn.rollback()
+        except Exception:
+            pass
+    finally:
+        return_db_connection(conn)
+
+
+def _populate_trust_hub_from_domain(location_id, domain, business_email):
+    """Auto-populate trust_hub website + contact_email from a purchased domain.
+
+    When a user buys a domain through us, we already know their website URL
+    and business email — write them to trust_hub so the Business Profile form
+    shows them pre-filled instead of making the user type them again.
+    Only fills empty fields — never overwrites user-entered data.
+    """
+    conn = get_db_connection()
+    if not conn:
+        return
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT voice_config FROM subscribers WHERE location_id = %s FOR UPDATE",
+                    (location_id,))
+        row = cur.fetchone()
+        if not row:
+            return
+        vc = row['voice_config'] or {}
+        trust_hub = vc.get('trust_hub', {})
+
+        changed = False
+        website_url = f'https://{domain}'
+        if not trust_hub.get('website', '').strip():
+            trust_hub['website'] = website_url
+            changed = True
+        if not trust_hub.get('contact_email', '').strip() and business_email:
+            trust_hub['contact_email'] = business_email
+            changed = True
+
+        if changed:
+            vc['trust_hub'] = trust_hub
+            cur.execute("UPDATE subscribers SET voice_config = %s WHERE location_id = %s",
+                        (json.dumps(vc), location_id))
+            conn.commit()
+            logger.info(f"[Domain] Auto-populated trust_hub: website={website_url}, email={business_email}")
+        else:
+            logger.info(f"[Domain] trust_hub already has website/email — skipping auto-populate")
+    except Exception as e:
+        logger.error(f"[Domain] trust_hub auto-populate failed: {e}")
         try:
             conn.rollback()
         except Exception:

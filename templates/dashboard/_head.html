@@ -1779,6 +1779,85 @@
             .domain-detail-grid { grid-template-columns: 1fr; }
         }
 
+        /* ── Cloudflare Email Verification Toast ──────────────────────────── */
+        .cf-verify-toast {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            z-index: 99990;
+            max-width: 420px;
+            opacity: 0;
+            transform: translateY(12px);
+            transition: opacity 0.3s ease, transform 0.3s ease;
+            pointer-events: none;
+        }
+        .cf-verify-toast.visible {
+            opacity: 1;
+            transform: translateY(0);
+            pointer-events: auto;
+        }
+        .cf-verify-toast-inner {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            background: #0a0a0a;
+            border: 1px solid rgba(255,165,0,0.3);
+            border-radius: 12px;
+            padding: 14px 16px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+        }
+        .cf-verify-toast-icon {
+            flex-shrink: 0;
+            width: 32px;
+            height: 32px;
+            border-radius: 8px;
+            background: rgba(255,165,0,0.1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #ffa500;
+            font-size: 0.9rem;
+        }
+        .cf-verify-toast-body { flex: 1; }
+        .cf-verify-toast-title {
+            font-size: 0.82rem;
+            font-weight: 700;
+            color: #ffa500;
+            margin-bottom: 2px;
+        }
+        .cf-verify-toast-text {
+            font-size: 0.75rem;
+            color: #aaa;
+            line-height: 1.5;
+        }
+        .cf-verify-toast-close {
+            flex-shrink: 0;
+            background: transparent;
+            border: none;
+            color: #555;
+            cursor: pointer;
+            font-size: 0.8rem;
+            padding: 2px 4px;
+            transition: color 0.18s;
+        }
+        .cf-verify-toast-close:hover { color: #fff; }
+        body.light-theme .cf-verify-toast-inner {
+            background: #ffffff;
+            border-color: rgba(217,119,6,0.3);
+            box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+        }
+        body.light-theme .cf-verify-toast-icon {
+            background: rgba(217,119,6,0.08);
+            color: #d97706;
+        }
+        body.light-theme .cf-verify-toast-title { color: #d97706; }
+        body.light-theme .cf-verify-toast-text { color: #6b7280; }
+        body.light-theme .cf-verify-toast-close { color: #9ca3af; }
+        body.light-theme .cf-verify-toast-close:hover { color: #111; }
+        @media (max-width: 640px) {
+            .cf-verify-toast { left: 12px; right: 12px; bottom: 12px; max-width: none; }
+        }
+
         /* ── Toast ─────────────────────────────────────────────────────────── */
         .dc-toast {
             position: absolute;

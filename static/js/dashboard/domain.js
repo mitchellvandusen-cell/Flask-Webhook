@@ -336,6 +336,12 @@
                             has_domain: true,
                         });
                         if (typeof _showDashToast === 'function') _showDashToast(true, 'Your domain is live!');
+                        // Cloudflare email verification toast
+                        if (d.email_verification_needed) {
+                            setTimeout(() => {
+                                _showEmailVerificationToast(d.email_notice);
+                            }, 1500);
+                        }
                     }, 2000);
                 } else {
                     _updateProvisioningSteps(d.provisioning_log || [], false, d.error);
@@ -449,6 +455,55 @@
             .catch(() => {
                 if (typeof _showDashToast === 'function') _showDashToast(false, 'Network error');
             });
+    };
+
+    // ── Cloudflare Email Verification Toast ──
+    // Persistent notification reminding the user to verify their forwarding email.
+    // Shows after domain provisioning and on page load if verification is still pending.
+    function _showEmailVerificationToast(message) {
+        // Don't show if already dismissed this session
+        if (sessionStorage.getItem('cf_email_toast_dismissed')) return;
+        // Remove any existing toast
+        var existing = document.getElementById('cfEmailVerifyToast');
+        if (existing) existing.remove();
+
+        var toast = document.createElement('div');
+        toast.id = 'cfEmailVerifyToast';
+        toast.className = 'cf-verify-toast';
+        toast.innerHTML =
+            '<div class="cf-verify-toast-inner">' +
+                '<div class="cf-verify-toast-icon"><i class="fa-solid fa-envelope-circle-check"></i></div>' +
+                '<div class="cf-verify-toast-body">' +
+                    '<div class="cf-verify-toast-title">Verify Your Email</div>' +
+                    '<div class="cf-verify-toast-text">' +
+                        _esc(message || 'Check your inbox (and spam folder) for a verification email from Cloudflare. Click the link to activate email forwarding for your new domain.') +
+                    '</div>' +
+                '</div>' +
+                '<button class="cf-verify-toast-close" onclick="document.getElementById(\'cfEmailVerifyToast\').remove();sessionStorage.setItem(\'cf_email_toast_dismissed\',\'1\')">' +
+                    '<i class="fa-solid fa-xmark"></i>' +
+                '</button>' +
+            '</div>';
+        document.body.appendChild(toast);
+        // Animate in
+        requestAnimationFrame(function () { toast.classList.add('visible'); });
+    }
+
+    // Check on domain tab load if verification is still pending
+    var _origInit = window.domainTabInit;
+    window.domainTabInit = function () {
+        if (_origInit) _origInit();
+        // Check if domain has pending email verification
+        fetch('/api/domain/status')
+            .then(function (r) { return r.json(); })
+            .then(function (d) {
+                if (d.has_domain && d.email_verification_needed) {
+                    var fwd = d.email_forward_to || 'your inbox';
+                    _showEmailVerificationToast(
+                        'Check ' + fwd + ' (and spam folder) for a verification email from Cloudflare. Click the link to activate email forwarding to your business email.'
+                    );
+                }
+            })
+            .catch(function () {});
     };
 
     // ── Utility ──

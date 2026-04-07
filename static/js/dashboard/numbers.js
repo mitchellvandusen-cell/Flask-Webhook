@@ -213,6 +213,49 @@
             }
         }
 
+        // Pre-fill business profile form fields from API data
+        function _spPrefillForm(d) {
+            var _sv = function(id, val) { var el = document.getElementById(id); if (el) el.value = val || ''; };
+            _sv('spBizName',      d.business_name);
+            _sv('spEIN',          d.ein);
+            _sv('spStreet',       d.street);
+            _sv('spCity',         d.city);
+            _sv('spState',        d.state);
+            _sv('spZip',          d.zip);
+            _sv('spContactName',  d.contact_name);
+            if (d.contact_name) {
+                var _parts = d.contact_name.trim().split(/\s+/);
+                _sv('spContactFirstName', _parts[0] || '');
+                _sv('spContactLastName', _parts.slice(1).join(' ') || '');
+            }
+            _sv('spContactEmail', d.contact_email);
+            _sv('spContactPhone', d.contact_phone);
+            _sv('spContactTitle', d.contact_title);
+            _sv('spWebsite',      d.website);
+            var btSelect = document.getElementById('spBizType');
+            if (btSelect && d.business_type) {
+                btSelect.value = d.business_type;
+                spBizTypeChanged();
+            }
+            if (d.ein_document_name) {
+                var einDocSection = document.getElementById('spEinDocSection');
+                var einUploadArea = document.getElementById('spEinUploadArea');
+                var einUploadedInfo = document.getElementById('spEinUploadedInfo');
+                var einUploadPrompt = document.getElementById('spEinUploadPrompt');
+                var einFileName = document.getElementById('spEinFileName');
+                if (einDocSection) einDocSection.style.display = 'block';
+                if (einUploadArea) einUploadArea.style.display = 'block';
+                if (einUploadedInfo) einUploadedInfo.style.display = 'flex';
+                if (einUploadPrompt) einUploadPrompt.style.display = 'none';
+                if (einFileName) einFileName.textContent = d.ein_document_name + ' (uploaded)';
+            }
+            if (d.ein_is_new) {
+                var einDocSection = document.getElementById('spEinDocSection');
+                if (einDocSection) einDocSection.style.display = 'block';
+                spSetEinNew(true);
+            }
+        }
+
         async function loadSpamProtectionStatus() {
             const statusEl = document.getElementById('spamProtectionStatus');
             const formEl = document.getElementById('spamProtectionForm');
@@ -298,50 +341,8 @@
                                 '</button>' +
                             '</div>' +
                         '</div>';
-                    // Pre-fill edit form with current registered values from API
-                    var _sv = function(id, val) { var el = document.getElementById(id); if (el) el.value = val || ''; };
-                    _sv('spBizName',      d.business_name);
-                    _sv('spEIN',          d.ein);
-                    _sv('spStreet',       d.street);
-                    _sv('spCity',         d.city);
-                    _sv('spState',        d.state);
-                    _sv('spZip',          d.zip);
-                    _sv('spContactName',  d.contact_name);
-                    // Split contact_name into first/last for new split fields
-                    if (d.contact_name) {
-                        var _parts = d.contact_name.trim().split(/\s+/);
-                        _sv('spContactFirstName', _parts[0] || '');
-                        _sv('spContactLastName', _parts.slice(1).join(' ') || '');
-                    }
-                    _sv('spContactEmail', d.contact_email);
-                    _sv('spContactPhone', d.contact_phone);
-                    _sv('spContactTitle', d.contact_title);
-                    _sv('spWebsite',      d.website);
-                    // Restore business type select
-                    var btSelect = document.getElementById('spBizType');
-                    if (btSelect && d.business_type) {
-                        btSelect.value = d.business_type;
-                        spBizTypeChanged();
-                    }
-                    // Restore EIN document state
-                    if (d.ein_document_name) {
-                        var einDocSection = document.getElementById('spEinDocSection');
-                        var einUploadArea = document.getElementById('spEinUploadArea');
-                        var einUploadedInfo = document.getElementById('spEinUploadedInfo');
-                        var einUploadPrompt = document.getElementById('spEinUploadPrompt');
-                        var einFileName = document.getElementById('spEinFileName');
-                        if (einDocSection) einDocSection.style.display = 'block';
-                        if (einUploadArea) einUploadArea.style.display = 'block';
-                        if (einUploadedInfo) einUploadedInfo.style.display = 'flex';
-                        if (einUploadPrompt) einUploadPrompt.style.display = 'none';
-                        if (einFileName) einFileName.textContent = d.ein_document_name + ' (uploaded)';
-                    }
-                    // Restore ein_is_new toggle state
-                    if (d.ein_is_new) {
-                        var einDocSection = document.getElementById('spEinDocSection');
-                        if (einDocSection) einDocSection.style.display = 'block';
-                        spSetEinNew(true);
-                    }
+                    // Pre-fill edit form with current registered values
+                    _spPrefillForm(d);
                     // Show form if rejected (user needs to fix and resubmit)
                     if (isRejected) {
                         if (formEl) formEl.style.display = 'block';
@@ -349,6 +350,10 @@
                         // Collapse form if already registered
                         if (formEl) formEl.style.display = 'none';
                     }
+                } else if (d.business_name && !d.protection_active) {
+                    // Profile data saved but not yet submitted — prepopulate
+                    // form so user can resume where they left off
+                    _spPrefillForm(d);
                 }
 
                 // Render number protection list
