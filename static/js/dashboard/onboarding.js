@@ -36,10 +36,13 @@
     var FREE_ALLOWANCE = 5;    // max free phone numbers
 
     /* ── Restore step from sessionStorage ── */
-    // Only restore step if wizard state (Yes/No answers) is also preserved.
-    // Since JS state resets on reload, always restart from step 1 to avoid
-    // landing on a step with hidden conditional sections and empty fields.
-    // The intro skip IS preserved so they don't re-watch the animation.
+    // If domain was already provisioned, user can safely resume at step 5+
+    // (steps 1-4 data is in the DB, not needed again).
+    // For earlier steps, restart from 1 since form state is lost on reload.
+    if (provisioned) {
+        var savedStep = parseInt(sessionStorage.getItem('onb_step') || '5', 10);
+        if (savedStep >= 5) currentStep = savedStep;
+    }
 
     /* ── Init on DOM ready ── */
     document.addEventListener('DOMContentLoaded', function () {
@@ -122,6 +125,7 @@
 
     window.goToStep = function goToStep(step, instant) {
         currentStep = step;
+        sessionStorage.setItem('onb_step', String(step));
 
         var slides = document.getElementById('onbSlides');
         if (!slides) return;

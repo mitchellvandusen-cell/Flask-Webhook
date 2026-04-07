@@ -1051,6 +1051,12 @@ def domain_status():
             'provisioned_at': wp.get('provisioned_at', ''),
             'email_verification_needed': wp.get('email_verification_needed', False),
             'error': wp.get('error'),
+            # Editable fields for Domain & Website tab
+            'agent_name': wp.get('agent_name', ''),
+            'phone_display': wp.get('phone_display', ''),
+            'licensed_states': wp.get('licensed_states', []),
+            'bio': wp.get('bio', ''),
+            'email_forward_to': wp.get('email_forward_to', ''),
         })
     finally:
         return_db_connection(conn)

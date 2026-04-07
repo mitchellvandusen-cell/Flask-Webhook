@@ -95,6 +95,16 @@
         if (d.provisioned_at) {
             dateEl.textContent = new Date(d.provisioned_at).toLocaleDateString();
         }
+
+        // Pre-populate edit form with current data
+        var editName = document.getElementById('domainEditName');
+        var editPhone = document.getElementById('domainEditPhone');
+        var editStates = document.getElementById('domainEditStates');
+        var editBio = document.getElementById('domainEditBio');
+        if (editName && d.agent_name) editName.value = d.agent_name;
+        if (editPhone && d.phone_display) editPhone.value = d.phone_display;
+        if (editStates && d.licensed_states) editStates.value = Array.isArray(d.licensed_states) ? d.licensed_states.join(', ') : d.licensed_states;
+        if (editBio && d.bio) editBio.value = d.bio;
     }
 
     // ── Domain Search ──
