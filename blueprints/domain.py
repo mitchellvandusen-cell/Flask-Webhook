@@ -238,8 +238,9 @@ def _cf_headers():
     }
 
 
+@_retry_with_backoff(max_attempts=3, backoff_base=5)
 def _cf_create_zone(domain):
-    """Add a domain to Cloudflare as a new zone."""
+    """Add a domain to Cloudflare as a new zone. Retries on throttle (code 971)."""
     resp = requests.post(
         f'{CLOUDFLARE_API_BASE}/zones',
         headers=_cf_headers(),
