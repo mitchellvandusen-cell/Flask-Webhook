@@ -14,4 +14,4 @@ API_BASE_URL = "https://app.omnisconn.com"
 # or set CLOUDFLARE_KV_NAMESPACE_ID env var in the Flask app.
 [[kv_namespaces]]
 binding = "AGENT_KV"
-id = "" # Set via: wrangler kv namespace list → copy the ID
+id = "aa72913187f742b39b1c7b1a7a92fcec"
