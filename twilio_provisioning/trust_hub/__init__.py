@@ -4,6 +4,7 @@ from .base import (
     SECONDARY_CUSTOMER_PROFILE_POLICY_SID,
     CNAM_TRUST_PRODUCT_POLICY_SID,
     VOICE_INTEGRITY_POLICY_SID,
+    VOICE_INTEGRITY_CARRIERS,
     is_master_account,
     check_secondary_profile_status,
 )
