@@ -1998,6 +1998,116 @@
         // ── Legacy compat ──
         function a2pLoadStatus() { a2pBrandInit(); }
 
+        // ── Shared helpers ──
+
+        function _a2pUpdateBadge(id, status) {
+            var el = document.getElementById(id);
+            if (!el) return;
+            var s = (status || '').toUpperCase();
+            if (!s) { el.textContent = ''; el.className = 'a2p-status-badge'; return; }
+            var isOk = s === 'APPROVED' || s === 'VERIFIED';
+            var isPending = s === 'PENDING' || s === 'IN_PROGRESS' || s === 'IN_REVIEW';
+            var isFailed = s === 'FAILED' || s === 'REJECTED';
+            el.textContent = isOk ? 'Approved' : (isPending ? 'Pending' : (isFailed ? 'Failed' : s));
+            el.className = 'a2p-status-badge ' + (isOk ? 'a2p-badge-approved' : (isPending ? 'a2p-badge-pending' : (isFailed ? 'a2p-badge-failed' : 'a2p-badge-off')));
+        }
+
+        function _a2pStartBrandPoll() {
+            if (_a2pBrandPollTimer) return;
+            _a2pBrandPollTimer = setInterval(async function() {
+                try {
+                    var r = await fetch('/voice/a2p/brand-status');
+                    if (!r.ok) return;
+                    var d = await r.json();
+                    var s = (d.status || '').toUpperCase();
+                    if (s === 'APPROVED' || s === 'FAILED' || s === 'REJECTED') {
+                        clearInterval(_a2pBrandPollTimer);
+                        _a2pBrandPollTimer = null;
+                        a2pBrandInit();
+                    } else {
+                        _a2pUpdateBadge('a2pBrandBadge', s);
+                    }
+                } catch(e) {}
+            }, 30000);
+        }
+
+        function _a2pBrandStatusCard(d) {
+            var s = (d.brand_status || 'PENDING').toUpperCase();
+            var isOk = s === 'APPROVED';
+            var isPending = s === 'PENDING' || s === 'IN_PROGRESS' || s === 'IN_REVIEW';
+            var isFailed = s === 'FAILED' || s === 'REJECTED';
+            var stateClass = isOk ? 'approved' : (isPending ? 'pending' : 'failed');
+            var icon = isOk ? 'fa-circle-check' : (isPending ? 'fa-clock' : 'fa-triangle-exclamation');
+
+            var html = '<div class="a2p-brand-status-page">';
+
+            // Status card
+            html += '<div class="a2p-status-card ' + stateClass + '">' +
+                '<div class="a2p-status-card-icon"><i class="fa-solid ' + icon + '"></i></div>' +
+                '<div class="a2p-status-card-body">' +
+                '<div class="a2p-status-card-header">Brand ' + _esc(s) + '</div>' +
+                (d.brand_sid ? '<div class="a2p-status-card-detail"><span class="a2p-detail-label">Brand SID</span><span class="a2p-detail-value">' + _esc(d.brand_sid) + '</span></div>' : '') +
+                (d.brand_score ? '<div class="a2p-status-card-detail"><span class="a2p-detail-label">Score</span><span class="a2p-detail-value">' + _esc(d.brand_score) + '</span></div>' : '') +
+                '</div></div>';
+
+            // Guidance text
+            if (isPending) {
+                html += '<div class="a2p-guidance"><i class="fa-solid fa-info-circle"></i> Brand vetting typically takes 1\u20137 business days. Status updates automatically.</div>';
+            } else if (isOk) {
+                html += '<div class="a2p-guidance a2p-guidance-success"><i class="fa-solid fa-check"></i> Your brand is approved. You can now register a Campaign.</div>';
+            } else if (isFailed) {
+                html += '<div class="a2p-guidance a2p-guidance-error"><i class="fa-solid fa-exclamation-triangle"></i> Brand vetting failed. Review feedback and re-register.</div>';
+                html += '<button class="a2p-create-btn" onclick="a2pShowBrandForm()" style="margin-top:16px;"><i class="fa-solid fa-rotate-right"></i> Re-Register Brand</button>';
+            }
+
+            // Refresh
+            html += '<div class="a2p-actions-row">' +
+                '<button class="a2p-ghost-btn" onclick="a2pRefreshStatus()"><i class="fa-solid fa-arrows-rotate"></i> Refresh Status</button>' +
+                '<button class="a2p-ghost-btn" onclick="a2pSyncFromTwilio()"><i class="fa-solid fa-cloud-arrow-down"></i> Sync Status</button>' +
+                '</div>';
+
+            html += '</div>';
+            return html;
+        }
+
+        function _a2pLoadPhoneNumbers(containerId) {
+            var el = document.getElementById(containerId);
+            if (!el) return;
+            fetch('/voice/numbers').then(r => r.json()).then(d => {
+                var numbers = d.numbers || d || [];
+                if (!numbers.length) {
+                    el.innerHTML = '<div class="a2p-phone-empty">No phone numbers. Purchase numbers first.</div>';
+                    return;
+                }
+                var html = '';
+                numbers.forEach(function(n) {
+                    var ph = n.phone_number || n.phoneNumber || '';
+                    var sid = n.sid || '';
+                    var nick = n.friendly_name || n.nickname || ph;
+                    html += '<label class="a2p-phone-item"><input type="checkbox" value="' + _esc(sid) + '" checked> ' + _esc(nick) + ' <span class="a2p-phone-number">' + _esc(ph) + '</span></label>';
+                });
+                el.innerHTML = html;
+                _a2pNumbersCache = numbers;
+            }).catch(function() { el.innerHTML = '<div class="a2p-phone-empty">Failed to load numbers</div>'; });
+        }
+
+        async function a2pSyncFromTwilio() {
+            try {
+                if (typeof _showDashToast === 'function') _showDashToast(true, 'Syncing A2P status...');
+                var r = await fetch('/voice/a2p/sync', { method: 'POST', headers: {'Content-Type':'application/json'}, body: '{}' });
+                var d = await r.json();
+                if (r.ok) {
+                    if (typeof _showDashToast === 'function') _showDashToast(true, 'Sync complete');
+                    a2pBrandInit();
+                } else {
+                    if (typeof _showDashToast === 'function') _showDashToast(false, d.error || 'Sync failed');
+                }
+            } catch(e) {
+                if (typeof _showDashToast === 'function') _showDashToast(false, 'Network error');
+            }
+        }
+        window.a2pSyncFromTwilio = a2pSyncFromTwilio;
+
         // ── Brand Panel ──
 
         async function a2pBrandInit() {
@@ -2014,14 +2124,31 @@
             var el = document.getElementById('a2pBrandContent');
             if (!el) return;
             _a2pUpdateBadge('a2pBrandBadge', d.brand_status);
+
+            // Brand exists — show status
             if (d.brand_sid && d.brand_status) {
                 el.innerHTML = _a2pBrandStatusCard(d);
-                if (d.brand_status === 'PENDING' || d.brand_status === 'IN_PROGRESS') _a2pStartBrandPoll();
+                var s = (d.brand_status || '').toUpperCase();
+                if (s === 'PENDING' || s === 'IN_PROGRESS' || s === 'IN_REVIEW') _a2pStartBrandPoll();
                 return;
             }
-            el.innerHTML = '<div class="a2p-create-section">' +
-                '<p class="a2p-create-desc">Register your business with carriers to send SMS from your phone numbers. Brand vetting typically takes 1-7 business days.</p>' +
-                '<button class="a2p-create-btn" onclick="a2pShowBrandForm()"><i class="fa-solid fa-plus"></i> Create New Brand</button></div>';
+
+            // No brand — show registration prompt
+            el.innerHTML =
+                '<div class="a2p-hero">' +
+                    '<div class="a2p-hero-icon"><i class="fa-solid fa-shield-halved"></i></div>' +
+                    '<h2 class="a2p-hero-title">Brand Registration</h2>' +
+                    '<p class="a2p-hero-desc">Register your business identity with US carriers to unlock compliant SMS messaging. Required for all 10-digit phone numbers sending application-to-person messages.</p>' +
+                    '<div class="a2p-hero-steps">' +
+                        '<div class="a2p-step"><span class="a2p-step-num">1</span><span class="a2p-step-text">Register Brand</span></div>' +
+                        '<div class="a2p-step-arrow"><i class="fa-solid fa-chevron-right"></i></div>' +
+                        '<div class="a2p-step"><span class="a2p-step-num">2</span><span class="a2p-step-text">Brand Vetting</span></div>' +
+                        '<div class="a2p-step-arrow"><i class="fa-solid fa-chevron-right"></i></div>' +
+                        '<div class="a2p-step"><span class="a2p-step-num">3</span><span class="a2p-step-text">Create Campaign</span></div>' +
+                    '</div>' +
+                    '<button class="a2p-create-btn" onclick="a2pShowBrandForm()"><i class="fa-solid fa-plus"></i> Register New Brand</button>' +
+                    '<div class="a2p-hero-note"><i class="fa-solid fa-clock"></i> Vetting typically takes 1\u20137 business days</div>' +
+                '</div>';
         }
 
 
@@ -2116,7 +2243,8 @@
         async function a2pSubmitBrand() {
             var result = document.getElementById('a2pBrandResult');
             var btn = document.getElementById('a2pSubmitBrandBtn');
-            var brandType = (document.getElementById('a2pBrandType')?.value || 'LOW_VOLUME');
+            var brandTypeRadio = document.querySelector('input[name="a2pBrandType"]:checked');
+            var brandType = brandTypeRadio ? brandTypeRadio.value : 'LOW_VOLUME';
             var payload = {
                 business_name: (document.getElementById('a2pBizName')?.value || '').trim(),
                 ein: (document.getElementById('a2pEIN')?.value || '').trim(),
@@ -2449,41 +2577,63 @@
             if (!el) return;
             var badge = document.getElementById('a2pCampaignBadge');
 
-            // No brand or brand not approved — disabled
+            // No brand or brand not approved — locked state
             if (!d.brand_sid || (d.brand_status || '').toUpperCase() !== 'APPROVED') {
-                var msg = !d.brand_sid
-                    ? 'Register and get your Brand approved before creating a Campaign.'
-                    : 'Brand is under review. Campaign registration will unlock once approved.';
-                el.innerHTML = '<div class="a2p-disabled-panel"><i class="fa-solid fa-lock"></i> ' + _esc(msg) + '</div>';
+                var isPending = d.brand_sid && (d.brand_status || '').toUpperCase() !== 'APPROVED';
                 if (badge) { badge.textContent = 'Locked'; badge.className = 'a2p-status-badge a2p-badge-off'; }
+                el.innerHTML =
+                    '<div class="a2p-locked-state">' +
+                        '<div class="a2p-locked-icon"><i class="fa-solid fa-lock"></i></div>' +
+                        '<h3 class="a2p-locked-title">Campaign Registration Locked</h3>' +
+                        '<p class="a2p-locked-desc">' + (isPending
+                            ? 'Your brand is currently under review. Campaign registration will unlock once your brand is approved.'
+                            : 'Register and get your brand approved before creating a campaign.') + '</p>' +
+                        (!d.brand_sid ? '<button class="a2p-ghost-btn" onclick="sidebarNavigate(\'a2p-brand\')"><i class="fa-solid fa-arrow-right"></i> Go to Brand Registration</button>' : '') +
+                    '</div>';
                 return;
             }
 
-            // Campaign exists — show status
+            // Campaign exists — show status card
             if (d.campaign_sid) {
                 var cs = (d.campaign_status || 'PENDING').toUpperCase();
                 var isOk = cs === 'VERIFIED' || cs === 'APPROVED';
-                var isPending = cs === 'PENDING' || cs === 'IN_PROGRESS';
-                if (badge) {
-                    badge.textContent = isOk ? 'Approved' : (isPending ? 'Pending' : cs);
-                    badge.className = 'a2p-status-badge ' + (isOk ? 'a2p-badge-approved' : (isPending ? 'a2p-badge-pending' : 'a2p-badge-failed'));
-                }
+                var isPendingC = cs === 'PENDING' || cs === 'IN_PROGRESS';
+                var isFailed = cs === 'FAILED' || cs === 'REJECTED';
+                _a2pUpdateBadge('a2pCampaignBadge', cs);
+
+                var stateClass = isOk ? 'approved' : (isPendingC ? 'pending' : 'failed');
+                var icon = isOk ? 'fa-circle-check' : (isPendingC ? 'fa-clock' : 'fa-triangle-exclamation');
+
                 el.innerHTML =
-                    '<div class="a2p-status-card ' + (isOk ? 'approved' : (isPending ? 'pending' : 'failed')) + '">' +
-                    '<div class="a2p-status-card-header"><i class="fa-solid ' + (isOk ? 'fa-circle-check' : 'fa-clock') + '"></i> Campaign ' + _esc(cs) + '</div>' +
-                    '<div class="a2p-status-card-detail">Use case: ' + _esc(d.use_case || '') + '</div>' +
-                    (d.campaign_sid ? '<div class="a2p-status-card-detail">Campaign SID: ' + _esc(d.campaign_sid) + '</div>' : '') +
-                    '</div>';
-                if (isPending) _a2pStartCampaignPoll();
+                    '<div class="a2p-brand-status-page">' +
+                    '<div class="a2p-status-card ' + stateClass + '">' +
+                        '<div class="a2p-status-card-icon"><i class="fa-solid ' + icon + '"></i></div>' +
+                        '<div class="a2p-status-card-body">' +
+                            '<div class="a2p-status-card-header">Campaign ' + _esc(cs) + '</div>' +
+                            '<div class="a2p-status-card-detail"><span class="a2p-detail-label">Use Case</span><span class="a2p-detail-value">' + _esc(d.use_case || 'N/A') + '</span></div>' +
+                            '<div class="a2p-status-card-detail"><span class="a2p-detail-label">Campaign SID</span><span class="a2p-detail-value">' + _esc(d.campaign_sid) + '</span></div>' +
+                        '</div>' +
+                    '</div>' +
+                    (isPendingC ? '<div class="a2p-guidance"><i class="fa-solid fa-info-circle"></i> Campaign review typically takes a few hours to 2 business days.</div>' : '') +
+                    (isOk ? '<div class="a2p-guidance a2p-guidance-success"><i class="fa-solid fa-check"></i> Your campaign is approved. SMS messages are fully compliant.</div>' : '') +
+                    (isFailed ? '<div class="a2p-guidance a2p-guidance-error"><i class="fa-solid fa-exclamation-triangle"></i> Campaign was rejected. Review requirements and re-submit.</div>' +
+                        '<button class="a2p-create-btn" onclick="a2pShowCampaignForm()" style="margin-top:16px;"><i class="fa-solid fa-rotate-right"></i> Re-Submit Campaign</button>' : '') +
+                    '<div class="a2p-actions-row">' +
+                        '<button class="a2p-ghost-btn" onclick="a2pRefreshStatus()"><i class="fa-solid fa-arrows-rotate"></i> Refresh Status</button>' +
+                    '</div></div>';
+                if (isPendingC) _a2pStartCampaignPoll();
                 return;
             }
 
-            // Brand approved, no campaign — show create button
+            // Brand approved, no campaign — show create prompt
             if (badge) { badge.textContent = 'Not Registered'; badge.className = 'a2p-status-badge a2p-badge-off'; }
             el.innerHTML =
-                '<div class="a2p-create-section">' +
-                '<p class="a2p-create-desc">Create a messaging campaign and link your phone numbers for SMS compliance.</p>' +
-                '<button class="a2p-create-btn" onclick="a2pShowCampaignForm()"><i class="fa-solid fa-plus"></i> Create New Campaign</button>' +
+                '<div class="a2p-hero">' +
+                    '<div class="a2p-hero-icon"><i class="fa-solid fa-bullhorn"></i></div>' +
+                    '<h2 class="a2p-hero-title">Campaign Registration</h2>' +
+                    '<p class="a2p-hero-desc">Create a messaging campaign and link your phone numbers. This tells carriers what type of messages you send, ensuring delivery compliance.</p>' +
+                    '<button class="a2p-create-btn" onclick="a2pShowCampaignForm()"><i class="fa-solid fa-plus"></i> Create New Campaign</button>' +
+                    '<div class="a2p-hero-note"><i class="fa-solid fa-clock"></i> Campaign review typically takes a few hours to 2 business days</div>' +
                 '</div>';
         }
 
