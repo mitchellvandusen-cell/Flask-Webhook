@@ -2726,6 +2726,10 @@ def refresh_pending_trust_hub_profiles() -> dict:
                 fresh_vc = (fresh['voice_config'] if fresh else {}) or {}
                 fresh_th = fresh_vc.get('trust_hub', {})
                 fresh_th['review_status'] = new_status
+                # Auto-heal protection_active when Twilio approves
+                if new_status in ('twilio-approved', 'compliant', 'approved'):
+                    fresh_th['protection_active'] = True
+                    fresh_th['_validated'] = True
                 fresh_vc['trust_hub'] = fresh_th
                 cur.execute("UPDATE subscribers SET voice_config = %s WHERE email = %s",
                             (json.dumps(fresh_vc), email))

@@ -387,21 +387,23 @@
                 var prBadge = document.getElementById('smBadgeProtection');
                 if (bpBadge) {
                     var rs = d.review_status || '';
-                    if (d.protection_active && (rs === 'twilio-approved' || rs === 'compliant')) {
+                    var badgeBase = 'display:inline-block;font-size:0.7rem;font-weight:600;padding:2px 8px;border-radius:10px;';
+                    // Use review_status as primary signal (Twilio truth), not protection_active flag
+                    if (rs === 'twilio-approved' || rs === 'compliant' || rs === 'approved') {
                         bpBadge.textContent = 'Approved';
-                        bpBadge.style.cssText = 'display:inline-block;background:rgba(0,255,136,0.12);color:#00ff88;font-size:0.7rem;font-weight:600;padding:2px 8px;border-radius:10px;';
-                    } else if (d.protection_active && (rs === 'pending-review' || rs === 'in-review')) {
+                        bpBadge.style.cssText = badgeBase + 'background:rgba(0,255,136,0.12);color:#00ff88;';
+                    } else if (rs === 'pending-review' || rs === 'in-review') {
                         bpBadge.textContent = 'Under Review';
-                        bpBadge.style.cssText = 'display:inline-block;background:rgba(255,165,0,0.12);color:#ffa500;font-size:0.7rem;font-weight:600;padding:2px 8px;border-radius:10px;';
-                    } else if (d.protection_active && (rs === 'twilio-rejected' || rs === 'noncompliant')) {
+                        bpBadge.style.cssText = badgeBase + 'background:rgba(255,165,0,0.12);color:#ffa500;';
+                    } else if (rs === 'twilio-rejected' || rs === 'noncompliant') {
                         bpBadge.textContent = 'Rejected';
-                        bpBadge.style.cssText = 'display:inline-block;background:rgba(239,68,68,0.12);color:#ef4444;font-size:0.7rem;font-weight:600;padding:2px 8px;border-radius:10px;';
-                    } else if (d.protection_active && rs === 'draft') {
+                        bpBadge.style.cssText = badgeBase + 'background:rgba(239,68,68,0.12);color:#ef4444;';
+                    } else if (rs === 'draft') {
                         bpBadge.textContent = 'Draft';
-                        bpBadge.style.cssText = 'display:inline-block;background:rgba(255,255,255,0.06);color:#888;font-size:0.7rem;font-weight:600;padding:2px 8px;border-radius:10px;';
-                    } else if (!d.protection_active) {
+                        bpBadge.style.cssText = badgeBase + 'background:rgba(255,255,255,0.06);color:#888;';
+                    } else {
                         bpBadge.textContent = 'Not registered';
-                        bpBadge.style.cssText = 'display:inline-block;background:rgba(255,255,255,0.06);color:#888;font-size:0.7rem;font-weight:600;padding:2px 8px;border-radius:10px;';
+                        bpBadge.style.cssText = badgeBase + 'background:rgba(255,255,255,0.06);color:#888;';
                     }
                 }
                 if (prBadge && d.numbers_total > 0) {

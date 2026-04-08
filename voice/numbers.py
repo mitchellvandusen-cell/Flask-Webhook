@@ -1876,21 +1876,36 @@ def spam_protection_status():
             "status": n.get('status', 'active'),
         })
 
-    # Check live profile status from Twilio if we have a profile_sid
-    # get_sub_account_client_native auto-refreshes stale auth tokens (60s cache)
+    # Check live profile status from Twilio if we have a profile_sid.
+    # NOT gated on protection_active — if Twilio approved the profile while our
+    # DB still says pending, we need to discover that and auto-heal.
     profile_review_status = trust_hub.get('review_status', '')
     profile_sid = trust_hub.get('profile_sid', '')
-    if profile_sid and protection_active:
+    if profile_sid and sub_sid and sub_auth_token:
         try:
             client = twilio_provisioning.get_sub_account_client_native(sub_sid, sub_auth_token)
             profile = client.trusthub.v1.customer_profiles(profile_sid).fetch()
             profile_review_status = getattr(profile, 'status', profile_review_status)
-            # Persist
-            if profile_review_status != trust_hub.get('review_status', ''):
+            old_status = trust_hub.get('review_status', '')
+            changed = False
+
+            # Auto-heal: if Twilio says approved but our DB is stale, fix it
+            if profile_review_status in ('twilio-approved', 'compliant', 'approved'):
+                if not protection_active:
+                    trust_hub['protection_active'] = True
+                    trust_hub['_validated'] = True
+                    protection_active = True
+                    changed = True
+                    logger.info(f"[spam-protection] Auto-healed protection_active=True "
+                                f"(Twilio status: {profile_review_status})")
+
+            # Persist any status change
+            if profile_review_status != old_status or changed:
                 trust_hub['review_status'] = profile_review_status
                 vc['trust_hub'] = trust_hub
                 _save_voice_config(current_user.email, vc)
-                logger.info(f"[spam-protection] Live profile status: {profile_review_status} (was {trust_hub.get('review_status', 'unset')})")
+                logger.info(f"[spam-protection] Live profile status: {profile_review_status} "
+                            f"(was {old_status})")
         except Exception as e:
             logger.warning(f"[spam-protection] Could not check live profile status: {e}")
 
@@ -3532,6 +3547,7 @@ def trust_hub_status_callback():
             trust_hub['review_status'] = status
             if status in ('twilio-approved', 'approved', 'compliant'):
                 trust_hub['protection_active'] = True
+                trust_hub['_validated'] = True
             vc['trust_hub'] = trust_hub
             updated = True
             logger.info(f"[TrustHub-Callback] Updated trust_hub.review_status={status} for {email}")
