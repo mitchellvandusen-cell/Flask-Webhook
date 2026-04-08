@@ -38,7 +38,11 @@
                 <div class="l1-inner">
                     <div class="sec-label">Management</div>
                     <div class="l2-item" onclick="activateL2(this); sidebarNavigate('phone-numbers', null);">Phone Numbers</div>
-                    <div class="l2-item" onclick="activateL2(this); sidebarNavigate('a2p-10dlc', null);">A2P 10DLC</div>
+                    <div class="l2-acc" onclick="toggleL2(this)">A2P 10DLC <i class="fa-solid fa-chevron-right nav-chevron"></i></div>
+                    <div class="l2-body">
+                        <div class="l3-item" onclick="activateL3(this); sidebarNavigate('a2p-brand', null);">Brand</div>
+                        <div class="l3-item" onclick="activateL3(this); sidebarNavigate('a2p-campaign', null);">Campaign</div>
+                    </div>
                     <div class="sec-label">Protection</div>
                     <div class="l2-item" onclick="activateL2(this); sidebarNavigate('spam-monitoring', null);">Spam Monitoring</div>
                     <div class="sec-label">Usage</div>

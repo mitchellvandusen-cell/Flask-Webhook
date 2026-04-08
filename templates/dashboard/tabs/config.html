@@ -217,276 +217,43 @@
                                     <div id="smsA2pSummary" class="cfg-a2p-summary" style="display:none;"></div>
                                 </div>
 
-                                <!-- ══ A2P 10DLC Registration panel ══ -->
+                                <!-- ══ A2P 10DLC — Legacy panel (kept for backward compat) ══ -->
                                 <div id="cfgtab-panel-a2p" style="display:none;">
-                                    <div class="vc-status-bar cfg-a2p-status-header">
-                                        <i class="fa-solid fa-certificate"></i>
-                                        <span>A2P 10DLC Registration</span>
+                                    <div class="a2p-disabled-panel">
+                                        <i class="fa-solid fa-arrow-right"></i>
+                                        A2P registration has moved. Use the sidebar: Numbers &rarr; A2P 10DLC &rarr; Brand / Campaign.
                                     </div>
+                                </div>
 
-                                    <!-- Status banner (shown when registered) -->
-                                    <div id="a2pStatusBanner" style="display:none;"></div>
-
-                                    <!-- Tab selector: Import vs Register New -->
-                                    <div class="d-flex align-items-center gap-3 mb-3">
-                                        <div class="cfg-a2p-icon-box">
-                                            <i class="fa-solid fa-certificate cfg-a2p-icon"></i>
+                                <!-- ══ A2P Brand Panel ══ -->
+                                <div id="a2p-brand-panel" class="cfg-panel" style="display:none;">
+                                    <div class="vc-status-bar">
+                                        <div class="vc-status-left">
+                                            <i class="fa-solid fa-tag a2p-header-icon"></i>
+                                            <span class="vc-status-label">A2P 10DLC</span>
+                                            <span class="vc-status-value">Brand Registration</span>
                                         </div>
-                                        <div class="cfg-a2p-flex-body">
-                                            <div class="cfg-a2p-title">A2P 10DLC Compliance</div>
-                                            <div class="cfg-a2p-subtitle">Register your brand and campaign for compliant SMS messaging.</div>
-                                        </div>
-                                    </div>
-
-                                    <!-- Info box -->
-                                    <div class="mb-3 p-2 cfg-a2p-info-box">
-                                        <div class="cfg-a2p-info-heading"><i class="fa-solid fa-circle-info me-1"></i>What is A2P 10DLC?</div>
-                                        <div class="cfg-a2p-info-text">
-                                            A2P (Application-to-Person) 10DLC is a US carrier requirement for business SMS on local numbers. Without registration, messages may be filtered or blocked. Registration involves two steps: <strong class="cfg-a2p-info-strong">Brand vetting</strong> (business identity, 1-7 days) and <strong class="cfg-a2p-info-strong">Campaign approval</strong> (message use-case, 24-48 hours).
+                                        <div class="vc-status-right">
+                                            <span class="a2p-status-badge" id="a2pBrandBadge"></span>
                                         </div>
                                     </div>
+                                    <div id="a2pBrandContent" class="a2p-panel"></div>
+                                </div>
 
-                                    <!-- Helpful tips link -->
-                                    <div class="mb-3 p-2 cfg-a2p-tips-box">
-                                        <div class="d-flex align-items-center gap-2">
-                                            <i class="fa-solid fa-lightbulb cfg-a2p-tips-icon"></i>
-                                            <a href="/a2p-guide" target="_blank" class="cfg-a2p-tips-link">
-                                                Helpful recommendations on getting A2P 10DLC approval <i class="fa-solid fa-arrow-up-right-from-square ms-1 cfg-a2p-tips-arrow"></i>
-                                            </a>
+                                <!-- ══ A2P Campaign Panel ══ -->
+                                <div id="a2p-campaign-panel" class="cfg-panel" style="display:none;">
+                                    <div class="vc-status-bar">
+                                        <div class="vc-status-left">
+                                            <i class="fa-solid fa-bullhorn a2p-header-icon"></i>
+                                            <span class="vc-status-label">A2P 10DLC</span>
+                                            <span class="vc-status-value">Campaign Registration</span>
                                         </div>
-                                        <div class="cfg-a2p-tips-desc">Step-by-step guide: branded email setup, sample messages, campaign descriptions, and tips to maximize approval.</div>
-                                    </div>
-
-                                    <!-- Sub-user payment gate (shown via JS if needed) -->
-                                    <div id="a2pPaymentGate" style="display:none;" class="mb-3 p-3" >
-                                        <div class="cfg-a2p-pay-box">
-                                            <div class="d-flex align-items-center gap-2 mb-2">
-                                                <i class="fa-solid fa-credit-card cfg-a2p-pay-icon"></i>
-                                                <span class="cfg-a2p-pay-heading">Registration Fee Required</span>
-                                            </div>
-                                            <p class="cfg-a2p-pay-desc">A2P 10DLC registration incurs a one-time fee charged by carriers. The fee depends on your brand registration type. Select your brand type and complete payment to proceed.</p>
-
-                                            <div class="mb-3">
-                                                <label class="cfg-a2p-field-label">Brand Type</label>
-                                                <select id="a2pPayBrandType" onchange="a2pUpdatePaymentPrice()"
-                                                    class="cfg-a2p-select cfg-a2p-select-spacing">
-                                                    <option value="LOW_VOLUME">Low Volume Standard — $4.50 brand + $15 campaign = $19.50</option>
-                                                    <option value="SOLE_PROPRIETOR">Sole Proprietor — $4.50 brand + $15 campaign = $19.50 (SSN required)</option>
-                                                    <option value="STANDARD">Standard — $46 brand + $15 campaign = $61.00</option>
-                                                </select>
-                                                <div class="cfg-a2p-brand-info">
-                                                    <strong class="cfg-a2p-brand-info-label">Low Volume Standard:</strong> EIN required, up to 2,000 msgs/day to T-Mobile, lowest cost.<br>
-                                                    <strong class="cfg-a2p-brand-info-label">Sole Proprietor:</strong> No EIN required, 1 phone number limit, 1 campaign limit.<br>
-                                                    <strong class="cfg-a2p-brand-info-label">Standard:</strong> EIN required, highest throughput (6,000+ msgs/day), includes secondary vetting.
-                                                </div>
-                                            </div>
-
-                                            <button id="a2pPayFeeBtn" onclick="a2pPayFee()" class="cfg-a2p-pay-btn">
-                                                <i class="fa-solid fa-lock me-2"></i><span id="a2pPayBtnLabel">Pay Registration Fee — $19.50</span>
-                                            </button>
-                                            <div id="a2pPayResult" class="cfg-a2p-result"></div>
+                                        <div class="vc-status-right">
+                                            <span class="a2p-status-badge" id="a2pCampaignBadge"></span>
                                         </div>
                                     </div>
-
-                                    <!-- ── REGISTER BRAND & CAMPAIGN ── -->
-                                    <div id="a2pRegisterPanel">
-
-                                        <!-- Step indicator -->
-                                        <div id="a2pStepIndicator" class="d-flex gap-2 mb-3">
-                                            <div id="a2pStep1Pill" class="cfg-a2p-step-active">
-                                                <i class="fa-solid fa-1 me-1"></i>Brand Registration
-                                            </div>
-                                            <div id="a2pStep2Pill" class="cfg-a2p-step-inactive">
-                                                <i class="fa-solid fa-2 me-1"></i>Campaign Setup
-                                            </div>
-                                        </div>
-
-                                        <!-- STEP 1: Brand Registration -->
-                                        <div id="a2pBrandForm" class="p-3 cfg-a2p-brand-form">
-                                            <div class="cfg-a2p-form-title"><i class="fa-solid fa-building me-2 cfg-a2p-form-title-icon"></i>Brand Registration</div>
-                                            <p class="cfg-a2p-form-desc">Register your business identity with The Campaign Registry (TCR). Takes 1-7 business days.</p>
-
-                                            <!-- Brand type selector -->
-                                            <div class="mb-3">
-                                                <label class="cfg-a2p-field-label">Brand Type</label>
-                                                <select id="a2pBrandType" onchange="a2pUpdateBrandFeeDisplay()" class="cfg-a2p-select">
-                                                    <option value="LOW_VOLUME">Low Volume Standard — $4.50 brand fee (EIN required, up to 2K msgs/day)</option>
-                                                    <option value="SOLE_PROPRIETOR">Sole Proprietor — $4.50 brand fee (SSN required, 1 number limit)</option>
-                                                    <option value="STANDARD">Standard — $46.00 brand fee (EIN required, 6K+ msgs/day, includes vetting)</option>
-                                                </select>
-                                                <div id="a2pBrandFeeNote" class="cfg-a2p-fee-note">
-                                                    One-time brand fee: $4.50 + $15.00 campaign vetting = $19.50 total
-                                                </div>
-                                            </div>
-
-                                            <div class="cfg-a2p-section-title"><i class="fa-solid fa-building me-1 cfg-a2p-section-icon-purple"></i> Business Details</div>
-                                            <div class="row g-2 mb-3">
-                                                <div class="col-md-8">
-                                                    <label class="cfg-a2p-label">Business Name (must match IRS/EIN docs)</label>
-                                                    <input type="text" id="a2pBizName" placeholder="ACME Insurance LLC"
-                                                        value="{{ (voice_config.get('trust_hub') or {}).get('business_name', '') }}"
-                                                        class="cfg-a2p-input">
-                                                </div>
-                                                <div class="col-md-4">
-                                                    <label id="a2pEINLabel" class="cfg-a2p-label">EIN (Tax ID)</label>
-                                                    <input type="text" id="a2pEIN" placeholder="XX-XXXXXXX"
-                                                        value="{{ (voice_config.get('trust_hub') or {}).get('ein', '') }}"
-                                                        class="cfg-a2p-input">
-                                                </div>
-                                            </div>
-
-                                            <div class="cfg-a2p-section-title"><i class="fa-solid fa-location-dot me-1 cfg-a2p-section-icon-orange"></i> Business Address</div>
-                                            <div class="row g-2 mb-3">
-                                                <div class="col-12">
-                                                    <input type="text" id="a2pStreet" placeholder="123 Main Street, Suite 100"
-                                                        value="{{ (voice_config.get('trust_hub') or {}).get('street', '') }}"
-                                                        class="cfg-a2p-input">
-                                                </div>
-                                                <div class="col-md-5">
-                                                    <input type="text" id="a2pCity" placeholder="City"
-                                                        value="{{ (voice_config.get('trust_hub') or {}).get('city', '') }}"
-                                                        class="cfg-a2p-input">
-                                                </div>
-                                                <div class="col-md-3">
-                                                    <input type="text" id="a2pState" placeholder="State" maxlength="2"
-                                                        value="{{ (voice_config.get('trust_hub') or {}).get('state', '') }}"
-                                                        class="cfg-a2p-input cfg-a2p-input-state">
-                                                </div>
-                                                <div class="col-md-4">
-                                                    <input type="text" id="a2pZip" placeholder="ZIP Code"
-                                                        value="{{ (voice_config.get('trust_hub') or {}).get('zip', '') }}"
-                                                        class="cfg-a2p-input">
-                                                </div>
-                                            </div>
-
-                                            <div class="cfg-a2p-section-title"><i class="fa-solid fa-user me-1 cfg-a2p-section-icon-cyan"></i> Contact Info</div>
-                                            <div class="row g-2 mb-3">
-                                                <div class="col-md-6">
-                                                    <input type="email" id="a2pContactEmail" placeholder="Email"
-                                                        value="{{ (voice_config.get('trust_hub') or {}).get('contact_email', '') }}"
-                                                        class="cfg-a2p-input">
-                                                </div>
-                                                <div class="col-md-6">
-                                                    <input type="tel" id="a2pContactPhone" placeholder="Phone (+1XXXXXXXXXX)"
-                                                        value="{{ (voice_config.get('trust_hub') or {}).get('contact_phone', '') }}"
-                                                        class="cfg-a2p-input">
-                                                </div>
-                                            </div>
-                                            <div class="mb-3">
-                                                <label class="cfg-a2p-label">Website (optional, improves vetting score)</label>
-                                                <input type="url" id="a2pWebsite" placeholder="https://youragency.com"
-                                                    class="cfg-a2p-input">
-                                            </div>
-
-                                            <div class="cfg-a2p-section-title"><i class="fa-solid fa-id-card me-1 cfg-a2p-section-icon-cyan"></i> Authorized Representative</div>
-                                            <div class="row g-2 mb-3">
-                                                <div class="col-md-6">
-                                                    <input type="text" id="a2pFirstName" placeholder="First Name" class="cfg-a2p-input">
-                                                </div>
-                                                <div class="col-md-6">
-                                                    <input type="text" id="a2pLastName" placeholder="Last Name" class="cfg-a2p-input">
-                                                </div>
-                                            </div>
-                                            <div class="row g-2 mb-3">
-                                                <div class="col-md-6">
-                                                    <input type="text" id="a2pJobTitle" placeholder="Job Title (e.g. Owner, Agent)" class="cfg-a2p-input">
-                                                </div>
-                                                <div class="col-md-6">
-                                                    <select id="a2pJobPosition" class="cfg-a2p-input">
-                                                        <option value="CEO">Owner / CEO</option>
-                                                        <option value="Director">Director</option>
-                                                        <option value="GM">General Manager</option>
-                                                        <option value="VP">VP</option>
-                                                        <option value="CFO">CFO</option>
-                                                        <option value="General Counsel">General Counsel</option>
-                                                        <option value="Other">Other</option>
-                                                    </select>
-                                                </div>
-                                            </div>
-
-                                            <button id="a2pRegisterBrandBtn" onclick="a2pRegisterBrand()" class="cfg-a2p-submit-brand">
-                                                <i class="fa-solid fa-paper-plane me-2"></i>Submit Brand for Vetting
-                                            </button>
-                                            <div id="a2pBrandResult" class="cfg-a2p-form-result"></div>
-                                        </div>
-
-                                        <!-- STEP 2: Campaign Setup (shown after brand approved) -->
-                                        <div id="a2pCampaignForm" style="display:none;" class="p-3 mt-3">
-                                            <div class="cfg-a2p-campaign-box">
-                                                <div class="cfg-a2p-campaign-title"><i class="fa-solid fa-bullhorn me-2 cfg-a2p-campaign-title-icon"></i>Campaign Registration</div>
-                                                <p class="cfg-a2p-campaign-desc">Define your messaging use case. Campaigns are typically approved within 24-48 hours. Campaign fee: <span class="cfg-a2p-campaign-fee">$15</span>.</p>
-
-                                                <div class="row g-2 mb-3">
-                                                    <div class="col-md-6">
-                                                        <label class="cfg-a2p-label">Use Case</label>
-                                                        <select id="a2pUseCase" class="cfg-a2p-select">
-                                                            <option value="LOW_VOLUME">Low Volume Mixed — $1.50/mo</option>
-                                                            <option value="MIXED">Mixed — $10/mo</option>
-                                                            <option value="MARKETING">Marketing — $10/mo</option>
-                                                            <option value="CUSTOMER_CARE">Customer Care — $2/mo</option>
-                                                            <option value="ACCOUNT_NOTIFICATION">Account Notification — $2/mo</option>
-                                                            <option value="SOLE_PROPRIETOR">Sole Proprietor — $2/mo</option>
-                                                        </select>
-                                                    </div>
-                                                </div>
-
-                                                <div class="mb-3">
-                                                    <label class="cfg-a2p-label">Campaign Description <span class="cfg-a2p-hint-text">(min 40 chars)</span></label>
-                                                    <textarea id="a2pDescription" rows="2" placeholder="Insurance agent follow-up messaging — agents respond to inbound lead inquiries via SMS to schedule consultations and provide coverage information."
-                                                        class="cfg-a2p-textarea">Insurance agent follow-up messaging — agents respond to inbound lead inquiries via SMS to schedule consultations and provide coverage information.</textarea>
-                                                </div>
-
-                                                <div class="mb-3">
-                                                    <label class="cfg-a2p-label">Sample Messages <span class="cfg-a2p-hint-text">(2 minimum, one per line, min 20 chars each)</span></label>
-                                                    <textarea id="a2pSampleMessages" rows="3" placeholder="Hi {name}, this is {agent} from {agency}. I wanted to follow up on your insurance inquiry.&#10;Thanks for your interest! I have a few options that might work for you. When is a good time to chat?"
-                                                        class="cfg-a2p-textarea">Hi {name}, this is {agent} from {agency}. I wanted to follow up on your insurance inquiry.
-Thanks for your interest! I have a few options that might work for you. When is a good time to chat?</textarea>
-                                                </div>
-
-                                                <div class="mb-3">
-                                                    <label class="cfg-a2p-label">Message Flow / Opt-in Method <span class="cfg-a2p-hint-text">(min 40 chars)</span></label>
-                                                    <textarea id="a2pMessageFlow" rows="2" placeholder="Consumers opt-in by filling out an online form requesting an insurance quote. An agent replies via SMS to schedule a consultation."
-                                                        class="cfg-a2p-textarea">Consumers opt-in by filling out an online form requesting an insurance quote. An agent replies via SMS to schedule a consultation.</textarea>
-                                                </div>
-
-                                                <div class="d-flex gap-3 mb-3">
-                                                    <label class="d-flex align-items-center gap-2 cfg-a2p-checkbox-label">
-                                                        <input type="checkbox" id="a2pEmbeddedLinks" class="cfg-a2p-checkbox"> Messages contain URLs
-                                                    </label>
-                                                    <label class="d-flex align-items-center gap-2 cfg-a2p-checkbox-label">
-                                                        <input type="checkbox" id="a2pEmbeddedPhone"> Messages contain phone numbers
-                                                    </label>
-                                                </div>
-
-                                                <!-- Phone number selection for campaign -->
-                                                <div class="mb-3">
-                                                    <label class="cfg-a2p-field-label">Link Phone Numbers to Campaign</label>
-                                                    <div id="a2pCampaignNumbersList" class="cfg-a2p-numbers-list">
-                                                        <span class="cfg-a2p-numbers-loading">Loading numbers...</span>
-                                                    </div>
-                                                </div>
-
-                                                <button id="a2pCreateCampaignBtn" onclick="a2pCreateCampaign()" class="cfg-a2p-submit-campaign">
-                                                    <i class="fa-solid fa-bullhorn me-2"></i>Submit Campaign for Approval
-                                                </button>
-                                                <div id="a2pCampaignResult" class="cfg-a2p-form-result"></div>
-                                            </div>
-                                        </div>
-
-                                    </div><!-- /a2pRegisterPanel -->
-
-                                    <!-- Brand Status Polling (always visible if brand exists) -->
-                                    <div id="a2pBrandStatusPanel" class="mt-3 p-3 cfg-a2p-status-panel" style="display:none;">
-                                        <div class="d-flex align-items-center justify-content-between mb-2">
-                                            <div class="cfg-a2p-status-title"><i class="fa-solid fa-certificate me-2 cfg-a2p-status-title-icon"></i>Registration Status</div>
-                                            <button onclick="a2pRefreshStatus()" class="cfg-refresh-btn">
-                                                <i class="fa-solid fa-arrows-rotate me-1"></i>Refresh
-                                            </button>
-                                        </div>
-                                        <div id="a2pBrandStatusContent" class="cfg-a2p-status-content"></div>
-                                    </div>
-
-                                </div><!-- /cfgtab-panel-a2p -->
+                                    <div id="a2pCampaignContent" class="a2p-panel"></div>
+                                </div>
 
                         </div><!-- /panels wrapper -->
 
@@ -518,8 +285,24 @@ Thanks for your interest! I have a few options that might work for you. When is 
                 if (activeBtn) {
                     activeBtn.classList.add('active');
                 }
-                // Load A2P status when switching to A2P panel
+                // Load A2P status when switching to A2P panel (legacy)
                 if (name === 'a2p' && typeof a2pLoadStatus === 'function') a2pLoadStatus();
+                // A2P Brand panel
+                if (name === 'a2p-brand') {
+                    document.querySelectorAll('[id^="cfgtab-panel-"]').forEach(function(p) { p.style.display = 'none'; });
+                    var bp = document.getElementById('a2p-brand-panel');
+                    if (bp) bp.style.display = '';
+                    if (typeof a2pBrandInit === 'function') a2pBrandInit();
+                    return;
+                }
+                // A2P Campaign panel
+                if (name === 'a2p-campaign') {
+                    document.querySelectorAll('[id^="cfgtab-panel-"]').forEach(function(p) { p.style.display = 'none'; });
+                    var cp = document.getElementById('a2p-campaign-panel');
+                    if (cp) cp.style.display = '';
+                    if (typeof a2pCampaignInit === 'function') a2pCampaignInit();
+                    return;
+                }
                 // Load numbers + A2P status when switching to SMS Numbers panel
                 if (name === 'smsnumbers' && typeof smsLoadNumbers === 'function') smsLoadNumbers();
             }

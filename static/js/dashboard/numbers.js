@@ -1903,226 +1903,151 @@
         // Number health now has its own panel — no longer auto-loads with numbers tab
 
 
-        // ===== A2P 10DLC TAB =====
-        var _a2pStatus = null;
+        // ===== A2P 10DLC — Brand & Campaign Panels =====
+
+        // ── Constants ──
+        var _A2P_SAMPLE_MESSAGES = [
+            'Hi {First Name}, this is {Agent Name} with {Business Name}. I wanted to follow up on your interest in life insurance coverage. Do you have a few minutes to chat about your options?',
+            'Hey {First Name}, just checking in \u2014 I put together some coverage options based on what we discussed. When works best for a quick call to go over them?',
+            'Hi {First Name}, this is {Agent Name}. I noticed you were looking into life insurance options. I\'d love to help you find the right coverage for your family. Is now a good time?',
+            'Hi {First Name}, friendly reminder about our appointment tomorrow at {Time}. Looking forward to helping you find the right coverage. Reply YES to confirm or let me know if you need to reschedule.',
+        ];
+        var _A2P_DESCRIPTION_EXAMPLE = 'We send personalized text messages to leads who have expressed interest in life insurance coverage. Messages include policy information, appointment reminders, and follow-up communications.';
+        var _A2P_MESSAGE_FLOW_EXAMPLE = 'Leads opt in by submitting a contact form on our website which includes SMS consent language. They can opt out at any time by replying STOP.';
+
+        var _a2pFees = {
+            SOLE_PROPRIETOR: { brand_cents: 450, label: 'Sole Proprietor', desc: 'No EIN required, 1 number limit, 1 campaign limit' },
+            LOW_VOLUME:      { brand_cents: 450, label: 'Low Volume Standard', desc: 'EIN required, up to 2,000 msgs/day, lowest cost' },
+            STANDARD:        { brand_cents: 4600, label: 'Standard', desc: 'EIN required, 6,000+ msgs/day, includes secondary vetting' },
+        };
+
+        // ── State ──
+        var _a2pData = null;
+        var _a2pBrandPollTimer = null;
+        var _a2pCampaignPollTimer = null;
         var _a2pNumbersCache = [];
 
-        async function a2pLoadStatus() {
+        // ── Legacy compat ──
+        function a2pLoadStatus() { a2pBrandInit(); }
+
+        // ── Brand Panel ──
+
+        async function a2pBrandInit() {
             try {
-                const r = await fetch('/voice/a2p/status');
-                const d = await r.json();
-                if (!r.ok) { console.warn('[A2P] Status error:', d); return; }
-                _a2pStatus = d;
-                a2pRenderUI(d);
-            } catch(e) { console.error('[A2P] Load status error:', e); }
+                var results = await Promise.all([fetch('/voice/a2p/status'), fetch('/voice/spam-protection/status')]);
+                var status = await results[0].json();
+                var sp = results[1].ok ? await results[1].json() : {};
+                _a2pData = { status: status, trustHub: sp };
+                _a2pRenderBrandPanel(status, sp);
+            } catch(e) { console.error('[A2P] Brand init error:', e); }
         }
 
-        function a2pRenderUI(d) {
-            const banner = document.getElementById('a2pStatusBanner');
-            const payGate = document.getElementById('a2pPaymentGate');
-            const brandForm = document.getElementById('a2pBrandForm');
-            const campaignForm = document.getElementById('a2pCampaignForm');
-            const statusPanel = document.getElementById('a2pBrandStatusPanel');
-            const registerPanel = document.getElementById('a2pRegisterPanel');
-
-            // Payment gate for sub-users
-            if (d.is_sub_user && !d.a2p_fee_paid && !d.registered) {
-                if (payGate) payGate.style.display = 'block';
-                if (registerPanel) registerPanel.style.display = 'none';
-                if (banner) banner.style.display = 'none';
-                if (statusPanel) statusPanel.style.display = 'none';
-                return;
-            } else {
-                if (payGate) payGate.style.display = 'none';
-            }
-
-            // Has both brand AND campaign (registered or pending)
-            if (d.brand_sid && d.campaign_sid) {
-                if (registerPanel) registerPanel.style.display = 'none';
-                if (statusPanel) statusPanel.style.display = 'none';
-                if (banner) {
-                    banner.style.display = 'block';
-                    var brandSt = (d.brand_status || 'PENDING').toUpperCase();
-                    var campSt = (d.campaign_status || 'PENDING').toUpperCase();
-                    var brandColor = brandSt === 'APPROVED' ? '#00ff88' : brandSt === 'FAILED' ? '#ef4444' : '#fbbf24';
-                    var campColor = (campSt === 'VERIFIED' || campSt === 'APPROVED') ? '#00ff88' : campSt === 'FAILED' ? '#ef4444' : '#fbbf24';
-                    var brandLabel = brandSt === 'APPROVED' ? 'Approved' : brandSt;
-                    var campLabel = (campSt === 'VERIFIED' || campSt === 'APPROVED') ? 'Approved' : campSt;
-                    var allGood = brandSt === 'APPROVED' && (campSt === 'VERIFIED' || campSt === 'APPROVED');
-                    var registeredSids = d.registered_number_sids || [];
-                    var headerColor = allGood ? '#00ff88' : '#fbbf24';
-                    var headerIcon = allGood ? 'fa-certificate' : 'fa-hourglass-half';
-                    var headerText = allGood ? 'A2P 10DLC Registered' : 'A2P 10DLC Registration In Progress';
-                    var headerBg = allGood ? 'rgba(0,255,136,0.06)' : 'rgba(251,191,36,0.06)';
-                    var headerBorder = allGood ? 'rgba(0,255,136,0.2)' : 'rgba(251,191,36,0.2)';
-                    var numCountHtml = allGood && registeredSids.length > 0
-                        ? '<div style="font-size:0.75rem;color:#888;">' + registeredSids.length + ' number' + (registeredSids.length !== 1 ? 's' : '') + ' in messaging service</div>'
-                        : '';
-
-                    banner.innerHTML =
-                        '<div class="p-3" style="background:' + headerBg + ';border:1px solid ' + headerBorder + ';border-radius:12px;">' +
-                            '<div class="d-flex align-items-center gap-3 mb-3">' +
-                                '<div style="width:36px;height:36px;border-radius:50%;background:' + (allGood ? 'rgba(0,255,136,0.15)' : 'rgba(251,191,36,0.15)') + ';display:flex;align-items:center;justify-content:center;flex-shrink:0;">' +
-                                    '<i class="fa-solid ' + headerIcon + '" style="color:' + headerColor + ';"></i>' +
-                                '</div>' +
-                                '<div style="flex:1;">' +
-                                    '<div style="font-weight:700;color:' + headerColor + ';font-size:0.9rem;">' + headerText + '</div>' +
-                                    (d.registered_at ? '<div style="font-size:0.75rem;color:#666;">Registered ' + new Date(d.registered_at).toLocaleDateString() + '</div>' : '') +
-                                    numCountHtml +
-                                '</div>' +
-                                '<button onclick="a2pRefreshStatus()" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);color:#aaa;border-radius:6px;padding:5px 12px;font-size:0.75rem;cursor:pointer;white-space:nowrap;">' +
-                                    '<i class="fa-solid fa-arrows-rotate me-1"></i>Refresh' +
-                                '</button>' +
-                            '</div>' +
-                            // Brand row
-                            '<div style="display:flex;align-items:center;gap:10px;padding:8px 12px;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.04);border-radius:8px;margin-bottom:6px;">' +
-                                '<i class="fa-solid fa-building" style="color:#a78bfa;width:16px;text-align:center;"></i>' +
-                                '<span style="font-weight:600;color:#ccc;font-size:0.78rem;width:70px;">Brand</span>' +
-                                '<span style="background:' + brandColor + '20;color:' + brandColor + ';padding:2px 8px;border-radius:4px;font-size:0.75rem;font-weight:700;">' + _esc(brandLabel) + '</span>' +
-                                '<span style="color:#555;font-family:\'JetBrains Mono\',monospace;font-size:0.75rem;margin-left:auto;">' + _esc(d.brand_sid) + '</span>' +
-                            '</div>' +
-                            // Campaign row
-                            '<div style="display:flex;align-items:center;gap:10px;padding:8px 12px;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.04);border-radius:8px;margin-bottom:6px;">' +
-                                '<i class="fa-solid fa-bullhorn" style="color:#00ff88;width:16px;text-align:center;"></i>' +
-                                '<span style="font-weight:600;color:#ccc;font-size:0.78rem;width:70px;">Campaign</span>' +
-                                '<span style="background:' + campColor + '20;color:' + campColor + ';padding:2px 8px;border-radius:4px;font-size:0.75rem;font-weight:700;">' + _esc(campLabel) + '</span>' +
-                                '<span style="color:#555;font-family:\'JetBrains Mono\',monospace;font-size:0.75rem;margin-left:auto;">' + _esc(d.campaign_sid) + '</span>' +
-                            '</div>' +
-                            // Messaging service row (if present)
-                            (d.messaging_service_sid ?
-                                '<div style="display:flex;align-items:center;gap:10px;padding:8px 12px;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.04);border-radius:8px;">' +
-                                    '<i class="fa-solid fa-envelope" style="color:#ffa500;width:16px;text-align:center;"></i>' +
-                                    '<span style="font-weight:600;color:#ccc;font-size:0.78rem;width:70px;">Msg Svc</span>' +
-                                    '<span style="background:rgba(0,255,136,0.12);color:#00ff88;padding:2px 8px;border-radius:4px;font-size:0.75rem;font-weight:700;">Active</span>' +
-                                    '<span style="color:#555;font-family:\'JetBrains Mono\',monospace;font-size:0.75rem;margin-left:auto;">' + _esc(d.messaging_service_sid) + '</span>' +
-                                '</div>' : ''
-                            ) +
-                            // Pending note
-                            (!allGood ?
-                                '<div style="margin-top:10px;padding:8px 12px;background:rgba(251,191,36,0.05);border:1px solid rgba(251,191,36,0.1);border-radius:8px;font-size:0.75rem;color:#fbbf24;">' +
-                                    '<i class="fa-solid fa-clock me-1"></i>Registration is pending carrier approval. Click Refresh to check for updates.' +
-                                '</div>' : ''
-                            ) +
-                        '</div>';
-                }
-                return;
-            }
-
-            // Brand submitted but no campaign yet
-            if (d.brand_sid && !d.campaign_sid) {
-                if (banner) banner.style.display = 'none';
-                if (statusPanel) {
-                    statusPanel.style.display = 'block';
-                    a2pRenderBrandStatus(d);
-                }
-                // Show campaign form if brand is approved
-                const approved = (d.brand_status || '').toUpperCase() === 'APPROVED';
-                if (approved && registerPanel) {
-                    registerPanel.style.display = 'block';
-                    if (brandForm) brandForm.style.display = 'none';
-                    if (campaignForm) campaignForm.style.display = 'block';
-                    a2pUpdateStepPills(2);
-                    a2pLoadNumbersForCampaign('a2pCampaignNumbersList');
-                } else if (registerPanel) {
-                    registerPanel.style.display = 'none';
-                }
-                return;
-            }
-
-            // Fresh state: show registration form directly
-            if (banner) banner.style.display = 'none';
-            if (statusPanel) statusPanel.style.display = 'none';
-            if (registerPanel) {
-                registerPanel.style.display = 'block';
-                if (brandForm) brandForm.style.display = 'block';
-                if (campaignForm) campaignForm.style.display = 'none';
-                a2pUpdateStepPills(1);
-            }
-        }
-
-        function a2pRenderBrandStatus(d) {
-            const el = document.getElementById('a2pBrandStatusContent');
+        function _a2pRenderBrandPanel(d, sp) {
+            var el = document.getElementById('a2pBrandContent');
             if (!el) return;
-            const s = (d.brand_status || 'PENDING').toUpperCase();
-            const colors = { APPROVED: '#00ff88', PENDING: '#fbbf24', IN_REVIEW: '#00ff88', FAILED: '#ef4444' };
-            const color = colors[s] || '#888';
-            el.innerHTML =
-                '<div style="display:flex;align-items:center;gap:10px;padding:8px 0;">' +
-                    '<div style="display:flex;align-items:center;gap:6px;">' +
-                        '<span style="font-weight:700;color:#ccc;">Brand:</span>' +
-                        '<span style="color:' + color + ';font-weight:600;">' + _esc(s) + '</span>' +
-                        '<span style="color:#555;font-family:\'JetBrains Mono\',monospace;font-size:0.75rem;">' + _esc(d.brand_sid || '') + '</span>' +
-                    '</div>' +
-                '</div>' +
-                (d.campaign_sid ?
-                    '<div style="display:flex;align-items:center;gap:6px;padding:4px 0;">' +
-                        '<span style="font-weight:700;color:#ccc;">Campaign:</span>' +
-                        '<span style="color:#00ff88;font-weight:600;">' + _esc(d.campaign_status || 'PENDING') + '</span>' +
-                        '<span style="color:#555;font-family:\'JetBrains Mono\',monospace;font-size:0.75rem;">' + _esc(d.campaign_sid) + '</span>' +
-                    '</div>' : ''
-                ) +
-                (s !== 'APPROVED' && s !== 'FAILED' ?
-                    '<div style="margin-top:6px;font-size:0.75rem;color:#888;"><i class="fa-solid fa-clock me-1" style="color:#fbbf24;"></i>Brand vetting typically takes 1-7 business days. Click Refresh to check.</div>' : ''
-                );
+            _a2pUpdateBadge('a2pBrandBadge', d.brand_status);
+            if (d.brand_sid && d.brand_status) {
+                el.innerHTML = _a2pBrandStatusCard(d);
+                if (d.brand_status === 'PENDING' || d.brand_status === 'IN_PROGRESS') _a2pStartBrandPoll();
+                return;
+            }
+            el.innerHTML = '<div class="a2p-create-section">' +
+                '<p class="a2p-create-desc">Register your business with carriers to send SMS from your phone numbers. Brand vetting typically takes 1-7 business days.</p>' +
+                '<button class="a2p-create-btn" onclick="a2pShowBrandForm()"><i class="fa-solid fa-plus"></i> Create New Brand</button></div>';
         }
 
 
 
 
-        function a2pUpdateStepPills(step) {
-            var s1 = document.getElementById('a2pStep1Pill');
-            var s2 = document.getElementById('a2pStep2Pill');
-            if (s1) {
-                s1.style.background = step >= 1 ? 'rgba(167,139,250,0.1)' : 'rgba(255,255,255,0.02)';
-                s1.style.border = step >= 1 ? '1px solid rgba(167,139,250,0.25)' : '1px solid rgba(255,255,255,0.06)';
-                s1.style.color = step >= 1 ? '#a78bfa' : '#555';
-            }
-            if (s2) {
-                s2.style.background = step >= 2 ? 'rgba(0,255,136,0.1)' : 'rgba(255,255,255,0.02)';
-                s2.style.border = step >= 2 ? '1px solid rgba(0,255,136,0.25)' : '1px solid rgba(255,255,255,0.06)';
-                s2.style.color = step >= 2 ? '#00ff88' : '#555';
-            }
-        }
-
-        async function a2pLoadNumbersForCampaign(containerId) {
-            const el = document.getElementById(containerId);
+        function a2pShowBrandForm() {
+            var el = document.getElementById('a2pBrandContent');
             if (!el) return;
-            if (_a2pNumbersCache.length) { a2pRenderNumberCheckboxes(el, _a2pNumbersCache); return; }
-            el.innerHTML = '<span style="color:#555;"><i class="fa-solid fa-spinner fa-spin me-1" style="color:#00ff88;"></i>Loading...</span>';
-            try {
-                const r = await fetch('/voice/numbers');
-                const d = await r.json();
-                if (!r.ok || !d.numbers) { el.innerHTML = '<span style="color:#888;">No numbers found.</span>'; return; }
-                _a2pNumbersCache = d.numbers;
-                a2pRenderNumberCheckboxes(el, d.numbers);
-            } catch(e) { el.innerHTML = '<span style="color:#ef4444;">Failed to load numbers.</span>'; }
+            var sp = (_a2pData && _a2pData.trustHub) || {};
+            var th = sp.trust_hub || sp || {};
+            var fullName = th.contact_name || '';
+            var nameParts = fullName.trim().split(/\s+/);
+            var firstName = nameParts[0] || '';
+            var lastName = nameParts.length > 1 ? nameParts.slice(1).join(' ') : '';
+
+            var brandTypes = [
+                { key: 'SOLE_PROPRIETOR', name: 'Sole Proprietor', price: '$4.50' },
+                { key: 'LOW_VOLUME', name: 'Low Volume Standard', price: '$4.50' },
+                { key: 'STANDARD', name: 'Standard', price: '$46.00' },
+            ];
+
+            var html = '<div class="a2p-form">';
+            html += '<div class="a2p-section-title"><i class="fa-solid fa-shapes"></i> Brand Type</div>';
+            brandTypes.forEach(function(bt) {
+                var info = _a2pFees[bt.key];
+                html += '<div class="a2p-brand-type-card' + (bt.key === 'LOW_VOLUME' ? ' selected' : '') + '" onclick="a2pSelectBrandType(this, \'' + bt.key + '\')">' +
+                    '<input type="radio" name="a2pBrandType" value="' + bt.key + '"' + (bt.key === 'LOW_VOLUME' ? ' checked' : '') + ' class="d-none">' +
+                    '<div style="flex:1;"><div class="a2p-brand-type-name">' + _esc(bt.name) + '</div>' +
+                    '<div class="a2p-brand-type-desc">' + _esc(info.desc) + '</div></div>' +
+                    '<div class="a2p-brand-type-price">' + bt.price + '</div></div>';
+            });
+
+            html += '<div class="a2p-section-title"><i class="fa-solid fa-building"></i> Business Details</div>';
+            html += '<div class="a2p-field-row"><div class="a2p-field-group" style="flex:2;"><label class="a2p-field-label">Business Name (must match IRS/EIN docs)</label>' +
+                '<input type="text" id="a2pBizName" class="a2p-input" placeholder="ACME Insurance LLC" value="' + _esc(th.business_name || '') + '"></div>' +
+                '<div class="a2p-field-group" style="flex:1;"><label class="a2p-field-label" id="a2pEINLabel">EIN (Tax ID)</label>' +
+                '<input type="text" id="a2pEIN" class="a2p-input" placeholder="XX-XXXXXXX" value="' + _esc(th.ein || '') + '"></div></div>';
+            html += '<div class="a2p-field-group"><label class="a2p-field-label">Business Type</label>' +
+                '<select id="a2pBusinessType" class="a2p-select">' +
+                '<option value="LLC"' + (th.business_type === 'LLC' ? ' selected' : '') + '>LLC</option>' +
+                '<option value="Corporation"' + (th.business_type === 'Corporation' ? ' selected' : '') + '>Corporation</option>' +
+                '<option value="Sole Proprietor"' + (th.business_type === 'Sole Proprietor' ? ' selected' : '') + '>Sole Proprietor</option>' +
+                '<option value="Partnership"' + (th.business_type === 'Partnership' ? ' selected' : '') + '>Partnership</option>' +
+                '<option value="Non-Profit"' + (th.business_type === 'Non-Profit' ? ' selected' : '') + '>Non-Profit</option></select></div>';
+
+            html += '<div class="a2p-section-title"><i class="fa-solid fa-location-dot"></i> Business Address</div>';
+            html += '<div class="a2p-field-group"><input type="text" id="a2pStreet" class="a2p-input" placeholder="123 Main Street, Suite 100" value="' + _esc(th.street || '') + '"></div>';
+            html += '<div class="a2p-field-row">' +
+                '<div class="a2p-field-group" style="flex:2;"><input type="text" id="a2pCity" class="a2p-input" placeholder="City" value="' + _esc(th.city || '') + '"></div>' +
+                '<div class="a2p-field-group" style="flex:1;"><input type="text" id="a2pState" class="a2p-input" placeholder="State" maxlength="2" value="' + _esc(th.state || '') + '"></div>' +
+                '<div class="a2p-field-group" style="flex:1;"><input type="text" id="a2pZip" class="a2p-input" placeholder="ZIP" value="' + _esc(th.zip || '') + '"></div></div>';
+
+            html += '<div class="a2p-section-title"><i class="fa-solid fa-user"></i> Contact Info</div>';
+            html += '<div class="a2p-field-row">' +
+                '<div class="a2p-field-group"><input type="email" id="a2pContactEmail" class="a2p-input" placeholder="Email" value="' + _esc(th.contact_email || '') + '"></div>' +
+                '<div class="a2p-field-group"><input type="tel" id="a2pContactPhone" class="a2p-input" placeholder="Phone (+1XXXXXXXXXX)" value="' + _esc(th.contact_phone || '') + '"></div></div>';
+            html += '<div class="a2p-field-group"><label class="a2p-field-label">Website (optional, improves vetting score)</label>' +
+                '<input type="url" id="a2pWebsite" class="a2p-input" placeholder="https://youragency.com" value="' + _esc(th.website || '') + '"></div>';
+
+            html += '<div class="a2p-section-title"><i class="fa-solid fa-id-card"></i> Authorized Representative</div>';
+            html += '<div class="a2p-field-row">' +
+                '<div class="a2p-field-group"><input type="text" id="a2pFirstName" class="a2p-input" placeholder="First Name" value="' + _esc(firstName) + '"></div>' +
+                '<div class="a2p-field-group"><input type="text" id="a2pLastName" class="a2p-input" placeholder="Last Name" value="' + _esc(lastName) + '"></div></div>';
+            html += '<div class="a2p-field-row">' +
+                '<div class="a2p-field-group"><input type="text" id="a2pJobTitle" class="a2p-input" placeholder="Job Title (e.g. Owner, Agent)" value="' + _esc(th.contact_title || '') + '"></div>' +
+                '<div class="a2p-field-group"><select id="a2pJobPosition" class="a2p-select">' +
+                '<option value="CEO">Owner / CEO</option><option value="Director">Director</option>' +
+                '<option value="GM">General Manager</option><option value="VP">VP</option>' +
+                '<option value="CFO">CFO</option><option value="General Counsel">General Counsel</option>' +
+                '<option value="Other">Other</option></select></div></div>';
+
+            html += '<div id="a2pBrandResult" class="a2p-result"></div>';
+            html += '<button class="a2p-submit-btn" id="a2pSubmitBrandBtn" onclick="a2pSubmitBrand()"><i class="fa-solid fa-credit-card"></i> Register Brand &amp; Pay</button>';
+            html += '</div>';
+            el.innerHTML = html;
         }
 
-        function a2pRenderNumberCheckboxes(el, numbers) {
-            if (!numbers.length) { el.innerHTML = '<span style="color:#888;">No numbers. Buy a number in the Numbers tab first.</span>'; return; }
-            el.innerHTML = numbers.map(function(n) {
-                return '<label style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.03);cursor:pointer;">' +
-                    '<input type="checkbox" class="a2p-number-cb" value="' + _esc(n.sid) + '" checked style="accent-color:#00ff88;">' +
-                    '<span style="color:#ccc;">' + _esc(_fmtPhone(n.phone)) + '</span>' +
-                    (n.nickname ? '<span style="color:#555;font-size:0.75rem;">(' + _esc(n.nickname) + ')</span>' : '') +
-                    '<span style="margin-left:auto;font-size:0.75rem;color:#00ff88;">' +
-                        (n.capabilities && n.capabilities.sms ? 'SMS ' : '') +
-                        (n.capabilities && n.capabilities.voice ? 'Voice' : '') +
-                    '</span>' +
-                '</label>';
-            }).join('');
+        function a2pSelectBrandType(cardEl, key) {
+            document.querySelectorAll('.a2p-brand-type-card').forEach(function(c) { c.classList.remove('selected'); });
+            cardEl.classList.add('selected');
+            cardEl.querySelector('input[type="radio"]').checked = true;
+            var einLabel = document.getElementById('a2pEINLabel');
+            var einInput = document.getElementById('a2pEIN');
+            if (einLabel && einInput) {
+                if (key === 'SOLE_PROPRIETOR') { einLabel.textContent = 'SSN (last 4 digits)'; einInput.placeholder = 'XXXX'; einInput.maxLength = 4; }
+                else { einLabel.textContent = 'EIN (Tax ID)'; einInput.placeholder = 'XX-XXXXXXX'; einInput.maxLength = 10; }
+            }
         }
+        window.a2pSelectBrandType = a2pSelectBrandType;
 
-        function a2pGetSelectedNumberSids(containerId) {
-            var el = document.getElementById(containerId);
-            if (!el) return [];
-            return Array.from(el.querySelectorAll('.a2p-number-cb:checked')).map(function(cb) { return cb.value; });
-        }
-
-        // ── Register New Brand ──
-        async function a2pRegisterBrand() {
+        // ── Submit Brand: validate → save form → Stripe checkout → submit on return ──
+        async function a2pSubmitBrand() {
             var result = document.getElementById('a2pBrandResult');
-            var btn = document.getElementById('a2pRegisterBrandBtn');
+            var btn = document.getElementById('a2pSubmitBrandBtn');
             var brandType = (document.getElementById('a2pBrandType')?.value || 'LOW_VOLUME');
             var payload = {
                 business_name: (document.getElementById('a2pBizName')?.value || '').trim(),
@@ -2140,38 +2065,42 @@
                 job_position: (document.getElementById('a2pJobPosition')?.value || 'CEO').trim(),
                 brand_type: brandType,
             };
+
+            // Validate
             if (!payload.business_name) { result.innerHTML = '<span style="color:#ef4444;">Business name required</span>'; return; }
-            if (brandType !== 'SOLE_PROPRIETOR' && !payload.ein) { result.innerHTML = '<span style="color:#ef4444;">EIN required for ' + (_a2pFees[brandType]?.label || brandType) + ' brands</span>'; return; }
+            if (brandType !== 'SOLE_PROPRIETOR' && !payload.ein) { result.innerHTML = '<span style="color:#ef4444;">EIN required</span>'; return; }
             if (!payload.contact_email) { result.innerHTML = '<span style="color:#ef4444;">Contact email required</span>'; return; }
             if (!payload.first_name || !payload.last_name) { result.innerHTML = '<span style="color:#ef4444;">First and last name required</span>'; return; }
 
+            // Save form data before Stripe redirect so we can submit after payment
+            sessionStorage.setItem('a2p_brand_form', JSON.stringify(payload));
+
             btn.disabled = true;
-            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-2"></i>Submitting brand...';
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-2"></i>Redirecting to payment...';
             result.innerHTML = '';
             try {
-                var r = await fetch('/voice/a2p/register-brand', {
+                var r = await fetch('/a2p/brand-checkout', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify(payload),
+                    body: JSON.stringify({ brand_type: brandType }),
                 });
                 var d = await r.json();
-                if (r.ok) {
-                    result.innerHTML = '<span style="color:#00ff88;"><i class="fa-solid fa-circle-check me-1"></i>' + _esc(d.message || 'Brand submitted!') + '</span>';
-                    setTimeout(function() { a2pLoadStatus(); }, 500);
+                if (d.checkout_url) {
+                    window.top.location.href = d.checkout_url;
                 } else {
-                    if (d.payment_required) {
-                        result.innerHTML = '<span style="color:#ffa500;">Payment required. Redirecting...</span>';
-                        a2pPayFee();
-                    } else {
-                        result.innerHTML = '<span style="color:#ef4444;"><i class="fa-solid fa-triangle-exclamation me-1"></i>' + _esc(d.error || 'Registration failed') + '</span>';
-                    }
+                    result.innerHTML = '<span style="color:#ef4444;">' + _esc(d.error || 'Checkout failed') + '</span>';
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="fa-solid fa-credit-card"></i> Register Brand & Pay';
                 }
             } catch(e) {
                 result.innerHTML = '<span style="color:#ef4444;">Network error</span>';
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fa-solid fa-credit-card"></i> Register Brand & Pay';
             }
-            btn.disabled = false;
-            btn.innerHTML = '<i class="fa-solid fa-paper-plane me-2"></i>Submit Brand for Vetting';
         }
+        window.a2pSubmitBrand = a2pSubmitBrand;
+        // Backward compat alias
+        function a2pRegisterBrand() { a2pSubmitBrand(); }
 
         // ── Create Campaign ──
         async function a2pCreateCampaign() {
@@ -2370,19 +2299,280 @@
             }
         })();
 
-        // Check URL params for A2P payment success
+        // Check URL params for A2P payment success (old combined + new split)
         (function() {
             var params = new URLSearchParams(window.location.search);
+            // Old combined payment flow (backward compat)
             if (params.get('a2p_payment_success') === '1') {
-                // Mark fee as paid via API
                 fetch('/voice/a2p/mark-fee-paid', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: '{}' })
-                    .then(function() {
-                        // Switch to Voice Config > 10DLC tab
-                        if (typeof switchVoicePanel === 'function') switchVoicePanel('a2p');
-                    });
-                // Clean URL
+                    .then(function() { if (typeof switchVoicePanel === 'function') switchVoicePanel('a2p'); });
                 var url = new URL(window.location);
                 url.searchParams.delete('a2p_payment_success');
                 window.history.replaceState({}, '', url);
             }
+            // New split: brand payment success → submit saved form to Twilio
+            if (params.get('a2p_brand_paid') === '1') {
+                if (typeof _showDashToast === 'function') _showDashToast(true, 'Brand fee paid! Submitting registration...');
+                var brandForm = JSON.parse(sessionStorage.getItem('a2p_brand_form') || '{}');
+                if (brandForm.business_name) {
+                    fetch('/voice/a2p/register-brand', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify(brandForm),
+                    }).then(function(r) { return r.json(); }).then(function(d) {
+                        if (d.brand_sid || d.status === 'ok') {
+                            if (typeof _showDashToast === 'function') _showDashToast(true, 'Brand submitted for vetting!');
+                        } else {
+                            if (typeof _showDashToast === 'function') _showDashToast(false, d.error || 'Brand submission failed');
+                        }
+                        sessionStorage.removeItem('a2p_brand_form');
+                        setTimeout(function() { a2pBrandInit(); }, 500);
+                    }).catch(function() {
+                        if (typeof _showDashToast === 'function') _showDashToast(false, 'Network error submitting brand');
+                    });
+                }
+                var url2 = new URL(window.location);
+                url2.searchParams.delete('a2p_brand_paid');
+                window.history.replaceState({}, '', url2);
+            }
+            // New split: campaign payment success → submit saved form to Twilio
+            if (params.get('a2p_campaign_paid') === '1') {
+                if (typeof _showDashToast === 'function') _showDashToast(true, 'Campaign fee paid! Submitting registration...');
+                var campaignForm = JSON.parse(sessionStorage.getItem('a2p_campaign_form') || '{}');
+                if (campaignForm.description) {
+                    fetch('/voice/a2p/create-campaign', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify(campaignForm),
+                    }).then(function(r) { return r.json(); }).then(function(d) {
+                        if (d.campaign_sid || d.status === 'ok') {
+                            if (typeof _showDashToast === 'function') _showDashToast(true, 'Campaign submitted for approval!');
+                        } else {
+                            if (typeof _showDashToast === 'function') _showDashToast(false, d.error || 'Campaign submission failed');
+                        }
+                        sessionStorage.removeItem('a2p_campaign_form');
+                        setTimeout(function() { a2pCampaignInit(); }, 500);
+                    }).catch(function() {
+                        if (typeof _showDashToast === 'function') _showDashToast(false, 'Network error submitting campaign');
+                    });
+                }
+                var url3 = new URL(window.location);
+                url3.searchParams.delete('a2p_campaign_paid');
+                window.history.replaceState({}, '', url3);
+            }
         })();
+
+        // ── A2P Campaign Panel ──
+        async function a2pCampaignInit() {
+            try {
+                if (!_a2pData) {
+                    var r = await fetch('/voice/a2p/status');
+                    var d = await r.json();
+                    _a2pData = _a2pData || {};
+                    _a2pData.status = d;
+                }
+                _a2pRenderCampaignPanel(_a2pData.status);
+            } catch(e) { console.error('[A2P] Campaign init error:', e); }
+        }
+        window.a2pCampaignInit = a2pCampaignInit;
+
+        function _a2pRenderCampaignPanel(d) {
+            var el = document.getElementById('a2pCampaignContent');
+            if (!el) return;
+            var badge = document.getElementById('a2pCampaignBadge');
+
+            // No brand or brand not approved — disabled
+            if (!d.brand_sid || (d.brand_status || '').toUpperCase() !== 'APPROVED') {
+                var msg = !d.brand_sid
+                    ? 'Register and get your Brand approved before creating a Campaign.'
+                    : 'Brand is under review. Campaign registration will unlock once approved.';
+                el.innerHTML = '<div class="a2p-disabled-panel"><i class="fa-solid fa-lock"></i> ' + _esc(msg) + '</div>';
+                if (badge) { badge.textContent = 'Locked'; badge.className = 'a2p-status-badge a2p-badge-off'; }
+                return;
+            }
+
+            // Campaign exists — show status
+            if (d.campaign_sid) {
+                var cs = (d.campaign_status || 'PENDING').toUpperCase();
+                var isOk = cs === 'VERIFIED' || cs === 'APPROVED';
+                var isPending = cs === 'PENDING' || cs === 'IN_PROGRESS';
+                if (badge) {
+                    badge.textContent = isOk ? 'Approved' : (isPending ? 'Pending' : cs);
+                    badge.className = 'a2p-status-badge ' + (isOk ? 'a2p-badge-approved' : (isPending ? 'a2p-badge-pending' : 'a2p-badge-failed'));
+                }
+                el.innerHTML =
+                    '<div class="a2p-status-card ' + (isOk ? 'approved' : (isPending ? 'pending' : 'failed')) + '">' +
+                    '<div class="a2p-status-card-header"><i class="fa-solid ' + (isOk ? 'fa-circle-check' : 'fa-clock') + '"></i> Campaign ' + _esc(cs) + '</div>' +
+                    '<div class="a2p-status-card-detail">Use case: ' + _esc(d.use_case || '') + '</div>' +
+                    (d.campaign_sid ? '<div class="a2p-status-card-detail">Campaign SID: ' + _esc(d.campaign_sid) + '</div>' : '') +
+                    '</div>';
+                if (isPending) _a2pStartCampaignPoll();
+                return;
+            }
+
+            // Brand approved, no campaign — show create button
+            if (badge) { badge.textContent = 'Not Registered'; badge.className = 'a2p-status-badge a2p-badge-off'; }
+            el.innerHTML =
+                '<div class="a2p-create-section">' +
+                '<p class="a2p-create-desc">Create a messaging campaign and link your phone numbers for SMS compliance.</p>' +
+                '<button class="a2p-create-btn" onclick="a2pShowCampaignForm()"><i class="fa-solid fa-plus"></i> Create New Campaign</button>' +
+                '</div>';
+        }
+
+        function a2pShowCampaignForm() {
+            var el = document.getElementById('a2pCampaignContent');
+            if (!el) return;
+            var html = '<div class="a2p-form">';
+
+            // Use case
+            html += '<div class="a2p-field-group"><label class="a2p-field-label">Use Case</label>';
+            html += '<select id="a2pCmpUseCase" class="a2p-select"><option value="LOW_VOLUME">Low Volume</option><option value="MIXED">Mixed</option><option value="MARKETING">Marketing</option></select></div>';
+
+            // Description
+            html += '<div class="a2p-field-group"><label class="a2p-field-label">Campaign Description ' + _a2pInfoTooltip(_A2P_DESCRIPTION_EXAMPLE) + '</label>';
+            html += '<textarea id="a2pCmpDesc" class="a2p-textarea" rows="3" placeholder="Describe what messages you send and why (min 40 chars)..."></textarea></div>';
+
+            // Message flow
+            html += '<div class="a2p-field-group"><label class="a2p-field-label">Message Flow / Opt-In ' + _a2pInfoTooltip(_A2P_MESSAGE_FLOW_EXAMPLE) + '</label>';
+            html += '<textarea id="a2pCmpFlow" class="a2p-textarea" rows="3" placeholder="How do leads opt in to receive messages? (min 40 chars)..."></textarea></div>';
+
+            // Sample messages (4 separate textareas)
+            for (var i = 0; i < 4; i++) {
+                var req = i < 2 ? ' <span style="color:#ef4444;">*</span>' : ' <span style="color:#555;">(optional)</span>';
+                html += '<div class="a2p-field-group"><label class="a2p-field-label">Sample Message ' + (i + 1) + req + ' ' + _a2pInfoTooltip(_A2P_SAMPLE_MESSAGES[i]) + '</label>';
+                html += '<textarea id="a2pCmpSample' + i + '" class="a2p-textarea" rows="2" placeholder="Min 20 characters..."></textarea></div>';
+            }
+
+            // Checkboxes
+            html += '<div class="a2p-field-row">';
+            html += '<label class="a2p-checkbox-label"><input type="checkbox" id="a2pCmpLinks"> Messages contain embedded links</label>';
+            html += '<label class="a2p-checkbox-label"><input type="checkbox" id="a2pCmpPhone"> Messages contain phone numbers</label>';
+            html += '</div>';
+
+            // Phone numbers
+            html += '<div class="a2p-field-group"><label class="a2p-field-label">Phone Numbers to Link</label>';
+            html += '<div id="a2pCmpPhoneList" class="a2p-phone-list"><i class="fa-solid fa-spinner fa-spin"></i> Loading...</div></div>';
+
+            // Submit
+            html += '<div id="a2pCmpResult" class="a2p-form-result"></div>';
+            html += '<button class="a2p-submit-btn" id="a2pSubmitCampaignBtn" onclick="a2pSubmitCampaign()"><i class="fa-solid fa-credit-card"></i> Submit Campaign &amp; Pay ($15)</button>';
+            html += '</div>';
+
+            el.innerHTML = html;
+            _a2pLoadPhoneNumbers('a2pCmpPhoneList');
+        }
+        window.a2pShowCampaignForm = a2pShowCampaignForm;
+
+        async function a2pSubmitCampaign() {
+            var result = document.getElementById('a2pCmpResult');
+            var btn = document.getElementById('a2pSubmitCampaignBtn');
+            var desc = (document.getElementById('a2pCmpDesc')?.value || '').trim();
+            var flow = (document.getElementById('a2pCmpFlow')?.value || '').trim();
+            var useCase = document.getElementById('a2pCmpUseCase')?.value || 'LOW_VOLUME';
+
+            // Collect sample messages
+            var samples = [];
+            for (var i = 0; i < 4; i++) {
+                var s = (document.getElementById('a2pCmpSample' + i)?.value || '').trim();
+                if (s) samples.push(s);
+            }
+
+            // Collect phone SIDs
+            var sids = [];
+            document.querySelectorAll('#a2pCmpPhoneList input[type="checkbox"]:checked').forEach(function(cb) {
+                sids.push(cb.value);
+            });
+
+            // Validate
+            if (desc.length < 40) { result.innerHTML = '<span style="color:#ef4444;">Description must be at least 40 characters</span>'; return; }
+            if (flow.length < 40) { result.innerHTML = '<span style="color:#ef4444;">Message flow must be at least 40 characters</span>'; return; }
+            if (samples.length < 2) { result.innerHTML = '<span style="color:#ef4444;">At least 2 sample messages required</span>'; return; }
+            for (var j = 0; j < samples.length; j++) {
+                if (samples[j].length < 20) { result.innerHTML = '<span style="color:#ef4444;">Sample message ' + (j + 1) + ' must be at least 20 characters</span>'; return; }
+            }
+            if (!sids.length) { result.innerHTML = '<span style="color:#ef4444;">Select at least one phone number</span>'; return; }
+
+            // Save form to sessionStorage then redirect to Stripe
+            sessionStorage.setItem('a2p_campaign_form', JSON.stringify({
+                description: desc, use_case: useCase, sample_messages: samples,
+                message_flow: flow, has_embedded_links: document.getElementById('a2pCmpLinks')?.checked || false,
+                has_embedded_phone: document.getElementById('a2pCmpPhone')?.checked || false, phone_number_sids: sids,
+            }));
+
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-2"></i>Redirecting to payment...';
+            try {
+                var r = await fetch('/a2p/campaign-checkout', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: '{}',
+                });
+                var d = await r.json();
+                if (d.checkout_url) {
+                    window.top.location.href = d.checkout_url;
+                } else {
+                    result.innerHTML = '<span style="color:#ef4444;">' + _esc(d.error || 'Checkout failed') + '</span>';
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="fa-solid fa-credit-card"></i> Submit Campaign & Pay ($15)';
+                }
+            } catch(e) {
+                result.innerHTML = '<span style="color:#ef4444;">Network error</span>';
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fa-solid fa-credit-card"></i> Submit Campaign & Pay ($15)';
+            }
+        }
+        window.a2pSubmitCampaign = a2pSubmitCampaign;
+
+        // ── A2P Info Tooltips ──
+        function _a2pInfoTooltip(text) {
+            var id = 'a2pTip_' + Math.random().toString(36).substr(2, 6);
+            return '<button type="button" class="a2p-info-btn" onclick="event.preventDefault();event.stopPropagation();a2pToggleTip(\'' + id + '\')">' +
+                '<i class="fa-solid fa-circle-info"></i></button>' +
+                '<div class="a2p-info-tooltip" id="' + id + '" style="display:none;">' +
+                '<div class="a2p-info-tooltip-text">' + _esc(text) + '</div>' +
+                '<button type="button" class="a2p-info-copy-btn" onclick="navigator.clipboard.writeText(document.getElementById(\'' + id + '\').querySelector(\'.a2p-info-tooltip-text\').textContent);this.textContent=\'Copied!\'">Copy</button>' +
+                '</div>';
+        }
+
+        function a2pToggleTip(id) {
+            var el = document.getElementById(id);
+            if (!el) return;
+            document.querySelectorAll('.a2p-info-tooltip').forEach(function(t) { if (t.id !== id) t.style.display = 'none'; });
+            el.style.display = el.style.display === 'none' ? 'block' : 'none';
+        }
+        window.a2pToggleTip = a2pToggleTip;
+
+        function _a2pLoadPhoneNumbers(containerId) {
+            var el = document.getElementById(containerId);
+            if (!el) return;
+            fetch('/voice/numbers').then(function(r) { return r.json(); }).then(function(d) {
+                var nums = d.numbers || [];
+                if (!nums.length) { el.innerHTML = '<span style="color:#888;">No phone numbers. Buy numbers first.</span>'; return; }
+                var html = '';
+                nums.forEach(function(n) {
+                    html += '<label class="a2p-phone-item"><input type="checkbox" value="' + _esc(n.id || n.sid || '') + '" checked> ' + _esc(n.phone || '') + '</label>';
+                });
+                el.innerHTML = html;
+            }).catch(function() { el.innerHTML = '<span style="color:#ef4444;">Failed to load numbers</span>'; });
+        }
+
+        function _a2pStartCampaignPoll() {
+            if (window._a2pCampaignPollTimer) return;
+            window._a2pCampaignPollTimer = setInterval(function() {
+                fetch('/voice/a2p/campaign-status').then(function(r) { return r.json(); }).then(function(d) {
+                    var cs = (d.campaign_status || '').toUpperCase();
+                    if (cs === 'VERIFIED' || cs === 'APPROVED' || cs === 'FAILED') {
+                        clearInterval(window._a2pCampaignPollTimer);
+                        window._a2pCampaignPollTimer = null;
+                        a2pCampaignInit();
+                    }
+                }).catch(function() {});
+            }, 30000);
+        }
+
+        function a2pCheckPaymentRedirect() {
+            // Already handled by the IIFE above
+        }
+        window.a2pCheckPaymentRedirect = a2pCheckPaymentRedirect;
+
+    })();
