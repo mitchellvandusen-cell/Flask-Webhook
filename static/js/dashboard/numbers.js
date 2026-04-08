@@ -731,16 +731,15 @@
                     if (tpStatus === 'twilio-rejected') {
                         cBadge.textContent = 'Rejected';
                         cBadge.className = 'sm-accordion-badge sm-badge-err';
-                    } else if (!tpRegistered || tpStatus === 'not_registered') {
-                        cBadge.textContent = 'Not registered';
-                        cBadge.className = 'sm-accordion-badge sm-badge-warn';
                     } else if (tpStatus === 'twilio-approved' || tpStatus === 'approved') {
                         cBadge.textContent = 'Live — ' + _esc(displayName);
                         cBadge.className = 'sm-accordion-badge sm-badge-ok';
+                    } else if (!tpRegistered || tpStatus === 'not_registered') {
+                        cBadge.textContent = 'Not registered';
+                        cBadge.className = 'sm-accordion-badge sm-badge-muted';
                     } else {
-                        // pending-review, in-review, draft
                         cBadge.textContent = 'Pending Review';
-                        cBadge.className = 'sm-accordion-badge sm-badge-pending';
+                        cBadge.className = 'sm-accordion-badge sm-badge-muted';
                     }
                     cBadge.style.display = 'inline-block';
                 }
@@ -761,13 +760,13 @@
                     nums.forEach(function(n) {
                         var statusLabel, statusClass;
                         if (tpIsRejected && n.assigned_to_trust_product) {
-                            statusLabel = 'Rejected — re-register'; statusClass = 'sm-dot-error';
+                            statusLabel = 'Rejected'; statusClass = 'sm-dot-error';
                         } else if (n.cnam_compliant) {
                             statusLabel = 'Live at carrier'; statusClass = 'sm-dot-ok';
                         } else if (n.assigned_to_trust_product && tpIsPending) {
-                            statusLabel = 'Pending Review'; statusClass = 'sm-dot-pending';
+                            statusLabel = 'Pending Review'; statusClass = 'sm-dot-off';
                         } else if (n.assigned_to_trust_product && tpIsApproved) {
-                            statusLabel = 'Propagating (48–72h)'; statusClass = 'sm-dot-pending';
+                            statusLabel = 'Propagating'; statusClass = 'sm-dot-off';
                         } else {
                             statusLabel = 'Not registered'; statusClass = 'sm-dot-off';
                             unregisteredCount++;

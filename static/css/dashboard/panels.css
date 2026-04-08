@@ -5494,6 +5494,7 @@ body.light-theme .cnam-lookup-btn:hover { background: rgba(5,150,105,0.15); colo
     letter-spacing: 0.2px;
 }
 .sm-badge-ok      { background: rgba(0,255,136,0.10); color: #00ff88; border: 1px solid rgba(0,255,136,0.20); }
+.sm-badge-muted   { background: rgba(150,150,150,0.08); color: #888; border: 1px solid rgba(150,150,150,0.15); }
 .sm-badge-warn    { background: rgba(255,165,0,0.10); color: #ffa500; border: 1px solid rgba(255,165,0,0.20); }
 .sm-badge-pending { background: rgba(251,191,36,0.10); color: #fbbf24; border: 1px solid rgba(251,191,36,0.22); }
 .sm-badge-err     { background: rgba(239,68,68,0.10); color: #ef4444; border: 1px solid rgba(239,68,68,0.20); }
@@ -5867,6 +5868,8 @@ body.light-theme .sm-accordion-icon,
 }
 body.light-theme .sm-badge-ok,
 [data-theme="light"] .sm-badge-ok { background: rgba(5,150,105,0.08); color: #059669; border-color: rgba(5,150,105,0.2); }
+body.light-theme .sm-badge-muted,
+[data-theme="light"] .sm-badge-muted { background: rgba(100,100,100,0.06); color: #6b7280; border-color: rgba(100,100,100,0.12); }
 body.light-theme .sm-badge-warn,
 [data-theme="light"] .sm-badge-warn { background: rgba(200,120,0,0.08); color: #b47800; border-color: rgba(200,120,0,0.2); }
 body.light-theme .sm-badge-pending,
