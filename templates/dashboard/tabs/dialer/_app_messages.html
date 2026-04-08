@@ -5,8 +5,10 @@
                                         .dlr-msg-back-btn { margin:0; }
                                         .dlr-msg-title { font-weight:800; font-size:1.15rem; letter-spacing:-0.3px; }
                                         .dlr-msg-refresh-btn { margin:0; }
-                                        .dlr-msg-search-wrap { margin-bottom:8px; }
+                                        .dlr-msg-search-wrap { margin-bottom:8px; display:none; }
+                                        .dlr-msg-search-wrap.visible { display:block; }
                                         .dlr-msg-search-input { width:100%; box-sizing:border-box; padding:8px 10px; border:none; border-radius:10px; font-size:0.8rem; outline:none; }
+                                        .dlr-msg-search-btn { margin:0; }
                                         .dlr-msg-filter-row { display:flex; gap:4px; padding-bottom:8px; }
                                         .dlr-msg-conversation-list { flex:1; min-height:0; overflow-y:auto; -webkit-overflow-scrolling:touch; padding:0; }
                                         .dlr-msg-unread-badge { background:rgba(0,122,255,0.2); border-radius:8px; padding:0 5px; font-size:0.7rem; margin-left:2px; }
@@ -27,6 +29,9 @@
                                                         <i class="fa-solid fa-chevron-left"></i><span class="ios-back-label">Back</span>
                                                     </button>
                                                     <div class="dlr-label-6 dlr-msg-title">Messages</div>
+                                                    <button onclick="inboxToggleSearch()" class="ios-nav-action dlr-msg-search-btn" title="Search">
+                                                        <i class="fa-solid fa-magnifying-glass"></i>
+                                                    </button>
                                                     <button onclick="inboxRefresh()" class="ios-nav-action dlr-msg-refresh-btn" title="Refresh">
                                                         <i class="fa-solid fa-arrows-rotate" id="inboxRefreshIcon"></i>
                                                     </button>
