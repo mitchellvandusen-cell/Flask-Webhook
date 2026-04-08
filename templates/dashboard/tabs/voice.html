@@ -645,9 +645,14 @@
                                 <div class="sm-card" id="cnamNumbersCard">
                                     <div class="sm-card-title-row">
                                         <div class="sm-card-title">Numbers Using This Caller ID</div>
-                                        <button onclick="loadCnamMonitor()" class="sm-btn sm-btn-ghost sm-btn-sm">
-                                            <i class="fa-solid fa-arrows-rotate me-1"></i>Refresh
-                                        </button>
+                                        <div style="display:flex;gap:8px;">
+                                            <button id="cnamRegisterAllBtn" onclick="cnamRegisterUnregistered()" class="sm-btn sm-btn-primary sm-btn-sm" style="display:none;">
+                                                <i class="fa-solid fa-plus me-1"></i>Register All
+                                            </button>
+                                            <button onclick="loadCnamMonitor()" class="sm-btn sm-btn-ghost sm-btn-sm">
+                                                <i class="fa-solid fa-arrows-rotate me-1"></i>Refresh
+                                            </button>
+                                        </div>
                                     </div>
                                     <div id="cnamNumbersList" class="sm-numbers-content">
                                         <div class="sm-loading"><i class="fa-solid fa-spinner fa-spin me-1"></i>Loading numbers...</div>

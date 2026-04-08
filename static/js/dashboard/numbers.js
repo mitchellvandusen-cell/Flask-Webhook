@@ -748,6 +748,7 @@
                     }
 
                     var html = '<ul class="sm-numbers-list">';
+                    var unregisteredCount = 0;
                     nums.forEach(function(n) {
                         var isCompliant = n.cnam_compliant;
                         var statusLabel, statusClass;
@@ -757,6 +758,7 @@
                             statusLabel = 'Propagating (48–72h)'; statusClass = 'sm-dot-pending';
                         } else {
                             statusLabel = 'Not registered'; statusClass = 'sm-dot-off';
+                            unregisteredCount++;
                         }
                         html += '<li class="sm-numbers-row">' +
                             '<span class="sm-num-phone">' + _esc(_fmtPhone(n.phone)) + '</span>' +
@@ -766,12 +768,46 @@
                     });
                     html += '</ul>';
                     listEl.innerHTML = html;
+
+                    // Show "Register All" button when unregistered numbers exist
+                    var regBtn = document.getElementById('cnamRegisterAllBtn');
+                    if (regBtn) {
+                        regBtn.style.display = unregisteredCount > 0 ? 'inline-flex' : 'none';
+                        regBtn.innerHTML = '<i class="fa-solid fa-plus me-1"></i>Register ' +
+                            (unregisteredCount === 1 ? '1 Number' : unregisteredCount + ' Numbers');
+                    }
                 }
             } catch(e) {
                 console.error('[CNAM Monitor]', e);
                 if (listEl) listEl.innerHTML = '<div class="sm-error">Network error</div>';
             }
         }
+
+        // Register all unregistered numbers with CNAM
+        async function cnamRegisterUnregistered() {
+            var btn = document.getElementById('cnamRegisterAllBtn');
+            if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-1"></i>Registering...'; }
+            try {
+                var r = await fetch('/voice/cnam/add-numbers', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({})
+                });
+                var d = await r.json();
+                if (r.ok) {
+                    if (typeof _showDashToast === 'function') _showDashToast(true, (d.added || 0) + ' number(s) registered for CNAM');
+                    loadCnamMonitor();
+                } else {
+                    if (typeof _showDashToast === 'function') _showDashToast(false, d.error || 'Registration failed');
+                }
+            } catch(e) {
+                console.error('[CNAM Register]', e);
+                if (typeof _showDashToast === 'function') _showDashToast(false, 'Network error');
+            } finally {
+                if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-plus me-1"></i>Register All'; }
+            }
+        }
+        window.cnamRegisterUnregistered = cnamRegisterUnregistered;
 
         // Character counter + user-edit tracking for the display-name input
         function _cnamUpdateCharCount() {
