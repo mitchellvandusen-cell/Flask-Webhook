@@ -223,16 +223,16 @@
 .iphone-btn-left2{position:absolute;left:-3px;top:21.2%;width:3px;height:5.8%;background:linear-gradient(to left,#48494d,#5a5b5f);border-radius:2px 0 0 2px;}
 .iphone-screen{width:100%;height:100%;border-radius:1.93vw;background:#000;overflow:hidden;position:relative;display:flex;flex-direction:column;}
 /* Status Bar */
-.ios-status-bar{height:2.4vw;flex-shrink:0;display:flex;align-items:center;justify-content:space-between;padding:0 1.09vw;position:relative;z-index:10;color:#fff;font-size:max(0.85rem,0.7vw);font-weight:600;}
+.ios-status-bar{height:3.8vw;flex-shrink:0;display:flex;align-items:flex-end;justify-content:space-between;padding:0 1.09vw 0.35vw;position:relative;z-index:10;color:#fff;font-size:max(0.85rem,0.7vw);font-weight:600;}
 .ios-time{font-weight:700;font-size:max(0.95rem,0.78vw);letter-spacing:-0.3px;}
-.ios-dynamic-island{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:5.5vw;height:1.5vw;background:#000;border-radius:1.04vw;z-index:20;}
-/* Dial Mode — positioned on home screen between notch and app grid */
-.ios-dial-mode-bar{display:flex;align-items:center;justify-content:center;gap:0.6vw;padding:0.5vw 1vw;position:relative;z-index:2;flex-shrink:0;}
-.ios-dm-label{font-size:max(0.6rem,0.5vw);color:#fff;font-family:'JetBrains Mono','Inter',sans-serif;white-space:nowrap;letter-spacing:1.2px;font-weight:700;text-transform:uppercase;}
-.ios-dm-tabs{display:flex;gap:4px;background:rgba(0,0,0,0.5);border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:3px;}
-.ios-dm-btn{background:transparent;border:1px solid transparent;color:rgba(255,255,255,0.45);font-size:max(0.68rem,0.58vw);font-weight:800;padding:5px 0.7vw;border-radius:6px;cursor:pointer;font-family:'Inter',sans-serif;transition:all .15s;white-space:nowrap;letter-spacing:0.5px;text-transform:uppercase;}
-.ios-dm-btn:hover{color:rgba(255,255,255,0.7);}
-.ios-dm-btn.ios-dm-active{background:#00ff88;color:#000;border-color:#00ff88;box-shadow:0 0 12px rgba(0,255,136,0.35);text-shadow:none;}
+.ios-dynamic-island{position:absolute;top:0.45vw;left:50%;transform:translateX(-50%);width:5.2vw;height:1.55vw;background:#000;border-radius:1.04vw;z-index:20;}
+/* Dial Mode — clean separator between status bar and app grid */
+.ios-dial-mode-bar{display:flex;align-items:center;justify-content:center;gap:0.7vw;padding:0.7vw 1vw 0.8vw;position:relative;z-index:2;flex-shrink:0;border-bottom:1px solid rgba(255,255,255,0.07);}
+.ios-dm-label{font-size:max(0.58rem,0.48vw);color:rgba(255,255,255,0.5);font-family:'JetBrains Mono','Inter',sans-serif;white-space:nowrap;letter-spacing:1.5px;font-weight:600;text-transform:uppercase;}
+.ios-dm-tabs{display:flex;gap:3px;background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.1);border-radius:9px;padding:3px;}
+.ios-dm-btn{background:transparent;border:1px solid transparent;color:rgba(255,255,255,0.4);font-size:max(0.65rem,0.55vw);font-weight:800;padding:0.35vw 0.8vw;border-radius:7px;cursor:pointer;font-family:'Inter',sans-serif;transition:all .15s;white-space:nowrap;letter-spacing:0.6px;text-transform:uppercase;}
+.ios-dm-btn:hover{color:rgba(255,255,255,0.75);}
+.ios-dm-btn.ios-dm-active{background:#00ff88;color:#000;border-color:#00ff88;box-shadow:0 0 10px rgba(0,255,136,0.3);text-shadow:none;}
 .ios-status-icons{display:flex;align-items:center;gap:5px;}
 /* Home Screen */
 .ios-home{flex:1;display:flex;flex-direction:column;position:relative;overflow:hidden;}
