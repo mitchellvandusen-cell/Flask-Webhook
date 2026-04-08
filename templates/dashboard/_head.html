@@ -38,6 +38,16 @@
     if((t||'light')==='light')document.documentElement.style.background='#f2f2f2';})();
     </script>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v={{ _sv }}">
+    <!-- Dialer CSS — direct links so each file gets its own ?v= cache-bust (CSS @imports don't inherit it) -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard/dialer/dark/base.css') }}?v={{ _sv }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard/dialer/dark/power.css') }}?v={{ _sv }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard/dialer/dark/intel.css') }}?v={{ _sv }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard/dialer/light/base.css') }}?v={{ _sv }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard/dialer/light/power.css') }}?v={{ _sv }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard/dialer/light/intel.css') }}?v={{ _sv }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard/dialer/media/mobile.css') }}?v={{ _sv }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard/dialer/media/tablet.css') }}?v={{ _sv }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard/dialer/media/hd.css') }}?v={{ _sv }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard/quote.css') }}?v={{ _sv }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard/page-builder.css') }}?v={{ _sv }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard/a2p.css') }}?v={{ _sv }}">

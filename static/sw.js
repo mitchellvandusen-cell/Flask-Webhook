@@ -2,7 +2,7 @@
 // CACHE_NAME must be bumped when static assets change.
 // The app injects STATIC_VERSION at registration time so the SW
 // automatically invalidates when any CSS/JS file changes.
-const CACHE_NAME = 'igb-v2';
+const CACHE_NAME = 'igb-v4';  // bumped — clears all igb-v2/v3 stale CSS caches
 const PRECACHE_URLS = [
   '/dashboard',
   '/static/favicon.svg',

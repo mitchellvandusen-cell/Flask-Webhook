@@ -319,8 +319,12 @@ def add_iframe_headers(response):
 
 @app.route('/sw.js')
 def service_worker():
-    return send_from_directory(app.static_folder, 'sw.js',
+    resp = send_from_directory(app.static_folder, 'sw.js',
                                mimetype='application/javascript')
+    # Must never be cached — browser must re-fetch on every load to pick up SW updates
+    resp.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate'
+    resp.headers['Pragma'] = 'no-cache'
+    return resp
 
 @app.route('/manifest.json')
 def pwa_manifest():
