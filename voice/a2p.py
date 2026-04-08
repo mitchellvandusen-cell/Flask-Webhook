@@ -216,6 +216,8 @@ def a2p_status():
                     "campaign_sid": "", "campaign_status": "",
                     "messaging_service_sid": "", "use_case": "", "registered_at": "",
                     "is_sub_user": is_sub_user, "a2p_fee_paid": fee_paid,
+                    "brand_fee_paid": fee_paid or a2p.get('brand_fee_paid', False),
+                    "campaign_fee_paid": fee_paid or a2p.get('campaign_fee_paid', False),
                     "registered_number_sids": [],
                 })
             logger.warning(f"Failed to fetch MS phone numbers (non-fatal): {e}")
@@ -234,6 +236,8 @@ def a2p_status():
         "registered_at": a2p.get('registered_at', ''),
         "is_sub_user": is_sub_user,
         "a2p_fee_paid": a2p.get('a2p_fee_paid', False),
+        "brand_fee_paid": a2p.get('a2p_fee_paid') or a2p.get('brand_fee_paid', False),
+        "campaign_fee_paid": a2p.get('a2p_fee_paid') or a2p.get('campaign_fee_paid', False),
         "registered_number_sids": registered_number_sids,
         # DBA formatting hints for form prepopulation
         "legal_business_name": names_info['legal_name'],
@@ -372,10 +376,11 @@ def a2p_register_brand():
     is_sub_user = bool((subscriber or {}).get('parent_agency_email'))
     a2p = (vc or {}).get('a2p', {})
 
-    # Sub-users must pay before registering
-    if is_sub_user and not a2p.get('a2p_fee_paid', False):
+    # Sub-users must pay before registering (accept old combined flag OR new per-step flag)
+    brand_paid = a2p.get('a2p_fee_paid') or a2p.get('brand_fee_paid', False)
+    if is_sub_user and not brand_paid:
         return jsonify({
-            "error": "A2P registration fee required. Please complete payment first.",
+            "error": "Brand registration fee required. Please complete payment first.",
             "payment_required": True,
         }), 402
 
@@ -545,6 +550,15 @@ def a2p_create_campaign():
 
     if not brand_sid:
         return jsonify({"error": "Register a brand first before creating a campaign"}), 400
+
+    # Sub-users must pay before creating campaign (accept old combined flag OR new per-step flag)
+    is_sub_user = bool((subscriber or {}).get('parent_agency_email'))
+    campaign_paid = a2p.get('a2p_fee_paid') or a2p.get('campaign_fee_paid', False)
+    if is_sub_user and not campaign_paid:
+        return jsonify({
+            "error": "Campaign registration fee required. Please complete payment first.",
+            "payment_required": True,
+        }), 402
 
     data = request.get_json() or {}
     description = data.get('description', 'Insurance agent SMS communication').strip()

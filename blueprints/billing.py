@@ -261,6 +261,91 @@ def stripe_webhook():
                 logger.error(f"A2P fee webhook error: {e}")
             return '', 200
 
+        # ── A2P brand fee (split checkout) ────────────────────────────────
+        if metadata.get("purchase_type") == "a2p_brand" and email:
+            brand_type = metadata.get("brand_type", "LOW_VOLUME")
+            paid_cents = metadata.get("total_cents", "0")
+            logger.info(f"A2P brand fee paid by {email} — brand_type={brand_type} amount=${int(paid_cents)/100:.2f}")
+            try:
+                conn = get_db_connection()
+                if conn:
+                    cur = None
+                    try:
+                        cur = conn.cursor()
+                        cur.execute("SELECT voice_config FROM subscribers WHERE email = %s", (email,))
+                        row = cur.fetchone()
+                        if row:
+                            vc  = row['voice_config'] or {}
+                            a2p = vc.get('a2p', {})
+                            a2p['brand_fee_paid']          = True
+                            a2p['brand_fee_paid_at']       = datetime.utcnow().isoformat()
+                            a2p['brand_stripe_session_id'] = session.id
+                            a2p['paid_brand_type']         = brand_type
+                            a2p['paid_brand_cents']        = int(paid_cents)
+                            vc['a2p'] = a2p
+                            cur.execute(
+                                "UPDATE subscribers SET voice_config = %s WHERE email = %s",
+                                (json.dumps(vc), email)
+                            )
+                            conn.commit()
+                    except Exception as e:
+                        logger.error(f"Failed to mark A2P brand fee paid: {e}")
+                        try:
+                            conn.rollback()
+                        except Exception:
+                            pass
+                    finally:
+                        if cur:
+                            try:
+                                cur.close()
+                            except Exception:
+                                pass
+                        return_db_connection(conn)
+            except Exception as e:
+                logger.error(f"A2P brand fee webhook error: {e}")
+            return '', 200
+
+        # ── A2P campaign fee (split checkout) ─────────────────────────────
+        if metadata.get("purchase_type") == "a2p_campaign" and email:
+            paid_cents = metadata.get("total_cents", "0")
+            logger.info(f"A2P campaign fee paid by {email} — amount=${int(paid_cents)/100:.2f}")
+            try:
+                conn = get_db_connection()
+                if conn:
+                    cur = None
+                    try:
+                        cur = conn.cursor()
+                        cur.execute("SELECT voice_config FROM subscribers WHERE email = %s", (email,))
+                        row = cur.fetchone()
+                        if row:
+                            vc  = row['voice_config'] or {}
+                            a2p = vc.get('a2p', {})
+                            a2p['campaign_fee_paid']          = True
+                            a2p['campaign_fee_paid_at']       = datetime.utcnow().isoformat()
+                            a2p['campaign_stripe_session_id'] = session.id
+                            vc['a2p'] = a2p
+                            cur.execute(
+                                "UPDATE subscribers SET voice_config = %s WHERE email = %s",
+                                (json.dumps(vc), email)
+                            )
+                            conn.commit()
+                    except Exception as e:
+                        logger.error(f"Failed to mark A2P campaign fee paid: {e}")
+                        try:
+                            conn.rollback()
+                        except Exception:
+                            pass
+                    finally:
+                        if cur:
+                            try:
+                                cur.close()
+                            except Exception:
+                                pass
+                        return_db_connection(conn)
+            except Exception as e:
+                logger.error(f"A2P campaign fee webhook error: {e}")
+            return '', 200
+
         # ── Seat user subscription ─────────────────────────────────────────
         if metadata.get("purchase_type") == "seat_user" and email:
             loc_id = metadata.get("location_id", "")
@@ -1690,6 +1775,85 @@ def a2p_checkout():
         return flask_jsonify({"error": "Payment configuration error. Contact support."}), 500
     except Exception as e:
         logger.error(f"A2P checkout error: {e}")
+        return flask_jsonify({"error": "Unable to create checkout session."}), 500
+
+
+@billing_bp.route("/a2p/brand-checkout", methods=["POST"])
+@login_required
+def a2p_brand_checkout():
+    """Create Stripe session for A2P brand registration fee only."""
+    data       = request.get_json(silent=True) or {}
+    brand_type = (data.get("brand_type") or "LOW_VOLUME").upper().strip()
+
+    fee_info = A2P_FEE_SCHEDULE.get(brand_type)
+    if not fee_info:
+        return flask_jsonify({"error": f"Unknown brand type: {brand_type}"}), 400
+
+    brand_cents = fee_info["brand_fee"]
+    label       = fee_info["label"]
+
+    try:
+        checkout_session = stripe.checkout.Session.create(
+            payment_method_types=["card"],
+            mode="payment",
+            customer_email=current_user.email,
+            line_items=[{
+                "price_data": {
+                    "currency": "usd",
+                    "unit_amount": brand_cents,
+                    "product_data": {
+                        "name": f"A2P Brand Registration — {label}",
+                        "description": f"Brand vetting fee (${brand_cents / 100:.2f})",
+                    },
+                },
+                "quantity": 1,
+            }],
+            metadata={
+                "purchase_type": "a2p_brand",
+                "user_email":   current_user.email,
+                "brand_type":   brand_type,
+                "total_cents":  str(brand_cents),
+            },
+            success_url=f"{YOUR_DOMAIN}/dashboard?a2p_brand_paid=1",
+            cancel_url=f"{YOUR_DOMAIN}/dashboard?a2p_brand_cancel=1",
+        )
+        return flask_jsonify({"checkout_url": checkout_session.url})
+    except Exception as e:
+        logger.error(f"A2P brand checkout error: {e}")
+        return flask_jsonify({"error": "Unable to create checkout session."}), 500
+
+
+@billing_bp.route("/a2p/campaign-checkout", methods=["POST"])
+@login_required
+def a2p_campaign_checkout():
+    """Create Stripe session for A2P campaign vetting fee ($15)."""
+    try:
+        checkout_session = stripe.checkout.Session.create(
+            payment_method_types=["card"],
+            mode="payment",
+            customer_email=current_user.email,
+            line_items=[{
+                "price_data": {
+                    "currency": "usd",
+                    "unit_amount": 1500,
+                    "product_data": {
+                        "name": "A2P Campaign Registration",
+                        "description": "Campaign vetting fee ($15.00)",
+                    },
+                },
+                "quantity": 1,
+            }],
+            metadata={
+                "purchase_type": "a2p_campaign",
+                "user_email":   current_user.email,
+                "total_cents":  "1500",
+            },
+            success_url=f"{YOUR_DOMAIN}/dashboard?a2p_campaign_paid=1",
+            cancel_url=f"{YOUR_DOMAIN}/dashboard?a2p_campaign_cancel=1",
+        )
+        return flask_jsonify({"checkout_url": checkout_session.url})
+    except Exception as e:
+        logger.error(f"A2P campaign checkout error: {e}")
         return flask_jsonify({"error": "Unable to create checkout session."}), 500
 
 
