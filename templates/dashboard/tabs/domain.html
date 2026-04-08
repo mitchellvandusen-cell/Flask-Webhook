@@ -55,34 +55,21 @@
             </div>
         </div>
 
-        <!-- Edit Landing Page -->
-        <div class="domain-edit-section">
-            <h4 class="domain-section-title">
-                <i class="fa-solid fa-pen-to-square"></i> Edit Landing Page
-            </h4>
-            <div class="domain-edit-form">
-                <div class="domain-form-group">
-                    <label>Your Name</label>
-                    <input type="text" id="domainEditName" placeholder="John Smith">
-                </div>
-                <div class="domain-form-group">
-                    <label>Phone Number (displayed on page)</label>
-                    <input type="tel" id="domainEditPhone" placeholder="(555) 123-4567">
-                </div>
-                <div class="domain-form-group">
-                    <label>Licensed States</label>
-                    <input type="text" id="domainEditStates" placeholder="TX, CA, FL">
-                    <span class="domain-form-hint">Comma-separated state abbreviations</span>
-                </div>
-                <div class="domain-form-group">
-                    <label>About / Bio</label>
-                    <textarea id="domainEditBio" rows="3" placeholder="A few sentences about your experience and what you offer..."></textarea>
-                </div>
-                <button onclick="domainSavePage()" class="domain-save-btn">
-                    <i class="fa-solid fa-floppy-disk"></i> Save Changes
+        <!-- Page Builder Editor -->
+        <div class="pb-toolbar">
+            <h4 class="pb-toolbar-title"><i class="fa-solid fa-pen-to-square"></i> Edit Layout</h4>
+            <div class="pb-toolbar-actions">
+                <a id="pbPreviewBtn" href="#" target="_blank" class="pb-btn pb-btn-ghost">
+                    <i class="fa-solid fa-arrow-up-right-from-square"></i> Preview Site
+                </a>
+                <button id="pbSaveBtn" onclick="pbSaveLayout()" class="pb-btn pb-btn-primary">
+                    <i class="fa-solid fa-floppy-disk"></i> Save Layout
                 </button>
             </div>
         </div>
+
+        <!-- Accordion container — populated dynamically by domain.js -->
+        <div id="pbEditor"></div>
     </div>
 
     <!-- ═══════════ NO DOMAIN — SETUP FLOW ═══════════ -->
