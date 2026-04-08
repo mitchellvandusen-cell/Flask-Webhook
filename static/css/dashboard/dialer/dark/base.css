@@ -282,11 +282,11 @@
 .ios-home-indicator{width:5.21vw;height:0.16vw;border-radius:2px;background:rgba(255,255,255,0.25);}
 .ios-home-indicator-dark{background:rgba(255,255,255,0.15);}
 /* App Views (common) */
-.ios-app-view{position:absolute;inset:0;top:0;background:#000;display:flex;flex-direction:column;z-index:5;animation:iosAppOpen 0.3s cubic-bezier(0.2,0.9,0.3,1);padding-top:0;}
+.ios-app-view{position:absolute;inset:0;top:0;background:#000;display:flex;flex-direction:column;z-index:5;animation:iosAppOpen 0.3s cubic-bezier(0.2,0.9,0.3,1);padding-top:2.8vw;}
 @keyframes iosAppOpen{0%{opacity:0;transform:scale(0.88);}100%{opacity:1;transform:scale(1);}}
 @keyframes iosAppClose{0%{opacity:1;transform:scale(1);}100%{opacity:0;transform:scale(0.88);}}
 /* Nav Bar */
-.ios-nav-bar{flex-shrink:0;display:flex;align-items:center;gap:0.31vw;padding:1.2vw 0.52vw 0.42vw;background:#121212;backdrop-filter:none;-webkit-backdrop-filter:none;border-bottom:1px solid rgba(255,255,255,0.06);}
+.ios-nav-bar{flex-shrink:0;display:flex;align-items:center;gap:0.31vw;padding:0.4vw 0.52vw 0.42vw;background:#121212;backdrop-filter:none;-webkit-backdrop-filter:none;border-bottom:1px solid rgba(255,255,255,0.06);}
 .ios-back-btn{background:none;border:none;color:#007AFF;font-size:max(1rem,0.83vw);cursor:pointer;padding:4px 8px 4px 4px;display:flex;align-items:center;gap:3px;flex-shrink:0;border-radius:6px;transition:background 0.15s;}
 .ios-back-btn:hover{background:rgba(0,122,255,0.1);}
 .ios-back-btn .ios-back-label{font-size:max(0.75rem,0.62vw);font-weight:500;}
