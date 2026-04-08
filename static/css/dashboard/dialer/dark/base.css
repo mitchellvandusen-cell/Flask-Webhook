@@ -216,21 +216,21 @@
                        iPhone 15 Pro — CSS (scaled 25% down)
                        ═══════════════════════════════════════════════ */
 .iphone-frame{width:100%;max-width:max(8rem, 15.31vw);max-height:59vh;aspect-ratio:393/852;position:relative;display:flex;align-items:center;justify-content:center;}
-.iphone-bezel{width:100%;height:100%;border-radius:clamp(39px, 2.03vw, 74px);background:linear-gradient(145deg,#78797e 0%,#48494d 20%,#36373b 50%,#48494d 80%,#78797e 100%);padding:2px;position:relative;box-shadow:0 0 0 1px rgba(255,255,255,0.06),0 25px 60px rgba(0,0,0,0.6),inset 0 1px 0 rgba(255,255,255,0.15);}
+.iphone-bezel{width:100%;height:100%;border-radius:2.03vw;background:linear-gradient(145deg,#78797e 0%,#48494d 20%,#36373b 50%,#48494d 80%,#78797e 100%);padding:2px;position:relative;box-shadow:0 0 0 1px rgba(255,255,255,0.06),0 25px 60px rgba(0,0,0,0.6),inset 0 1px 0 rgba(255,255,255,0.15);}
 /* Side buttons (cosmetic) — use percentage positions for scaling */
 .iphone-btn-right{position:absolute;right:-3px;top:21.2%;width:3px;height:7.5%;background:linear-gradient(to right,#48494d,#5a5b5f);border-radius:0 2px 2px 0;}
 .iphone-btn-left1{position:absolute;left:-3px;top:16.5%;width:3px;height:3.3%;background:linear-gradient(to left,#48494d,#5a5b5f);border-radius:2px 0 0 2px;}
 .iphone-btn-left2{position:absolute;left:-3px;top:21.2%;width:3px;height:5.8%;background:linear-gradient(to left,#48494d,#5a5b5f);border-radius:2px 0 0 2px;}
-.iphone-screen{width:100%;height:100%;border-radius:clamp(37px, 1.93vw, 70px);background:#000;overflow:hidden;position:relative;display:flex;flex-direction:column;}
+.iphone-screen{width:100%;height:100%;border-radius:1.93vw;background:#000;overflow:hidden;position:relative;display:flex;flex-direction:column;}
 /* Status Bar */
-.ios-status-bar{height:clamp(46px, 2.4vw, 86px);flex-shrink:0;display:flex;align-items:center;justify-content:space-between;padding:0 clamp(21px, 1.09vw, 40px);position:relative;z-index:10;color:#fff;font-size:max(0.85rem,0.7vw);font-weight:600;}
+.ios-status-bar{height:2.4vw;flex-shrink:0;display:flex;align-items:center;justify-content:space-between;padding:0 1.09vw;position:relative;z-index:10;color:#fff;font-size:max(0.85rem,0.7vw);font-weight:600;}
 .ios-time{font-weight:700;font-size:max(0.95rem,0.78vw);letter-spacing:-0.3px;}
-.ios-dynamic-island{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:clamp(100px, 5.5vw, 180px);height:clamp(28px, 1.5vw, 50px);background:#000;border-radius:clamp(20px, 1.04vw, 38px);z-index:20;}
+.ios-dynamic-island{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:5.5vw;height:1.5vw;background:#000;border-radius:1.04vw;z-index:20;}
 /* Dial Mode — positioned on home screen between notch and app grid */
-.ios-dial-mode-bar{display:flex;align-items:center;justify-content:center;gap:clamp(8px, 0.6vw, 14px);padding:clamp(8px, 0.5vw, 14px) clamp(16px, 1vw, 28px);position:relative;z-index:2;flex-shrink:0;}
+.ios-dial-mode-bar{display:flex;align-items:center;justify-content:center;gap:0.6vw;padding:0.5vw 1vw;position:relative;z-index:2;flex-shrink:0;}
 .ios-dm-label{font-size:max(0.6rem,0.5vw);color:#fff;font-family:'JetBrains Mono','Inter',sans-serif;white-space:nowrap;letter-spacing:1.2px;font-weight:700;text-transform:uppercase;}
 .ios-dm-tabs{display:flex;gap:4px;background:rgba(0,0,0,0.5);border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:3px;}
-.ios-dm-btn{background:transparent;border:1px solid transparent;color:rgba(255,255,255,0.45);font-size:max(0.68rem,0.58vw);font-weight:800;padding:5px clamp(12px, 0.7vw, 20px);border-radius:6px;cursor:pointer;font-family:'Inter',sans-serif;transition:all .15s;white-space:nowrap;letter-spacing:0.5px;text-transform:uppercase;}
+.ios-dm-btn{background:transparent;border:1px solid transparent;color:rgba(255,255,255,0.45);font-size:max(0.68rem,0.58vw);font-weight:800;padding:5px 0.7vw;border-radius:6px;cursor:pointer;font-family:'Inter',sans-serif;transition:all .15s;white-space:nowrap;letter-spacing:0.5px;text-transform:uppercase;}
 .ios-dm-btn:hover{color:rgba(255,255,255,0.7);}
 .ios-dm-btn.ios-dm-active{background:#00ff88;color:#000;border-color:#00ff88;box-shadow:0 0 12px rgba(0,255,136,0.35);text-shadow:none;}
 .ios-status-icons{display:flex;align-items:center;gap:5px;}
@@ -244,7 +244,7 @@
                         radial-gradient(ellipse at 20% 70%, rgba(175,82,222,0.5) 0%, transparent 45%),
                         linear-gradient(160deg, #1c1c3a 0%, #0d1b2a 50%, #0a0e1a 100%);
                     z-index:0;}
-.ios-app-grid{flex:1;display:grid;grid-template-columns:repeat(3,1fr);align-items:start;justify-items:center;gap:clamp(16px, 0.83vw, 30px) clamp(12px, 0.63vw, 23px);padding:clamp(8px, 0.42vw, 16px) clamp(16px, 0.83vw, 30px);position:relative;z-index:1;align-content:start;}
+.ios-app-grid{flex:1;display:grid;grid-template-columns:repeat(3,1fr);align-items:start;justify-items:center;gap:0.83vw 0.63vw;padding:0.42vw 0.83vw;position:relative;z-index:1;align-content:start;}
 .ios-app-icon{display:flex;flex-direction:column;align-items:center;gap:5px;background:none;border:none;cursor:pointer;position:relative;transition:transform 0.15s;-webkit-tap-highlight-color:transparent;touch-action:manipulation;}
 .ios-app-icon:hover{transform:scale(1.08);}
 .ios-app-icon:active{transform:scale(0.95);}
@@ -271,51 +271,51 @@
                         filter: drop-shadow(0 10px 20px rgba(0,0,0,0.5));
                         cursor: grabbing;
                     }
-.ios-icon{width:clamp(64px, 3.33vw, 122px);height:clamp(64px, 3.33vw, 122px);border-radius:clamp(14px, 0.73vw, 27px);display:flex;align-items:center;justify-content:center;font-size:max(2.1rem,1.75vw);color:#fff;box-shadow:0 4px 12px rgba(0,0,0,0.3);}
+.ios-icon{width:3.33vw;height:3.33vw;border-radius:0.73vw;display:flex;align-items:center;justify-content:center;font-size:max(2.1rem,1.75vw);color:#fff;box-shadow:0 4px 12px rgba(0,0,0,0.3);}
 .ios-icon-messages{background:linear-gradient(180deg,#65D66A 0%,#34C759 100%);}
 .ios-icon-phone{background:linear-gradient(180deg,#65D66A 0%,#34C759 100%);}
 .ios-icon-voicemail{background:linear-gradient(180deg,#FF9F0A 0%,#FF9500 100%);}
-.ios-app-label{font-size:max(0.72rem,0.6vw);color:#fff;font-weight:500;text-shadow:0 1px 3px rgba(0,0,0,0.6);letter-spacing:-0.1px;text-align:center;max-width:clamp(80px, 4.2vw, 150px);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-.ios-badge{position:absolute;top:-4px;right:-4px;background:#FF3B30;color:#fff;font-size:max(0.65rem,0.52vw);font-weight:800;min-width:clamp(20px, 1.04vw, 38px);height:clamp(20px, 1.04vw, 38px);border-radius:clamp(10px, 0.52vw, 19px);display:flex;align-items:center;justify-content:center;padding:0 5px;border:2px solid #000;z-index:2;}
+.ios-app-label{font-size:max(0.72rem,0.6vw);color:#fff;font-weight:500;text-shadow:0 1px 3px rgba(0,0,0,0.6);letter-spacing:-0.1px;text-align:center;max-width:4.2vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.ios-badge{position:absolute;top:-4px;right:-4px;background:#FF3B30;color:#fff;font-size:max(0.65rem,0.52vw);font-weight:800;min-width:1.04vw;height:1.04vw;border-radius:0.52vw;display:flex;align-items:center;justify-content:center;padding:0 5px;border:2px solid #000;z-index:2;}
 /* Home Indicator */
 .ios-home-indicator-bar{flex-shrink:0;display:flex;justify-content:center;padding:6px 0 4px;position:relative;z-index:1;}
-.ios-home-indicator{width:clamp(100px, 5.21vw, 190px);height:clamp(3px, 0.16vw, 6px);border-radius:2px;background:rgba(255,255,255,0.25);}
+.ios-home-indicator{width:5.21vw;height:0.16vw;border-radius:2px;background:rgba(255,255,255,0.25);}
 .ios-home-indicator-dark{background:rgba(255,255,255,0.15);}
 /* App Views (common) */
 .ios-app-view{position:absolute;inset:0;top:0;background:#000;display:flex;flex-direction:column;z-index:5;animation:iosAppOpen 0.3s cubic-bezier(0.2,0.9,0.3,1);}
 @keyframes iosAppOpen{0%{opacity:0;transform:scale(0.88);}100%{opacity:1;transform:scale(1);}}
 @keyframes iosAppClose{0%{opacity:1;transform:scale(1);}100%{opacity:0;transform:scale(0.88);}}
 /* Nav Bar */
-.ios-nav-bar{flex-shrink:0;display:flex;align-items:center;gap:clamp(6px, 0.31vw, 11px);padding:clamp(52px, 2.7vw, 96px) clamp(10px, 0.52vw, 19px) clamp(8px, 0.42vw, 15px);background:#121212;backdrop-filter:none;-webkit-backdrop-filter:none;border-bottom:1px solid rgba(255,255,255,0.06);}
+.ios-nav-bar{flex-shrink:0;display:flex;align-items:center;gap:0.31vw;padding:2.7vw 0.52vw 0.42vw;background:#121212;backdrop-filter:none;-webkit-backdrop-filter:none;border-bottom:1px solid rgba(255,255,255,0.06);}
 .ios-back-btn{background:none;border:none;color:#007AFF;font-size:max(1rem,0.83vw);cursor:pointer;padding:4px 8px 4px 4px;display:flex;align-items:center;gap:3px;flex-shrink:0;border-radius:6px;transition:background 0.15s;}
 .ios-back-btn:hover{background:rgba(0,122,255,0.1);}
 .ios-back-btn .ios-back-label{font-size:max(0.75rem,0.62vw);font-weight:500;}
-.ios-nav-title{flex:1;display:flex;align-items:center;gap:clamp(6px, 0.31vw, 11px);min-width:0;}
+.ios-nav-title{flex:1;display:flex;align-items:center;gap:0.31vw;min-width:0;}
 .ios-nav-name{font-weight:700;font-size:max(0.88rem,0.73vw);color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .ios-nav-subtitle{font-size:max(0.72rem,0.6vw);color:#8E8E93;margin-top:1px;}
 .ios-nav-action{background:none;border:none;color:#007AFF;font-size:max(0.9rem,0.75vw);cursor:pointer;padding:3px;flex-shrink:0;}
-.ios-contact-avatar-sm{width:clamp(28px, 1.46vw, 53px);height:clamp(28px, 1.46vw, 53px);border-radius:50%;background:linear-gradient(135deg,#5856D6,#AF52DE);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:max(0.68rem,0.56vw);color:#fff;flex-shrink:0;}
+.ios-contact-avatar-sm{width:1.46vw;height:1.46vw;border-radius:50%;background:linear-gradient(135deg,#5856D6,#AF52DE);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:max(0.68rem,0.56vw);color:#fff;flex-shrink:0;}
 /* Empty State */
-.ios-empty-state{text-align:center;padding:clamp(60px, 3.13vw, 114px) clamp(18px, 0.94vw, 34px);}
-.ios-empty-icon{width:clamp(42px, 2.19vw, 80px);height:clamp(42px, 2.19vw, 80px);border-radius:50%;background:rgba(0,122,255,0.08);border:1px solid rgba(0,122,255,0.15);display:flex;align-items:center;justify-content:center;margin:0 auto clamp(9px, 0.47vw, 17px);font-size:max(1.3rem,1.08vw);color:#007AFF;}
+.ios-empty-state{text-align:center;padding:3.13vw 0.94vw;}
+.ios-empty-icon{width:2.19vw;height:2.19vw;border-radius:50%;background:rgba(0,122,255,0.08);border:1px solid rgba(0,122,255,0.15);display:flex;align-items:center;justify-content:center;margin:0 auto 0.47vw;font-size:max(1.3rem,1.08vw);color:#007AFF;}
 .ios-empty-title{color:#fff;font-size:max(0.82rem,0.68vw);font-weight:600;margin-bottom:3px;}
 .ios-empty-sub{color:#8E8E93;font-size:max(0.68rem,0.56vw);}
 /* Messages Thread */
 .ios-thread-scroll{flex:1;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;background:#000;}
 .ios-thread-scroll::-webkit-scrollbar{width:0;}
 /* Override bubble styles for iMessage look */
-.ios-thread-scroll .dlr-bubble.outbound{background:#007AFF!important;border:none!important;color:#fff!important;border-radius:clamp(18px, 0.94vw, 34px)!important;border-bottom-right-radius:clamp(4px, 0.21vw, 8px)!important;}
-.ios-thread-scroll .dlr-bubble.inbound{background:#1C1C1E!important;border:1px solid rgba(255,255,255,0.08)!important;color:#fff!important;border-radius:clamp(18px, 0.94vw, 34px)!important;border-bottom-left-radius:clamp(4px, 0.21vw, 8px)!important;}
+.ios-thread-scroll .dlr-bubble.outbound{background:#007AFF!important;border:none!important;color:#fff!important;border-radius:0.94vw!important;border-bottom-right-radius:0.21vw!important;}
+.ios-thread-scroll .dlr-bubble.inbound{background:#1C1C1E!important;border:1px solid rgba(255,255,255,0.08)!important;color:#fff!important;border-radius:0.94vw!important;border-bottom-left-radius:0.21vw!important;}
 .ios-thread-scroll .dlr-date-sep span{background:rgba(255,255,255,0.06)!important;border:none!important;color:#8E8E93!important;font-size:max(0.82rem,0.68vw)!important;}
 .ios-thread-scroll .dlr-msg-meta{color:#8E8E93!important;font-size:max(0.78rem,0.65vw)!important;}
 .ios-thread-scroll .dlr-type-badge{background:rgba(255,255,255,0.06)!important;border-color:rgba(255,255,255,0.1)!important;color:#8E8E93!important;font-size:max(0.75rem,0.63vw)!important;}
-.ios-thread-scroll .dlr-bubble{font-size:max(0.88rem,0.73vw)!important;padding:clamp(10px, 0.52vw, 19px) clamp(14px, 0.73vw, 27px)!important;}
+.ios-thread-scroll .dlr-bubble{font-size:max(0.88rem,0.73vw)!important;padding:0.52vw 0.73vw!important;}
 /* iMessage Composer */
 .ios-composer{flex-shrink:0;background:#121212;backdrop-filter:none;-webkit-backdrop-filter:none;border-top:1px solid rgba(255,255,255,0.06);}
 .ios-quick-replies{display:flex;align-items:center;gap:5px;padding:5px 8px 2px;overflow-x:auto;scrollbar-width:none;}
 .ios-quick-replies::-webkit-scrollbar{display:none;}
-.ios-ai-btn{display:flex;align-items:center;gap:5px;flex-shrink:0;background:linear-gradient(135deg,rgba(0,122,255,0.2),rgba(88,86,214,0.15));border:1px solid rgba(0,122,255,0.35);color:#007AFF;border-radius:clamp(14px, 0.73vw, 27px);padding:clamp(8px, 0.42vw, 15px) clamp(14px, 0.73vw, 27px);font-size:max(0.884rem,0.73vw);font-weight:700;cursor:pointer;white-space:nowrap;}
-.ios-qr-chip{flex-shrink:0;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.08);color:#8E8E93;border-radius:clamp(14px, 0.73vw, 27px);padding:clamp(8px, 0.42vw, 15px) clamp(13px, 0.68vw, 25px);font-size:max(0.845rem,0.7vw);cursor:pointer;white-space:nowrap;transition:all .15s;}
+.ios-ai-btn{display:flex;align-items:center;gap:5px;flex-shrink:0;background:linear-gradient(135deg,rgba(0,122,255,0.2),rgba(88,86,214,0.15));border:1px solid rgba(0,122,255,0.35);color:#007AFF;border-radius:0.73vw;padding:0.42vw 0.73vw;font-size:max(0.884rem,0.73vw);font-weight:700;cursor:pointer;white-space:nowrap;}
+.ios-qr-chip{flex-shrink:0;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.08);color:#8E8E93;border-radius:0.73vw;padding:0.42vw 0.68vw;font-size:max(0.845rem,0.7vw);cursor:pointer;white-space:nowrap;transition:all .15s;}
 .ios-qr-chip:hover{background:rgba(0,122,255,0.12);color:#007AFF;border-color:rgba(0,122,255,0.2);}
 .ios-brand-label{color:#007AFF;font-size:max(0.82rem,0.72vw);font-weight:700;white-space:nowrap;letter-spacing:0.02em;}
 .ios-quick-options-btn{display:flex;align-items:center;gap:5px;flex-shrink:0;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.10);color:#8E8E93;border-radius:14px;padding:8px 14px;font-size:max(0.82rem,0.72vw);font-weight:600;cursor:pointer;white-space:nowrap;transition:all .15s;}
@@ -554,7 +554,7 @@
 .imsg-convo-row:active{background:rgba(255,255,255,0.06);}
 .imsg-convo-row::after{content:'';position:absolute;bottom:0;left:68px;right:0;height:1px;background:rgba(255,255,255,0.06);}
 .imsg-convo-row:last-child::after{display:none;}
-.imsg-avatar{width:clamp(44px, 2.29vw, 84px);height:clamp(44px, 2.29vw, 84px);border-radius:50%;background:linear-gradient(135deg,#5856D6,#AF52DE);display:flex;align-items:center;justify-content:center;font-size:max(0.8rem,0.67vw);font-weight:700;color:#fff;flex-shrink:0;letter-spacing:-0.3px;}
+.imsg-avatar{width:2.29vw;height:2.29vw;border-radius:50%;background:linear-gradient(135deg,#5856D6,#AF52DE);display:flex;align-items:center;justify-content:center;font-size:max(0.8rem,0.67vw);font-weight:700;color:#fff;flex-shrink:0;letter-spacing:-0.3px;}
 .imsg-unread-dot{width:10px;height:10px;border-radius:50%;background:#007AFF;flex-shrink:0;}
 .imsg-convo-unread{background:rgba(0,122,255,0.04);}
 .imsg-convo-unread:hover{background:rgba(0,122,255,0.08);}
@@ -603,7 +603,7 @@
 /* ═══════════════════════════════════════════════
                        iPhone Column — Center in column
                        ═══════════════════════════════════════════════ */
-#dlrColPhone { padding: clamp(8px, 0.5vw, 18px) clamp(12px, 0.8vw, 28px); }
+#dlrColPhone { padding: 0.5vw 0.8vw; }
 /* ═══════════════════════════════════════════════
                        Light Theme — iPhone & Dialer Overrides
                        ═══════════════════════════════════════════════ */
