@@ -1,0 +1,615 @@
+/* power-dialer — dark (default) theme */
+.dlr-icon-cyan          { color: #00ff88; }
+.dialer-minutes-chip    { font-variant-numeric: tabular-nums; letter-spacing: 0.02em; }
+.dialer-minutes-chip:hover { filter: brightness(1.2); }
+.dlr-panel              { background: #0e0e0e; border: 1px solid #1a1a1a; }
+.dlr-btn-cyan-outline   { background: rgba(0,255,136,0.15); color: #00ff88; }
+.dlr-btn-tab-off        { background: transparent; color: #666666; }
+.dlr-input              { background: #111111; border: 1px solid #242424; color: #ffffff; }
+.dlr-btn-cyan           { background: #00ff88; color: #000000; }
+.dlr-panel-cyan         { background: #0a0a0a;      border: 1px solid rgba(0,255,136,0.10); }
+.dlr-panel-cyan-2       { background: #111111; border: 1px solid #1e1e1e; color: #ffffff; }
+.dlr-btn-ghost          { background: #111111; border: 1px solid #1e1e1e; color: #aaaaaa; }
+.dlr-btn-cyan-2         { background: #00ff88; color: #000000; }
+.dlr-panel-2            { background: #0e0e0e; border: 1px solid #1a1a1a; }
+.dlr-btn-cyan-3         { background: #00ff88; color: #000000; }
+.dlr-btn-mode-off       { background: transparent; color: #888888; }
+.dlr-panel-3            { background: #0a0a0a; border: 1px solid rgba(0,255,136,0.25); color: var(--accent); }
+.dlr-label-muted        { color: #888888; }
+.dlr-panel-4            { background: #111111; border: 1px solid #1e1e1e; color: #ffffff; }
+.dlr-panel-5            { background: rgba(74,222,128,0.10); border: 1px solid rgba(74,222,128,0.20); color: #00ff88; }
+.dlr-btn-ghost-2        { background: #111111; border: 1px solid #1e1e1e; color: #aaaaaa; }
+.dlr-banner-warning     { background: rgba(255,165,0,0.06);  border: 1px solid rgba(255,165,0,0.15); }
+.dlr-text-orange        { color: #ffa500; }
+.dlr-text-muted         { color: #888888; }
+.dlr-label-muted-2      { color: #888888; }
+.dlr-btn-orange         { background: var(--accent); color: #000000; }
+.dlr-banner-info        { background: rgba(0,255,136,0.06);  border: 1px solid rgba(0,255,136,0.20); }
+.dlr-misc               { background: #00ff88; }
+.dlr-label-cyan         { color: #00ff88; }
+.dlr-btn-red            { background: rgba(239,68,68,0.12); border: 1px solid rgba(239,68,68,0.25); color: #ef4444; }
+.dlr-misc-2             { border-top: 1px solid rgba(255,255,255,0.06); }
+.dlr-panel-6            { background: #0e0e0e; border: 1px solid #1a1a1a; color: #444444; }
+.dlr-panel-orange       { background: rgba(255,165,0,0.05);  border: 1px solid rgba(255,165,0,0.10);  color: #664400; }
+.dlr-panel-cyan-3       { background: rgba(0,255,136,0.05);  border: 1px solid rgba(0,255,136,0.10);  color: #004466; }
+.dlr-banner-warning-2   { background: rgba(255,165,0,0.04);  border: 1px solid rgba(255,165,0,0.12); }
+.dlr-label-subtle       { color: #aaaaaa; }
+.dlr-btn-green          { background: rgba(74,222,128,0.06);  border: 1px solid rgba(74,222,128,0.15);  color: #4ade80; }
+.dlr-btn-blue           { background: rgba(0,122,255,0.06);   border: 1px solid rgba(0,122,255,0.15);   color: #007AFF; }
+.dlr-btn-red-2          { background: rgba(239,68,68,0.06);   border: 1px solid rgba(239,68,68,0.15);   color: #ef4444; }
+.dlr-btn-ghost-3        { background: #111111; border: 1px solid #1e1e1e; color: #cccccc; }
+.dlr-btn-dismiss        { color: #555555; }
+.dlr-banner-pro         { background: rgba(255,107,53,0.04);  border: 1px solid rgba(255,107,53,0.15); }
+.dlr-banner             { background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); }
+.dlr-label-pro          { color: #ff6b35; }
+.dlr-label-subtle-2     { color: #aaaaaa; }
+.dlr-label-pro-2        { color: #ff6b35; }
+.dlr-label-faint        { color: #555555; }
+.dlr-misc-3             { border-top: 1px solid rgba(255,255,255,0.04); }
+.dlr-label-muted-3      { color: #888888; }
+.dlr-label-subtle-3     { color: #aaaaaa; }
+.dlr-panel-red          { background: rgba(239,68,68,0.15);  border: 1px solid rgba(239,68,68,0.30);  color: #ef4444; }
+.dlr-banner-2           { background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); }
+.dlr-label-muted-4      { color: #888888; }
+.dlr-panel-7            { background: #111111; border: 1px solid #1e1e1e; color: #ffffff; }
+.dlr-bg-option          { background: #111111; }
+.dlr-misc-4             { background: #4ade80; }
+.dlr-label-faint-2      { color: #555555; }
+.dlr-label-pro-3        { color: #ff6b35; }
+.dlr-btn                { background: rgba(139,92,246,0.04); border: 1px solid rgba(139,92,246,0.15); }
+.dlr-text-violet        { color: #8b5cf6; }
+.dlr-label-subtle-4     { color: #aaaaaa; }
+.dlr-label-violet       { color: #8b5cf6; }
+.dlr-label-faint-3      { color: #555555; }
+.dlr-banner-amber       { background: rgba(251,191,36,0.06); border: 1px solid rgba(251,191,36,0.20); }
+.dlr-text-yellow        { color: #fbbf24; }
+.dlr-label-text         { color: #dddddd; }
+.dlr-btn-dismiss-2      { color: #555555; }
+.dlr-banner-success     { background: rgba(74,222,128,0.04); border: 1px solid rgba(74,222,128,0.12); }
+.dlr-icon-box-green     { background: rgba(74,222,128,0.10); border: 1px solid rgba(74,222,128,0.20); }
+.dlr-label-muted-5      { color: #888888; }
+.dlr-btn-ghost-4        { background: #0a0a0a; border: 1px solid #1e1e1e; color: #cccccc; }
+.dlr-btn-danger         { background: #ef4444; color: #ffffff; }
+.dlr-banner-info-2      { background: #0a0a0a; border: 1px solid rgba(0,255,136,0.18); }
+.dlr-icon-box-cyan-2    { background: rgba(0,255,136,0.10); border: 1px solid rgba(0,255,136,0.20); }
+.dlr-icon-cyan-2        { color: #00ff88; }
+.dlr-heading-2          { color: #ffffff; }
+.dlr-label-muted-6      { color: #888888; }
+.dlr-text-cyan          { color: #00ff88; }
+.dlr-panel-cyan-4       { background: #00ff88; color: #000000; }
+.dlr-btn-dismiss-3      { color: #555555; }
+.dlr-heading-3          { color: #ffffff; }
+.dlr-btn-cyan-outline-2 { background: rgba(0,255,136,0.15); color: #00ff88; }
+.dlr-btn-tab-off-2      { background: transparent; color: #666666; }
+.dlr-btn-2              { background: #111111; border: 1px solid #1e1e1e; color: #666666; }
+.dlr-btn-ghost-5        { color: #888888; }
+.dlr-misc-5             { color: #555555; }
+.dlr-icon-cyan-3        { color: #00ff88; }
+.dlr-panel-8            { background: #0a0a0a; border: 1px solid #1a1a1a; }
+.dlr-heading-4          { color: #ffffff; }
+.dlr-misc-6             { background: rgba(0,255,136,0.04); border: 1px solid rgba(0,255,136,0.12); }
+.dlr-icon-box-cyan-3    { background: rgba(0,255,136,0.10); border: 1px solid rgba(0,255,136,0.20); }
+.dlr-label              { color: #ffffff; }
+.dlr-label-muted-7      { color: #888888; }
+.dlr-btn-cyan-4         { background: #00ff88; color: #000000; }
+.dlr-btn-ghost-6        { background: #111111; border: 1px solid #1e1e1e; color: #888888; }
+/* Get Contacts button — deep blue with white icon for max contrast in both themes */
+.dlr-btn-cyan-5         { background: var(--accent); color: #000000; }
+.dlr-btn-cyan-5 i       { color: #000000 !important; }
+.dlr-misc-7             { border-bottom: 1px solid rgba(255,255,255,0.04); }
+.dlr-label-2            { color: #444444; }
+.dlr-text-dim           { color: #555555; }
+.dlr-label-3            { border-bottom-color: rgba(255,165,0,0.35) !important; }
+.dlr-label-amber        { color: #f59e0b; }
+.dlr-panel-9            { background: #111111; }
+.dlr-label-faint-4      { color: #555555; }
+.dlr-misc-8             { border-bottom: 1px solid rgba(255,255,255,0.04); }
+.dlr-label-light        { color: #cccccc; }
+.dlr-misc-9             { accent-color: #00ff88; }
+.dlr-label-cyan-2       { color: #00ff88; }
+.dlr-btn-cyan-outline-3 { background: rgba(0,255,136,0.10); border: 1px solid rgba(0,255,136,0.20); color: #00ff88; }
+.dlr-btn-accent         { background: var(--accent); color: #000000; }
+.dlr-misc-10            { border-bottom: 1px solid rgba(255,255,255,0.06); }
+.dlr-icon-c555          { color: #555555; }
+.dlr-misc-11            { border-top: 1px solid rgba(255,255,255,0.04); }
+.dlr-label-faint-5      { color: #555555; }
+.dlr-btn-accent-2       { background: var(--accent); color: #000000; }
+.dlr-btn-ghost-7        { background: #0a0a0a; border: 1px solid #1a1a1a; color: #888888; }
+.dlr-label-muted-8      { color: #888888; }
+.dlr-text-ca78bfa       { color: var(--accent); }
+.dlr-label-faint-6      { color: #555555; }
+.dlr-icon-box-accent    { background: rgba(0,255,136,0.05); border: 1px solid rgba(0,255,136,0.12); }
+.dlr-label-4            { color: rgba(0,255,136,0.45); }
+.dlr-label-gray         { color: #777777; }
+.dlr-label-dark         { color: #505050; }
+.dlr-icon-box-neutral   { background: #0a0a0a; border: 1px solid #1a1a1a; }
+.dlr-label-5            { color: rgba(255,255,255,0.18); }
+.dlr-label-faint-7      { color: #555555; }
+/* iOS app icon gradient backgrounds — monochrome green accent scale for non-platform icons
+   Discord + Slack keep their official brand gradients per user preference */
+.dlr-bg-ios-orange,
+.dlr-bg-ios-orange-2    { background: linear-gradient(180deg, #00ff88 0%, #00cc6a 100%); }
+.dlr-bg-ios-purple,
+.dlr-bg-ios-purple-2    { background: linear-gradient(180deg, #00e07a 0%, #00b862 100%); }
+.dlr-bg-ios-red,
+.dlr-bg-ios-red-2       { background: linear-gradient(180deg, #00cc6a 0%, #00a856 100%); }
+.dlr-bg-ios-cyan,
+.dlr-bg-ios-cyan-2      { background: linear-gradient(180deg, #00e88a 0%, #00cc6a 100%); }
+.dlr-bg-ios-green       { background: linear-gradient(180deg, #00ff88 0%, #00e07a 100%); }
+/* Discord + Slack — keep official brand gradients */
+.dlr-bg-discord,
+.dlr-bg-discord-2       { background: linear-gradient(180deg, #5865f2 0%, #4752c4 100%); }
+.dlr-bg-slack,
+.dlr-bg-slack-2         { background: linear-gradient(180deg, #611f69 0%, #4a154b 100%); }
+.dlr-panel-10       { background: rgba(0,255,136,0.12); color: var(--accent); }
+.dlr-bg-bordered    { background: rgba(52,199,89,0.08); border-color: rgba(52,199,89,0.15); }
+.dlr-text-c34c759   { color: #34C759; }
+.dlr-vm-unread      { background: rgba(255,149,0,0.08); border-color: rgba(255,149,0,0.15); }
+.dlr-text-ios-orange { color: #FF9500; }
+.dlr-misc-12        { background: rgba(255,149,0,0.04); border-bottom: 1px solid rgba(255,149,0,0.10); }
+.dlr-misc-13        { background: rgba(255,149,0,0.06); border-top:    1px solid rgba(255,149,0,0.10); }
+.dlr-misc-14        { background: #000000; }
+.dlr-label-6        { color: #ffffff; }
+.dlr-label-dim      { color: #666666; }
+.dlr-input-2        { background: #0a0a0a; border: 1px solid #1a1a1a; color: #ffffff; }
+.dlr-misc-15        { background: #000000; }
+.dlr-bg-bordered-2  { background: rgba(88,86,214,0.08); border-color: rgba(88,86,214,0.15); }
+.dlr-text-purple    { color: #5856D6; }
+.dlr-misc-16        { background: #000000; }
+.dlr-misc-17        { background: #0a0a0a; border-bottom: 1px solid #1a1a1a; }
+.dlr-btn-blue-2     { color: #007AFF; }
+.dlr-icon-box-blue  { background: rgba(0,255,136,0.08); border: 1px solid rgba(0,255,136,0.25); color: var(--accent); }
+.dlr-heading-5      { color: #ffffff; }
+.dlr-label-ios      { color: #8E8E93; }
+.dlr-misc-18        { background: rgba(255,59,48,0.06); border-bottom: 1px solid rgba(255,59,48,0.10); }
+.dlr-input-3        { background: #0a0a0a; border: 1px solid #1a1a1a; color: #ffffff; }
+.dlr-btn-3          { background: #0a0a0a; border: 1px solid #1a1a1a; color: #888888; }
+.dlr-btn-ios-delete  { background: rgba(255,59,48,0.15); border: 1px solid rgba(255,59,48,0.30); color: #FF3B30; }
+.dlr-btn-ios-delete-2 { color: #FF3B30; }
+.dlr-heading-6      { color: #ffffff; }
+.dlr-label-dim-2    { color: #666666; }
+.dlr-misc-19        { border-top: 1px solid rgba(255,255,255,0.06); }
+.dlr-label-red      { color: #FF3B30; }
+.dlr-bg-bordered-3  { background: rgba(255,59,48,0.08); border-color: rgba(255,59,48,0.15); }
+.dlr-text-ios-red   { color: #FF3B30; }
+.dlr-misc-20        { background: #34C759; }
+.dlr-misc-21        { background: #4285F4; }
+.dlr-misc-22        { background: #FF3B30; }
+.dlr-misc-23        { background: rgba(0,0,0,0.92); }
+.dlr-icon-box-red   { background: rgba(255,59,48,0.12); border: 1px solid rgba(255,59,48,0.20); }
+.dlr-icon-ios-red   { color: #FF3B30; }
+.dlr-heading-7      { color: #ffffff; }
+.dlr-panel-11       { background: #111111; border: 1px solid #1e1e1e; }
+.dlr-label-muted-9  { color: #888888; }
+.dlr-label-light-2  { color: #cccccc; }
+.dlr-btn-ios-red    { background: linear-gradient(135deg, #FF3B30, #FF2D55); color: #ffffff; }
+.dlr-btn-ghost-8    { color: #888888; }
+.dlr-icon-box       { background: rgba(52,199,89,0.12); border: 1px solid rgba(52,199,89,0.20); }
+.dlr-icon-c34c759   { color: #34C759; }
+.dlr-panel-12       { background: #111111; border: 1px solid #1e1e1e; }
+.dlr-label-muted-10 { color: #888888; }
+.dlr-input-4        { background: #0a0a0a; border: 1px solid #1a1a1a; color: #ffffff; }
+.dlr-input-5        { background: #0a0a0a; border: 1px solid #1a1a1a; color: #ffffff; }
+.dlr-btn-4          { background: var(--accent); color: #000000; }
+.dlr-btn-ios-delete-3 { background: rgba(255,59,48,0.12); border: 1px solid rgba(255,59,48,0.20); color: #FF3B30; }
+.dlr-icon-box-2     { background: rgba(52,199,89,0.12); border: 1px solid rgba(52,199,89,0.25); }
+.dlr-icon-c34c759-2 { color: #34C759; }
+.dlr-heading-8      { color: #ffffff; }
+.dlr-label-muted-11 { color: #888888; }
+.dlr-btn-5          { background: rgba(52,199,89,0.15); border: 1px solid rgba(52,199,89,0.20); color: #34C759; }
+.dlr-icon-box-red-2 { background: rgba(255,59,48,0.12); border: 1px solid rgba(255,59,48,0.25); }
+.dlr-icon-ios-red-2 { color: #FF3B30; }
+.dlr-btn-ghost-9    { background: #0a0a0a; border: 1px solid #1a1a1a; color: #aaaaaa; }
+.dlr-input-6        { background: #0a0a0a; border: 1px solid #1a1a1a; color: #ffffff; }
+.dlr-panel-13       { background: #111111; border: 1px solid #1e1e1e; color: #cccccc; }
+.dlr-btn-ios-red-2  { background: linear-gradient(135deg, #FF3B30, #FF2D55); color: #ffffff; }
+/* Discord-themed */
+.dlr-misc-24        { background: #36393f; }
+.dlr-misc-25        { border-bottom: 1px solid rgba(255,255,255,0.06); }
+.dlr-misc-26        { color: #b9bbbe; }
+.dlr-icon-c72767d   { color: #72767d; }
+.dlr-heading-9      { color: #ffffff; }
+.dlr-label-7        { color: #72767d; }
+.dlr-misc-27        { background: #36393f; }
+.dlr-icon-box-3     { background: rgba(88,101,242,0.12); }
+.dlr-label-8        { color: #5865f2; }
+.dlr-heading-10     { color: #ffffff; }
+.dlr-label-9        { color: #72767d; }
+.dlr-panel-14       { background: #5865f2; color: #ffffff; }
+.dlr-panel-14 i     { color: #ffffff !important; }
+.dlr-misc-28        { border-bottom: 1px solid rgba(255,255,255,0.06); }
+.dlr-label-10       { color: #72767d; }
+.dlr-btn-6          { background: rgba(88,101,242,0.15); border: 1px solid rgba(88,101,242,0.30); color: #5865f2; }
+.dlr-misc-29        { border-top: 1px solid rgba(255,255,255,0.06); background: #40444b; }
+.dlr-input-7        { background: #0a0a0a; border: 1px solid #1a1a1a; color: #dcddde; }
+.dlr-btn-7          { background: #5865f2; }
+.dlr-icon-cfff      { color: #ffffff; }
+.dlr-label-11       { color: #72767d; }
+.dlr-bg             { background: #36393f; }
+.dlr-bg-indicator   { background: rgba(255,255,255,0.30); }
+.dlr-misc-30        { background: #1a1d21; }
+.dlr-misc-31        { color: #ababad; }
+.dlr-icon-cababad   { color: #ababad; }
+.dlr-label-ios-2    { color: #ababad; }
+.dlr-misc-32        { background: #1a1d21; }
+/* Slack-themed */
+.dlr-icon-box-slack   { background: rgba(54,197,240,0.12); }
+.dlr-label-12         { color: #36c5f0; }
+.dlr-label-ios-3      { color: #ababad; }
+.dlr-panel-15         { background: #4A154B; color: #ffffff; }
+.dlr-panel-15 i       { color: #ffffff !important; }
+.dlr-icon-box-slack-2 { background: rgba(54,197,240,0.15); color: #36c5f0; }
+.dlr-heading-11       { color: #ffffff; }
+.dlr-label-ios-4      { color: #ababad; }
+.dlr-label-ios-5      { color: #ababad; }
+.dlr-misc-33          { border-top: 1px solid rgba(255,255,255,0.06); background: #222529; }
+.dlr-input-8          { background: #0a0a0a; border: 1px solid #1a1a1a; color: #d1d2d3; }
+.dlr-btn-slack-send   { background: #007a5a; }
+.dlr-label-ios-6      { color: #ababad; }
+.dlr-bg-slack-dark    { background: #1a1d21; }
+/* Misc */
+.dlr-btn-8              { background: rgba(30,30,40,0.95); border: 1px solid rgba(255,255,255,0.10); }
+.dlr-icon-box-notif     { background: linear-gradient(180deg, #65D66A, #34C759); }
+.dlr-icon-cfff-2        { color: #ffffff; }
+.dlr-heading-12         { color: #ffffff; }
+.dlr-label-subtle-5     { color: #aaaaaa; }
+.dlr-label-dim-3        { color: #666666; }
+.dlr-label-light-3      { color: #cccccc; }
+.dlr-btn-9              { color: #666666; }
+.dlr-modal-overlay      { background: rgba(0,0,0,0.70); }
+.dlr-icon-box-neutral-2 { background: rgba(12,12,12,0.95); border: 1px solid rgba(255,255,255,0.10); }
+.dlr-misc-34            { border-bottom: 1px solid rgba(255,255,255,0.06); }
+.dlr-btn-ghost-10       { color: #888888; }
+.dlr-icon-c555-2        { color: #555555; }
+.dlr-heading            { color: #ffffff; }
+.dlr-label-pro-2        { color: #ff6b35; }
+.dlr-label-faint        { color: #555555; }
+.dlr-misc-3             { border-top: 1px solid rgba(255,255,255,0.04); }
+.dlr-label-muted-3      { color: #888888; }
+.dlr-label-subtle-3     { color: #aaaaaa; }
+/* ── Hover states ── */
+.dlr-btn-3:hover          { background: rgba(255,255,255,0.12); }
+.dlr-btn-ios-delete:hover { background: rgba(255,59,48,0.25); }
+/* ═══════════════════════════════════════════════════════════
+   DIALER COLUMN SYSTEM
+   Flat opaque dark panels, single-pixel crisp borders
+   ═══════════════════════════════════════════════════════════ */
+
+#voicedialer .glass-panel {
+    background: #111111;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    border-color: #242424;
+    border-radius: 0.625rem;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.60), 0 4px 12px rgba(0,0,0,0.40);
+}
+#voicedialer .glass-panel::after { display: none; }
+/* ══════════════════════════════════════════════
+   Contact Rows — dark carved recess style
+   ══════════════════════════════════════════════ */
+
+.dlr-contact-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5625rem 0.875rem;
+    cursor: pointer;
+    border-top: 1px solid rgba(0,0,0,0.18);
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+    border-left: 2px solid transparent;
+    position: relative;
+    background: linear-gradient(180deg, rgba(0,0,0,0.12) 0%, rgba(0,0,0,0.06) 100%);
+    box-shadow: inset 0 2px 6px rgba(0,0,0,0.24), inset 0 -1px 0 rgba(255,255,255,0.04);
+    transition: background 0.14s ease, border-left-color 0.14s ease, box-shadow 0.14s ease;
+}
+.dlr-contact-row:hover {
+    background: linear-gradient(90deg, rgba(0,255,136,0.08) 0%, rgba(255,255,255,0.03) 100%);
+    border-left-color: rgba(0,255,136,0.50);
+    box-shadow: 0 1px 4px rgba(0,0,0,0.22), inset 0 1px 3px rgba(0,0,0,0.12), inset 0 -1px 0 rgba(255,255,255,0.07);
+}
+.dlr-contact-row.active {
+    background: linear-gradient(90deg, rgba(0,255,136,0.13) 0%, rgba(0,255,136,0.04) 100%);
+    border-left-color: #00ff88;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.18), inset 0 2px 7px rgba(0,0,0,0.18), inset 0 1px 0 rgba(0,255,136,0.14), inset 0 -1px 0 rgba(0,255,136,0.07);
+}
+/* Contact row text — dark mode */
+.dlr-contact-name {
+    font-weight: 600;
+    color: #ffffff;
+    font-size: max(0.88rem,0.77vw);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.dlr-contact-phone,
+.dlr-contact-detail {
+    color: #a0a0a0;
+    font-size: max(0.78rem,0.68vw);
+}
+/* ══════════════════════════════════════════════
+   Smart Filter Group Headers
+   ══════════════════════════════════════════════ */
+
+/* Dark: semi-transparent tint on top of #111111 column bg */
+.igb-filter-hdr {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.375rem 0.875rem;
+    border-bottom: 1px solid #242424;
+    position: sticky;
+    top: 0;
+    z-index: 2;
+}
+.igb-filter-hdr[data-group="should_respond"] { background: rgba(239,68,68,0.10);  border-left: 3px solid #ef4444; }
+.igb-filter-hdr[data-group="hot"]            { background: rgba(34,197,94,0.10);  border-left: 3px solid #22c55e; }
+.igb-filter-hdr[data-group="warm"]           { background: rgba(249,115,22,0.10); border-left: 3px solid #f97316; }
+.igb-filter-hdr[data-group="cool"]           { background: rgba(59,130,246,0.10); border-left: 3px solid #3b82f6; }
+.igb-filter-hdr[data-group="cold"]           { background: rgba(156,163,175,0.10); border-left: 3px solid #9ca3af; }
+.igb-filter-hdr[data-group="dnc"]            { background: rgba(239,68,68,0.06);  border-left: 3px solid #ef4444; }
+.igb-filter-hdr[data-group="analyzing"]      { background: rgba(255,255,255,0.04); border-left: 3px solid #555555; }
+.igb-filter-label {
+    font-size: max(0.72rem,0.63vw);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.0375rem;
+}
+.igb-filter-hdr[data-group="should_respond"] .igb-filter-label { color: #ef4444; }
+.igb-filter-hdr[data-group="hot"]            .igb-filter-label { color: #22c55e; }
+.igb-filter-hdr[data-group="warm"]           .igb-filter-label { color: #f97316; }
+.igb-filter-hdr[data-group="cool"]           .igb-filter-label { color: #3b82f6; }
+.igb-filter-hdr[data-group="cold"]           .igb-filter-label { color: #9ca3af; }
+.igb-filter-hdr[data-group="dnc"]            .igb-filter-label { color: #ef4444; }
+.igb-filter-hdr[data-group="analyzing"]      .igb-filter-label { color: #888888; }
+.igb-filter-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 1.125rem;
+    height: 1.125rem;
+    padding: 0 0.3125rem;
+    border-radius: 0.5625rem;
+    font-size: max(0.65rem,0.57vw);
+    font-weight: 700;
+    background: rgba(255,255,255,0.10);
+    color: #a0a0a0;
+    margin-left: auto;
+}
+/* ══════════════════════════════════════════════
+   Dialer Top Bar
+   ══════════════════════════════════════════════ */
+
+.dlr-top-bar {
+    background: #111111;
+    border-bottom: 1px solid #242424;
+    padding: 0.625rem 0.875rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+/* ══════════════════════════════════════════════
+   Column headers
+   ══════════════════════════════════════════════ */
+
+.dlr-col-hdr {
+    background: #111111;
+    border-bottom: 1px solid #242424;
+    padding: 0.625rem 0.875rem;
+}
+.dlr-col-hdr h6 { color: #00ff88; font-size: max(0.82rem,0.72vw); font-weight: 700; }
+/* ══════════════════════════════════════════════
+   Message bubbles & composer (right column)
+   ══════════════════════════════════════════════ */
+
+.dlr-bubble.inbound  { background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.08); color: #eeeeee; }
+.dlr-bubble.outbound { background: rgba(0,255,136,0.08);   border: 1px solid rgba(0,255,136,0.14);  color: #ccffdd; }
+.dlr-msg-meta        { color: #555555; font-size: max(0.72rem,0.63vw); }
+.dlr-date-sep span   { background: #171717; border: 1px solid #242424; color: #666666; }
+/* Tab buttons */
+.dlr-tab-btn        { color: #666666; font-size: max(0.82rem,0.72vw); }
+.dlr-tab-btn.active { color: #00ff88; border-bottom: 2px solid #00ff88; }
+/* ══════════════════════════════════════════════
+   Billing Plan Cards — thick poured glass slabs
+   ══════════════════════════════════════════════ */
+
+.billing-plan-card {
+    background: linear-gradient(162deg,
+        rgba(255,255,255,0.19) 0%,
+        rgba(255,255,255,0.07) 55%,
+        rgba(255,255,255,0.02) 100%) !important;
+    border-top-color:    rgba(255,255,255,0.60) !important;
+    border-left-color:   rgba(255,255,255,0.32) !important;
+    border-right-color:  rgba(0,0,0,0.20) !important;
+    border-bottom-color: rgba(0,0,0,0.20) !important;
+    box-shadow:
+        0 2px 5px rgba(0,0,0,0.58),
+        0 22px 56px -10px rgba(0,0,0,0.58),
+        0 60px 120px -28px rgba(0,0,0,0.50),
+        inset 0 1px 0 rgba(255,255,255,0.68),
+        inset 0 -3px 10px rgba(0,0,0,0.36),
+        inset 3px 0 0 rgba(255,255,255,0.22),
+        inset -1px 0 0 rgba(0,0,0,0.25) !important;
+}
+.billing-plan-card:hover {
+    transform: translateY(-0.6875rem) scale(1.028) !important;
+    box-shadow:
+        0 4px 8px rgba(0,0,0,0.45),
+        0 32px 72px -10px rgba(0,255,136,0.22),
+        0 80px 160px -36px rgba(0,255,136,0.14),
+        inset 0 1px 0 rgba(255,255,255,0.80),
+        inset 0 -2px 8px rgba(0,0,0,0.22),
+        inset 3px 0 0 rgba(255,255,255,0.34),
+        inset -1px 0 0 rgba(0,0,0,0.12) !important;
+}
+.billing-plan-card.selected {
+    box-shadow:
+        0 4px 8px rgba(0,0,0,0.40),
+        0 0 50px rgba(0,255,136,0.18),
+        0 24px 60px -12px rgba(0,255,136,0.20),
+        inset 0 1px 0 rgba(255,255,255,0.70),
+        inset 0 -2px 8px rgba(0,0,0,0.26),
+        inset 3px 0 0 rgba(255,255,255,0.24) !important;
+    border-top-color: #00ff88 !important;
+    border-left-color: rgba(0,255,136,0.35) !important;
+}
+/* ══════════════════════════════════════════════
+   Marketing pricing cards
+   ══════════════════════════════════════════════ */
+
+.price-card, .ind-price-card {
+    box-shadow:
+        0 2px 6px rgba(0,0,0,0.62),
+        0 28px 72px -14px rgba(0,0,0,0.60),
+        0 70px 140px -32px rgba(0,0,0,0.52),
+        inset 0 1.5px 0 rgba(255,255,255,0.72),
+        inset 0 -3px 10px rgba(0,0,0,0.34),
+        inset 3px 0 0 rgba(255,255,255,0.24),
+        inset -1px 0 0 rgba(0,0,0,0.26) !important;
+    background: linear-gradient(168deg,
+        rgba(8,8,20,0.82) 0%,
+        rgba(10,10,24,0.76) 60%,
+        rgba(6,6,16,0.72) 100%) !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    border-color: rgba(255,255,255,0.60) rgba(0,0,0,0.18) rgba(0,0,0,0.18) rgba(255,255,255,0.30) !important;
+    color: #ffffff !important;
+}
+.price-card:hover, .ind-price-card:hover {
+    transform: translateY(-0.75rem) scale(1.022) !important;
+    box-shadow:
+        0 4px 10px rgba(0,0,0,0.48),
+        0 36px 90px -14px rgba(0,255,136,0.24),
+        0 90px 180px -40px rgba(0,255,136,0.16),
+        inset 0 1.5px 0 rgba(255,255,255,0.85),
+        inset 0 -2px 8px rgba(0,0,0,0.20),
+        inset 3px 0 0 rgba(255,255,255,0.36),
+        inset -1px 0 0 rgba(0,0,0,0.10) !important;
+}
+.price-card.featured, .ind-price-card.featured {
+    box-shadow:
+        0 4px 8px rgba(0,0,0,0.52),
+        0 0 60px rgba(0,255,136,0.16),
+        0 28px 72px -14px rgba(0,255,136,0.24),
+        0 70px 140px -32px rgba(0,255,136,0.14),
+        inset 0 1.5px 0 rgba(255,255,255,0.80),
+        inset 0 -3px 10px #0a0a0a,
+        inset 3px 0 0 rgba(255,255,255,0.28),
+        inset -1px 0 0 rgba(0,0,0,0.20) !important;
+}
+.pricing-card {
+    box-shadow:
+        0 2px 6px rgba(0,0,0,0.62),
+        0 28px 72px -14px rgba(0,0,0,0.58),
+        0 70px 140px -32px rgba(0,0,0,0.50),
+        inset 0 1.5px 0 rgba(255,255,255,0.68),
+        inset 0 -3px 10px rgba(0,0,0,0.34),
+        inset 3px 0 0 rgba(255,255,255,0.22),
+        inset -1px 0 0 rgba(0,0,0,0.24) !important;
+    background: linear-gradient(168deg,
+        rgba(8,8,20,0.82) 0%,
+        rgba(10,10,24,0.76) 60%,
+        rgba(6,6,16,0.72) 100%) !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    color: #ffffff !important;
+}
+/* ══════════════════════════════════════════════
+   Discord App — layout classes
+   ══════════════════════════════════════════════ */
+
+.dlr-discord-nav              { padding: 3.625rem 0 0; flex-shrink: 0; }
+.dlr-discord-nav-row          { display: flex; align-items: center; gap: 0.625rem; padding: 0 1rem 0.625rem; }
+.dlr-discord-back-btn         { margin: 0; }
+.dlr-discord-hashtag          { font-size: max(0.85rem,0.74vw); }
+.dlr-discord-channel-name     { font-weight: 700; font-size: max(0.95rem,0.83vw); flex: 1; }
+.dlr-discord-server-name      { font-size: max(0.75rem,0.66vw); }
+.dlr-discord-content          { flex: 1; overflow-y: auto; display: flex; flex-direction: column; }
+.dlr-discord-not-connected    { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 1.5rem; text-align: center; }
+.dlr-discord-icon-circle      { width: 4rem; height: 4rem; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-bottom: 1rem; }
+.dlr-discord-icon-lg          { font-size: max(1.6rem,1.40vw); }
+.dlr-discord-connect-title    { font-weight: 700; font-size: max(0.95rem,0.83vw); margin-bottom: 0.375rem; }
+.dlr-discord-connect-desc     { font-size: max(0.78rem,0.68vw); margin-bottom: 1rem; line-height: 1.4; }
+.dlr-discord-connect-btn      { padding: 0.625rem 1.5rem; border-radius: 0.5rem; font-weight: 700; font-size: max(0.82rem,0.72vw); text-decoration: none; display: inline-block; }
+.dlr-discord-connected        { flex: 1; flex-direction: column; overflow-y: auto; }
+.dlr-discord-server-picker    { padding: 0.75rem 1rem; }
+.dlr-discord-server-hdr       { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.5rem; }
+.dlr-discord-server-label     { font-size: max(0.75rem,0.66vw); text-transform: uppercase; letter-spacing: 0.03125rem; font-weight: 700; }
+.dlr-discord-add-btn          { border-radius: 0.375rem; padding: 0.1875rem 0.5rem; font-size: max(0.7rem,0.61vw); cursor: pointer; font-weight: 600; }
+.dlr-discord-server-list      { display: flex; flex-direction: column; gap: 0.25rem; }
+.dlr-discord-channels         { padding: 0.5rem 1rem; flex: 1; overflow-y: auto; }
+.dlr-discord-chat             { flex: 1; flex-direction: column; overflow: hidden; }
+.dlr-discord-messages         { flex: 1; overflow-y: auto; padding: 0.75rem 1rem; display: flex; flex-direction: column; gap: 0.125rem; }
+.dlr-discord-composer         { padding: 0.5rem 0.75rem; }
+.dlr-discord-composer-row     { display: flex; gap: 0.5rem; align-items: flex-end; }
+.dlr-discord-textarea         { flex: 1; border: none; border-radius: 0.5rem; padding: 0.5rem 0.75rem; font-size: max(0.8rem,0.70vw); resize: none; outline: none; font-family: inherit; max-height: 5rem; }
+.dlr-discord-send-btn         { border: none; border-radius: 0.5rem; width: 2.125rem; height: 2.125rem; display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0; }
+.dlr-discord-send-icon        { font-size: max(0.75rem,0.66vw); }
+.dlr-discord-hint             { font-size: max(0.65rem,0.57vw); margin-top: 0.25rem; }
+/* ══════════════════════════════════════════════
+   Slack App — layout classes
+   ══════════════════════════════════════════════ */
+
+.dlr-slack-nav                { padding: 3.625rem 0 0; flex-shrink: 0; }
+.dlr-slack-nav-row            { display: flex; align-items: center; gap: 0.625rem; padding: 0 1rem 0.625rem; }
+.dlr-slack-back-btn           { margin: 0; }
+.dlr-slack-hashtag            { font-size: max(0.85rem,0.74vw); }
+.dlr-slack-channel-name       { font-weight: 700; font-size: max(0.95rem,0.83vw); flex: 1; }
+.dlr-slack-workspace-name     { font-size: max(0.75rem,0.66vw); }
+.dlr-slack-content            { flex: 1; overflow-y: auto; display: flex; flex-direction: column; }
+.dlr-slack-not-connected      { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 1.5rem; text-align: center; }
+.dlr-slack-icon-circle        { width: 4rem; height: 4rem; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-bottom: 1rem; }
+.dlr-slack-icon-lg            { font-size: max(1.6rem,1.40vw); }
+.dlr-slack-connect-title      { font-weight: 700; font-size: max(0.95rem,0.83vw); margin-bottom: 0.375rem; }
+.dlr-slack-connect-desc       { font-size: max(0.78rem,0.68vw); margin-bottom: 1rem; line-height: 1.4; }
+.dlr-slack-connect-btn        { padding: 0.625rem 1.5rem; border-radius: 0.5rem; font-weight: 700; font-size: max(0.82rem,0.72vw); text-decoration: none; display: inline-block; }
+.dlr-slack-connected          { flex: 1; flex-direction: column; overflow-y: auto; }
+.dlr-slack-ws-header          { padding: 0.75rem 1rem; }
+.dlr-slack-ws-row             { display: flex; align-items: center; gap: 0.5rem; }
+.dlr-slack-ws-icon            { width: 1.75rem; height: 1.75rem; border-radius: 0.375rem; display: flex; align-items: center; justify-content: center; font-size: max(0.75rem,0.66vw); font-weight: 800; flex-shrink: 0; }
+.dlr-slack-ws-info            { flex: 1; }
+.dlr-slack-team-name          { font-weight: 700; font-size: max(0.85rem,0.74vw); }
+.dlr-slack-user-name          { font-size: max(0.72rem,0.63vw); }
+.dlr-slack-channels           { padding: 0.5rem 1rem; flex: 1; overflow-y: auto; }
+.dlr-slack-channels-label     { font-size: max(0.72rem,0.63vw); text-transform: uppercase; letter-spacing: 0.03125rem; font-weight: 700; padding: 0.5rem 0 0.25rem; }
+.dlr-slack-channel-list       { display: flex; flex-direction: column; gap: 0.125rem; }
+.dlr-slack-chat               { flex: 1; flex-direction: column; overflow: hidden; }
+.dlr-slack-messages           { flex: 1; overflow-y: auto; padding: 0.75rem 1rem; display: flex; flex-direction: column; gap: 0.125rem; }
+.dlr-slack-composer           { padding: 0.5rem 0.75rem; }
+.dlr-slack-composer-row       { display: flex; gap: 0.5rem; align-items: flex-end; }
+.dlr-slack-textarea           { flex: 1; border: none; border-radius: 0.5rem; padding: 0.5rem 0.75rem; font-size: max(0.8rem,0.70vw); resize: none; outline: none; font-family: inherit; max-height: 5rem; }
+.dlr-slack-send-btn           { border: none; border-radius: 0.5rem; width: 2.125rem; height: 2.125rem; display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0; }
+.dlr-slack-send-icon          { font-size: max(0.75rem,0.66vw); }
+.dlr-slack-hint               { font-size: max(0.65rem,0.57vw); margin-top: 0.25rem; }
+/* ══════════════════════════════════════════════
+   Export / Transcript / Contact Mgmt — layout classes
+   ══════════════════════════════════════════════ */
+
+.dlr-export-transcript-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 10000; align-items: center; justify-content: center; }
+.dlr-export-transcript-card   { border-radius: 1rem; max-width: 37.5rem; width: 90%; max-height: 80vh; overflow: hidden; display: flex; flex-direction: column; }
+.dlr-export-transcript-hdr    { padding: 1rem 1.25rem; display: flex; align-items: center; justify-content: space-between; }
+.dlr-export-transcript-title  { margin: 0; font-weight: 700; }
+.dlr-export-transcript-close  { background: none; border: none; cursor: pointer; font-size: max(1.2rem,1.05vw); }
+.dlr-export-transcript-body   { padding: 1rem 1.25rem; overflow-y: auto; flex: 1; }
+.dlr-export-field-group       { margin-bottom: 0.875rem; }
+.dlr-export-loading-text      { font-size: max(0.75rem,0.66vw); }
+.dlr-export-date-row          { display: flex; gap: 0.625rem; margin-bottom: 0.875rem; }
+.dlr-export-date-col          { flex: 1; }
+.dlr-export-cm-close          { border-radius: 0.375rem; padding: 0.25rem 0.5rem; font-size: max(0.9rem,0.79vw); cursor: pointer; }
+.dlr-export-cm-body           { padding: 1rem; display: flex; flex-direction: column; gap: 0.625rem; }
+.dlr-export-cm-action         { width: 100%; text-align: left; border-radius: 0.5rem; padding: 0.625rem 0.875rem; font-size: max(0.88rem,0.77vw); font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 0.625rem; }
+.dlr-export-cm-icon           { width: 1rem; }
+/* ══════════════════════════════════════════════
+   Notification Banner — layout classes
+   ══════════════════════════════════════════════ */
+
+.dlr-notif-banner             { position: absolute; top: 3rem; left: 0.5rem; right: 0.5rem; z-index: 100; border-radius: 0.875rem; padding: 0.75rem 1rem; cursor: pointer; transition: all 0.3s ease; opacity: 0; transform: translateY(-1.25rem); }
+.dlr-notif-row                { display: flex; align-items: center; gap: 0.625rem; }
+.dlr-notif-icon               { width: 2rem; height: 2rem; border-radius: 0.5rem; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.dlr-notif-icon-inner         { font-size: max(0.8rem,0.70vw); }
+.dlr-notif-body               { flex: 1; min-width: 0; }
+.dlr-notif-title              { font-size: max(0.75rem,0.66vw); font-weight: 700; }
+.dlr-notif-text               { font-size: max(0.75rem,0.66vw); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dlr-notif-time               { font-size: max(0.7rem,0.61vw); flex-shrink: 0; }
+.dlr-notif-apps-hdr           { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.625rem; padding: 0 0.25rem; }
+.dlr-notif-apps-title         { font-size: max(0.82rem,0.72vw); font-weight: 700; }
+.dlr-notif-apps-close         { background: none; border: none; cursor: pointer; font-size: max(1rem,0.88vw); }

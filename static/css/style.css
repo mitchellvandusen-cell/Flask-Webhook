@@ -28,9 +28,8 @@
 @import url('dashboard/forms.css');
 @import url('dashboard/panels.css');
 
-/* ── Dashboard: Dialer Columns ── */
-@import url('dashboard/middle-column.css');
-@import url('dashboard/power-dialer.css');
+/* ── Dashboard: Dialer (dark + light + media — organized in dashboard/dialer/) ── */
+@import url('dashboard/dialer/dialer.css');
 
 /* ── Dashboard: Phone UI ── */
 @import url('dashboard/phone/phone-ui.css');

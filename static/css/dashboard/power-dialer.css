@@ -586,7 +586,7 @@
 .dlr-contact-name {
     font-weight: 600;
     color: #ffffff;
-    font-size: 0.88rem;
+    font-size: max(0.88rem,0.77vw);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -595,7 +595,7 @@
 .dlr-contact-phone,
 .dlr-contact-detail {
     color: #a0a0a0;
-    font-size: 0.78rem;
+    font-size: max(0.78rem,0.68vw);
 }
 
 /* Contact rows — light mode */
@@ -645,7 +645,7 @@
 .igb-filter-hdr[data-group="analyzing"]      { background: rgba(255,255,255,0.04); border-left: 3px solid #555555; }
 
 .igb-filter-label {
-    font-size: 0.72rem;
+    font-size: max(0.72rem,0.63vw);
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.0375rem;
@@ -667,7 +667,7 @@
     height: 1.125rem;
     padding: 0 0.3125rem;
     border-radius: 0.5625rem;
-    font-size: 0.65rem;
+    font-size: max(0.65rem,0.57vw);
     font-weight: 700;
     background: rgba(255,255,255,0.10);
     color: #a0a0a0;
@@ -715,7 +715,7 @@
     padding: 0.625rem 0.875rem;
 }
 
-.dlr-col-hdr h6 { color: #00ff88; font-size: 0.82rem; font-weight: 700; }
+.dlr-col-hdr h6 { color: #00ff88; font-size: max(0.82rem,0.72vw); font-weight: 700; }
 
 [data-theme="light"] .dlr-col      { background: #ffffff !important; border-color: #e0e0e0 !important; }
 [data-theme="light"] .dlr-col-hdr  { background: #f8f8f8 !important; border-bottom-color: #e0e0e0 !important; }
@@ -728,7 +728,7 @@
 
 .dlr-bubble.inbound  { background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.08); color: #eeeeee; }
 .dlr-bubble.outbound { background: rgba(0,255,136,0.08);   border: 1px solid rgba(0,255,136,0.14);  color: #ccffdd; }
-.dlr-msg-meta        { color: #555555; font-size: 0.72rem; }
+.dlr-msg-meta        { color: #555555; font-size: max(0.72rem,0.63vw); }
 .dlr-date-sep span   { background: #171717; border: 1px solid #242424; color: #666666; }
 
 [data-theme="light"] .dlr-bubble.inbound  { background: #f0f2f5 !important;              border-color: #e2e5ea !important;          color: #111111 !important; }
@@ -737,7 +737,7 @@
 [data-theme="light"] .dlr-date-sep span   { background: #edf0f4 !important; border-color: #dde1e7 !important; color: #888888 !important; }
 
 /* Tab buttons */
-.dlr-tab-btn        { color: #666666; font-size: 0.82rem; }
+.dlr-tab-btn        { color: #666666; font-size: max(0.82rem,0.72vw); }
 .dlr-tab-btn.active { color: #00ff88; border-bottom: 2px solid #00ff88; }
 
 [data-theme="light"] .dlr-tab-btn        { color: #888888 !important; }
@@ -939,31 +939,31 @@
 .dlr-discord-nav              { padding: 3.625rem 0 0; flex-shrink: 0; }
 .dlr-discord-nav-row          { display: flex; align-items: center; gap: 0.625rem; padding: 0 1rem 0.625rem; }
 .dlr-discord-back-btn         { margin: 0; }
-.dlr-discord-hashtag          { font-size: 0.85rem; }
-.dlr-discord-channel-name     { font-weight: 700; font-size: 0.95rem; flex: 1; }
-.dlr-discord-server-name      { font-size: 0.75rem; }
+.dlr-discord-hashtag          { font-size: max(0.85rem,0.74vw); }
+.dlr-discord-channel-name     { font-weight: 700; font-size: max(0.95rem,0.83vw); flex: 1; }
+.dlr-discord-server-name      { font-size: max(0.75rem,0.66vw); }
 .dlr-discord-content          { flex: 1; overflow-y: auto; display: flex; flex-direction: column; }
 .dlr-discord-not-connected    { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 1.5rem; text-align: center; }
 .dlr-discord-icon-circle      { width: 4rem; height: 4rem; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-bottom: 1rem; }
-.dlr-discord-icon-lg          { font-size: 1.6rem; }
-.dlr-discord-connect-title    { font-weight: 700; font-size: 0.95rem; margin-bottom: 0.375rem; }
-.dlr-discord-connect-desc     { font-size: 0.78rem; margin-bottom: 1rem; line-height: 1.4; }
-.dlr-discord-connect-btn      { padding: 0.625rem 1.5rem; border-radius: 0.5rem; font-weight: 700; font-size: 0.82rem; text-decoration: none; display: inline-block; }
+.dlr-discord-icon-lg          { font-size: max(1.6rem,1.40vw); }
+.dlr-discord-connect-title    { font-weight: 700; font-size: max(0.95rem,0.83vw); margin-bottom: 0.375rem; }
+.dlr-discord-connect-desc     { font-size: max(0.78rem,0.68vw); margin-bottom: 1rem; line-height: 1.4; }
+.dlr-discord-connect-btn      { padding: 0.625rem 1.5rem; border-radius: 0.5rem; font-weight: 700; font-size: max(0.82rem,0.72vw); text-decoration: none; display: inline-block; }
 .dlr-discord-connected        { flex: 1; flex-direction: column; overflow-y: auto; }
 .dlr-discord-server-picker    { padding: 0.75rem 1rem; }
 .dlr-discord-server-hdr       { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.5rem; }
-.dlr-discord-server-label     { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.03125rem; font-weight: 700; }
-.dlr-discord-add-btn          { border-radius: 0.375rem; padding: 0.1875rem 0.5rem; font-size: 0.7rem; cursor: pointer; font-weight: 600; }
+.dlr-discord-server-label     { font-size: max(0.75rem,0.66vw); text-transform: uppercase; letter-spacing: 0.03125rem; font-weight: 700; }
+.dlr-discord-add-btn          { border-radius: 0.375rem; padding: 0.1875rem 0.5rem; font-size: max(0.7rem,0.61vw); cursor: pointer; font-weight: 600; }
 .dlr-discord-server-list      { display: flex; flex-direction: column; gap: 0.25rem; }
 .dlr-discord-channels         { padding: 0.5rem 1rem; flex: 1; overflow-y: auto; }
 .dlr-discord-chat             { flex: 1; flex-direction: column; overflow: hidden; }
 .dlr-discord-messages         { flex: 1; overflow-y: auto; padding: 0.75rem 1rem; display: flex; flex-direction: column; gap: 0.125rem; }
 .dlr-discord-composer         { padding: 0.5rem 0.75rem; }
 .dlr-discord-composer-row     { display: flex; gap: 0.5rem; align-items: flex-end; }
-.dlr-discord-textarea         { flex: 1; border: none; border-radius: 0.5rem; padding: 0.5rem 0.75rem; font-size: 0.8rem; resize: none; outline: none; font-family: inherit; max-height: 5rem; }
+.dlr-discord-textarea         { flex: 1; border: none; border-radius: 0.5rem; padding: 0.5rem 0.75rem; font-size: max(0.8rem,0.70vw); resize: none; outline: none; font-family: inherit; max-height: 5rem; }
 .dlr-discord-send-btn         { border: none; border-radius: 0.5rem; width: 2.125rem; height: 2.125rem; display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0; }
-.dlr-discord-send-icon        { font-size: 0.75rem; }
-.dlr-discord-hint             { font-size: 0.65rem; margin-top: 0.25rem; }
+.dlr-discord-send-icon        { font-size: max(0.75rem,0.66vw); }
+.dlr-discord-hint             { font-size: max(0.65rem,0.57vw); margin-top: 0.25rem; }
 
 
 /* ══════════════════════════════════════════════
@@ -973,34 +973,34 @@
 .dlr-slack-nav                { padding: 3.625rem 0 0; flex-shrink: 0; }
 .dlr-slack-nav-row            { display: flex; align-items: center; gap: 0.625rem; padding: 0 1rem 0.625rem; }
 .dlr-slack-back-btn           { margin: 0; }
-.dlr-slack-hashtag            { font-size: 0.85rem; }
-.dlr-slack-channel-name       { font-weight: 700; font-size: 0.95rem; flex: 1; }
-.dlr-slack-workspace-name     { font-size: 0.75rem; }
+.dlr-slack-hashtag            { font-size: max(0.85rem,0.74vw); }
+.dlr-slack-channel-name       { font-weight: 700; font-size: max(0.95rem,0.83vw); flex: 1; }
+.dlr-slack-workspace-name     { font-size: max(0.75rem,0.66vw); }
 .dlr-slack-content            { flex: 1; overflow-y: auto; display: flex; flex-direction: column; }
 .dlr-slack-not-connected      { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 1.5rem; text-align: center; }
 .dlr-slack-icon-circle        { width: 4rem; height: 4rem; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-bottom: 1rem; }
-.dlr-slack-icon-lg            { font-size: 1.6rem; }
-.dlr-slack-connect-title      { font-weight: 700; font-size: 0.95rem; margin-bottom: 0.375rem; }
-.dlr-slack-connect-desc       { font-size: 0.78rem; margin-bottom: 1rem; line-height: 1.4; }
-.dlr-slack-connect-btn        { padding: 0.625rem 1.5rem; border-radius: 0.5rem; font-weight: 700; font-size: 0.82rem; text-decoration: none; display: inline-block; }
+.dlr-slack-icon-lg            { font-size: max(1.6rem,1.40vw); }
+.dlr-slack-connect-title      { font-weight: 700; font-size: max(0.95rem,0.83vw); margin-bottom: 0.375rem; }
+.dlr-slack-connect-desc       { font-size: max(0.78rem,0.68vw); margin-bottom: 1rem; line-height: 1.4; }
+.dlr-slack-connect-btn        { padding: 0.625rem 1.5rem; border-radius: 0.5rem; font-weight: 700; font-size: max(0.82rem,0.72vw); text-decoration: none; display: inline-block; }
 .dlr-slack-connected          { flex: 1; flex-direction: column; overflow-y: auto; }
 .dlr-slack-ws-header          { padding: 0.75rem 1rem; }
 .dlr-slack-ws-row             { display: flex; align-items: center; gap: 0.5rem; }
-.dlr-slack-ws-icon            { width: 1.75rem; height: 1.75rem; border-radius: 0.375rem; display: flex; align-items: center; justify-content: center; font-size: 0.75rem; font-weight: 800; flex-shrink: 0; }
+.dlr-slack-ws-icon            { width: 1.75rem; height: 1.75rem; border-radius: 0.375rem; display: flex; align-items: center; justify-content: center; font-size: max(0.75rem,0.66vw); font-weight: 800; flex-shrink: 0; }
 .dlr-slack-ws-info            { flex: 1; }
-.dlr-slack-team-name          { font-weight: 700; font-size: 0.85rem; }
-.dlr-slack-user-name          { font-size: 0.72rem; }
+.dlr-slack-team-name          { font-weight: 700; font-size: max(0.85rem,0.74vw); }
+.dlr-slack-user-name          { font-size: max(0.72rem,0.63vw); }
 .dlr-slack-channels           { padding: 0.5rem 1rem; flex: 1; overflow-y: auto; }
-.dlr-slack-channels-label     { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.03125rem; font-weight: 700; padding: 0.5rem 0 0.25rem; }
+.dlr-slack-channels-label     { font-size: max(0.72rem,0.63vw); text-transform: uppercase; letter-spacing: 0.03125rem; font-weight: 700; padding: 0.5rem 0 0.25rem; }
 .dlr-slack-channel-list       { display: flex; flex-direction: column; gap: 0.125rem; }
 .dlr-slack-chat               { flex: 1; flex-direction: column; overflow: hidden; }
 .dlr-slack-messages           { flex: 1; overflow-y: auto; padding: 0.75rem 1rem; display: flex; flex-direction: column; gap: 0.125rem; }
 .dlr-slack-composer           { padding: 0.5rem 0.75rem; }
 .dlr-slack-composer-row       { display: flex; gap: 0.5rem; align-items: flex-end; }
-.dlr-slack-textarea           { flex: 1; border: none; border-radius: 0.5rem; padding: 0.5rem 0.75rem; font-size: 0.8rem; resize: none; outline: none; font-family: inherit; max-height: 5rem; }
+.dlr-slack-textarea           { flex: 1; border: none; border-radius: 0.5rem; padding: 0.5rem 0.75rem; font-size: max(0.8rem,0.70vw); resize: none; outline: none; font-family: inherit; max-height: 5rem; }
 .dlr-slack-send-btn           { border: none; border-radius: 0.5rem; width: 2.125rem; height: 2.125rem; display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0; }
-.dlr-slack-send-icon          { font-size: 0.75rem; }
-.dlr-slack-hint               { font-size: 0.65rem; margin-top: 0.25rem; }
+.dlr-slack-send-icon          { font-size: max(0.75rem,0.66vw); }
+.dlr-slack-hint               { font-size: max(0.65rem,0.57vw); margin-top: 0.25rem; }
 
 
 /* ══════════════════════════════════════════════
@@ -1011,15 +1011,15 @@
 .dlr-export-transcript-card   { border-radius: 1rem; max-width: 37.5rem; width: 90%; max-height: 80vh; overflow: hidden; display: flex; flex-direction: column; }
 .dlr-export-transcript-hdr    { padding: 1rem 1.25rem; display: flex; align-items: center; justify-content: space-between; }
 .dlr-export-transcript-title  { margin: 0; font-weight: 700; }
-.dlr-export-transcript-close  { background: none; border: none; cursor: pointer; font-size: 1.2rem; }
+.dlr-export-transcript-close  { background: none; border: none; cursor: pointer; font-size: max(1.2rem,1.05vw); }
 .dlr-export-transcript-body   { padding: 1rem 1.25rem; overflow-y: auto; flex: 1; }
 .dlr-export-field-group       { margin-bottom: 0.875rem; }
-.dlr-export-loading-text      { font-size: 0.75rem; }
+.dlr-export-loading-text      { font-size: max(0.75rem,0.66vw); }
 .dlr-export-date-row          { display: flex; gap: 0.625rem; margin-bottom: 0.875rem; }
 .dlr-export-date-col          { flex: 1; }
-.dlr-export-cm-close          { border-radius: 0.375rem; padding: 0.25rem 0.5rem; font-size: 0.9rem; cursor: pointer; }
+.dlr-export-cm-close          { border-radius: 0.375rem; padding: 0.25rem 0.5rem; font-size: max(0.9rem,0.79vw); cursor: pointer; }
 .dlr-export-cm-body           { padding: 1rem; display: flex; flex-direction: column; gap: 0.625rem; }
-.dlr-export-cm-action         { width: 100%; text-align: left; border-radius: 0.5rem; padding: 0.625rem 0.875rem; font-size: 0.88rem; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 0.625rem; }
+.dlr-export-cm-action         { width: 100%; text-align: left; border-radius: 0.5rem; padding: 0.625rem 0.875rem; font-size: max(0.88rem,0.77vw); font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 0.625rem; }
 .dlr-export-cm-icon           { width: 1rem; }
 
 
@@ -1030,11 +1030,11 @@
 .dlr-notif-banner             { position: absolute; top: 3rem; left: 0.5rem; right: 0.5rem; z-index: 100; border-radius: 0.875rem; padding: 0.75rem 1rem; cursor: pointer; transition: all 0.3s ease; opacity: 0; transform: translateY(-1.25rem); }
 .dlr-notif-row                { display: flex; align-items: center; gap: 0.625rem; }
 .dlr-notif-icon               { width: 2rem; height: 2rem; border-radius: 0.5rem; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
-.dlr-notif-icon-inner         { font-size: 0.8rem; }
+.dlr-notif-icon-inner         { font-size: max(0.8rem,0.70vw); }
 .dlr-notif-body               { flex: 1; min-width: 0; }
-.dlr-notif-title              { font-size: 0.75rem; font-weight: 700; }
-.dlr-notif-text               { font-size: 0.75rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.dlr-notif-time               { font-size: 0.7rem; flex-shrink: 0; }
+.dlr-notif-title              { font-size: max(0.75rem,0.66vw); font-weight: 700; }
+.dlr-notif-text               { font-size: max(0.75rem,0.66vw); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dlr-notif-time               { font-size: max(0.7rem,0.61vw); flex-shrink: 0; }
 .dlr-notif-apps-hdr           { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.625rem; padding: 0 0.25rem; }
-.dlr-notif-apps-title         { font-size: 0.82rem; font-weight: 700; }
-.dlr-notif-apps-close         { background: none; border: none; cursor: pointer; font-size: 1rem; }
+.dlr-notif-apps-title         { font-size: max(0.82rem,0.72vw); font-weight: 700; }
+.dlr-notif-apps-close         { background: none; border: none; cursor: pointer; font-size: max(1rem,0.88vw); }

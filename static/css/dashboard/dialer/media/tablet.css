@@ -1,0 +1,7 @@
+/* intel column — tablet/small responsive */
+@media (max-width: 991px) { .ios-section-dots { display: none; } }
+@media (max-width: 991px) { .ios-feat-grid, .ios-feat-grid.reverse { grid-template-columns: 1fr; direction: ltr; } }
+@media (max-width: 991px) { .ios-cap-grid { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 991px) { .ios-card-grid { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 575px)  { .ios-cap-grid { grid-template-columns: 1fr; } }
+@media (max-width: 575px)  { .ios-card-grid { grid-template-columns: 1fr; } }

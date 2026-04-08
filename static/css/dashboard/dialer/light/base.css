@@ -1,0 +1,245 @@
+/* dialer base — light theme overrides */
+body.light-theme .ios-stats-period-badge{color:#059669;background:rgba(5,150,105,0.08);border-left-color:rgba(5,150,105,0.35);}
+body.light-theme .iphone-frame .ios-rec-filter-btn.active { color: #059669 !important; }
+body.light-theme .iphone-frame .ios-rec-filter-panel { background: #f4f6f9; border-bottom-color: rgba(0,0,0,0.07); }
+body.light-theme .iphone-frame .ios-rec-filter-label { color: #9ca3af; }
+body.light-theme .iphone-frame .ios-rec-filter-select { background: #fff; border-color: rgba(0,0,0,0.1); color: #1f2937; }
+body.light-theme .iphone-frame .ios-rec-filter-select:focus { border-color: rgba(5,150,105,0.4); }
+body.light-theme .iphone-frame .dlr-rec-action-play { background: rgba(5,150,105,0.1); color: #059669; border-color: rgba(5,150,105,0.25); }
+body.light-theme .iphone-frame .dlr-rec-action-download { background: rgba(37,99,235,0.1); color: #2563eb; border-color: rgba(37,99,235,0.25); }
+body.light-theme .iphone-frame .dlr-rec-action-transcript { background: rgba(124,58,237,0.1); color: #7c3aed; border-color: rgba(124,58,237,0.25); }
+body.light-theme .iphone-frame .dlr-rec-action-transcribe { background: rgba(234,88,12,0.1); color: #ea580c; border-color: rgba(234,88,12,0.25); }
+body.light-theme .dialer-from-number-icon{color:#999;}
+body.light-theme .dialer-from-number-label{color:#999;}
+body.light-theme .dfn-trigger{background:rgba(255,255,255,0.7);border-color:rgba(0,0,0,0.10) rgba(0,0,0,0.06) rgba(0,0,0,0.06) rgba(0,0,0,0.08);}
+body.light-theme .dfn-trigger:hover{background:rgba(255,255,255,0.85);}
+body.light-theme .dfn-trigger-text{color:#555;}
+body.light-theme .dfn-trigger-arrow{color:#999;}
+body.light-theme .dfn-menu{background:rgba(255,255,255,0.92);border-color:rgba(0,0,0,0.10) rgba(0,0,0,0.04) rgba(0,0,0,0.04) rgba(0,0,0,0.07);box-shadow:0 12px 32px rgba(0,0,0,0.12),inset 0 1px 0 rgba(255,255,255,0.95);}
+body.light-theme .dfn-item{color:#777;}
+body.light-theme .dfn-item:hover{background:rgba(0,0,0,0.04);color:#333;}
+body.light-theme .dfn-item.active{color:#333;}
+body.light-theme .dfn-item.active .dfn-dot{background:var(--lt-accent);}
+body.light-theme .dfn-item-sub{color:#aaa;}
+body.light-theme .ios-dm-btn.ios-dm-active{background:#059669;color:#fff;border-color:#059669;box-shadow:0 0 12px rgba(5,150,105,0.3);}
+body.light-theme .dlr-col-hide-btn{color:#aaa;}
+body.light-theme .dlr-col-hide-btn:hover{color:var(--lt-accent,#059669);}
+body.light-theme .iphone-screen { background: #f2f2f7; }
+body.light-theme .ios-wallpaper {
+                        background:
+                            radial-gradient(ellipse at 30% 20%, rgba(88,86,214,0.15) 0%, transparent 50%),
+                            radial-gradient(ellipse at 70% 60%, rgba(52,199,89,0.12) 0%, transparent 50%),
+                            radial-gradient(ellipse at 50% 90%, rgba(0,122,255,0.15) 0%, transparent 50%),
+                            radial-gradient(ellipse at 80% 20%, rgba(255,55,95,0.1) 0%, transparent 40%),
+                            radial-gradient(ellipse at 20% 70%, rgba(175,82,222,0.1) 0%, transparent 45%),
+                            linear-gradient(160deg, #e8eaf0 0%, #dfe3ec 50%, #d5dbe8 100%) !important;
+                    }
+body.light-theme .ios-app-label { color: #1a1a2e !important; text-shadow: none !important; }
+body.light-theme .ios-status-bar { color: #1a1a2e !important; }
+body.light-theme .ios-time { color: #fff !important; }
+body.light-theme .ios-status-icons,
+                    body.light-theme .ios-status-icons i { color: #ffffff !important; }
+body.light-theme .ios-dynamic-island { background: #1a1a2e !important; }
+body.light-theme .ios-dm-label { color: #1a1a2e !important; }
+body.light-theme .ios-dm-btn { color: rgba(0,0,0,0.4) !important; }
+body.light-theme .ios-dm-tabs { background: rgba(0,0,0,0.08) !important; border-color: rgba(0,0,0,0.1) !important; }
+body.light-theme .ios-dm-btn.ios-dm-active { background: #059669 !important; color: #fff !important; border-color: #059669 !important; }
+body.light-theme .ios-home-indicator { background: rgba(0,0,0,0.2) !important; }
+body.light-theme .ios-nav-bar { background: #ffffff !important; border-bottom-color: rgba(0,0,0,0.08) !important; }
+body.light-theme .ios-nav-name { color: #1a1a2e !important; }
+body.light-theme .ios-composer { background: #ffffff !important; border-top-color: rgba(0,0,0,0.08) !important; }
+body.light-theme .ios-app-view { background: #f2f2f7 !important; }
+body.light-theme .ios-thread-scroll { background: #fff !important; }
+body.light-theme .ios-thread-scroll .dlr-bubble.inbound { background: #e9e9eb !important; border: none !important; color: #1a1a2e !important; }
+body.light-theme .ios-thread-scroll .dlr-bubble.outbound { background: #007AFF !important; color: #fff !important; }
+body.light-theme .ios-thread-scroll .dlr-date-sep span { background: rgba(0,0,0,0.04) !important; color: #8e8e93 !important; }
+body.light-theme .ios-empty-state { color: #1a1a2e !important; }
+body.light-theme .ios-empty-title { color: #1a1a2e !important; }
+body.light-theme .ios-empty-sub { color: #8e8e93 !important; }
+body.light-theme .ios-empty-icon { background: rgba(0,122,255,0.08) !important; border-color: rgba(0,122,255,0.15) !important; }
+body.light-theme .ios-qr-chip { background: rgba(0,0,0,0.04) !important; border-color: rgba(0,0,0,0.08) !important; color: #4a5568 !important; }
+body.light-theme .ios-qr-chip:hover { background: rgba(0,122,255,0.08) !important; color: #007AFF !important; }
+body.light-theme .ios-quick-options-menu { background: #ffffff !important; border-color: rgba(0,0,0,0.1) !important; }
+body.light-theme .ios-quick-options-menu button { color: #1a1a2e !important; }
+body.light-theme .ios-quick-options-menu button:hover { background: rgba(0,122,255,0.08) !important; }
+body.light-theme .ios-call-log-scroll { background: #fff !important; }
+body.light-theme .ios-voicemail-scroll { background: #fff !important; }
+body.light-theme .iphone-bezel { background: linear-gradient(145deg,#d4d4d8 0%,#c0c0c4 20%,#b4b4b8 50%,#c0c0c4 80%,#d4d4d8 100%) !important; box-shadow: 0 0 0 1px rgba(0,0,0,0.06), 0 clamp(12px, 1.3vw, 40px) clamp(30px, 3.1vw, 96px) rgba(0,0,0,0.15), inset 0 1px 0 rgba(255,255,255,0.6) !important; }
+body.light-theme .iphone-frame .ios-back-btn { color: #007AFF !important; }
+body.light-theme .iphone-frame .ios-back-btn:hover { background: rgba(0,122,255,0.12) !important; }
+body.light-theme .iphone-frame .ios-nav-subtitle { color: #636366 !important; }
+body.light-theme .iphone-frame .ios-nav-action { color: #007AFF !important; }
+body.light-theme .iphone-frame .ios-composer { background: #f2f2f7 !important; border-top-color: rgba(0,0,0,0.09) !important; }
+body.light-theme .iphone-frame .ios-compose-plus { background: rgba(0,0,0,0.06) !important; color: #007AFF !important; }
+body.light-theme .iphone-frame .ios-compose-plus:hover { background: rgba(0,122,255,0.14) !important; color: #0051d5 !important; }
+body.light-theme .iphone-frame .ios-compose-plus.is-active { background: #007AFF !important; color: #fff !important; }
+body.light-theme .iphone-frame .ios-plus-menu { background: #ffffff !important; border-color: rgba(0,0,0,0.10) !important; box-shadow: 0 24px 60px rgba(0,0,0,0.18) !important; }
+body.light-theme .iphone-frame .ios-plus-menu button { color: #1a1a2e !important; }
+body.light-theme .iphone-frame .ios-plus-menu button:hover { background: rgba(0,122,255,0.08) !important; color: #007AFF !important; }
+body.light-theme .iphone-frame .ios-plus-menu button i { color: #8E8E93 !important; }
+body.light-theme .iphone-frame .ios-plus-menu button:hover i { color: #007AFF !important; }
+body.light-theme .iphone-frame .ios-plus-menu #dlrAiDraftBtn { background: linear-gradient(135deg, rgba(0,122,255,0.10), rgba(124,58,237,0.08)) !important; color: #0051d5 !important; }
+body.light-theme .iphone-frame .ios-plus-menu #dlrAiDraftBtn i { color: #0051d5 !important; }
+body.light-theme .iphone-frame .ios-plus-menu #dlrAiDraftBtn:hover { background: linear-gradient(135deg, rgba(0,122,255,0.18), rgba(124,58,237,0.14)) !important; }
+body.light-theme .iphone-frame .ios-plus-menu-divider { background: rgba(0,0,0,0.08) !important; }
+body.light-theme .iphone-frame .ios-plus-menu-channel { color: #636366 !important; border-top-color: rgba(0,0,0,0.06) !important; }
+body.light-theme .iphone-frame .ios-plus-menu-channel select { background: rgba(0,0,0,0.04) !important; border-color: rgba(0,0,0,0.12) !important; color: #1a1a2e !important; }
+body.light-theme .iphone-frame .ios-plus-menu-meta { color: #8e8e93 !important; border-top-color: rgba(0,0,0,0.06) !important; }
+body.light-theme .iphone-frame .ios-compose-input-wrap { background: #ffffff !important; border-color: rgba(0,0,0,0.14) !important; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
+body.light-theme .iphone-frame .ios-compose-input-wrap:focus-within { border-color: rgba(0,122,255,0.45) !important; }
+body.light-theme .iphone-frame .ios-compose-input { color: #1a1a2e !important; }
+body.light-theme .iphone-frame .ios-compose-input::placeholder { color: #aeaeb2 !important; }
+body.light-theme .iphone-frame .ios-compose-mic { color: #8E8E93 !important; }
+body.light-theme .iphone-frame .ios-compose-mic:hover { background: rgba(0,122,255,0.12) !important; color: #007AFF !important; }
+body.light-theme .iphone-frame .ios-compose-mic.is-listening { background: #ef4444 !important; color: #fff !important; }
+body.light-theme .iphone-frame .ios-dynamic-island { background: #1a1a2e !important; }
+body.light-theme .iphone-frame .ios-home-indicator { background: rgba(0,0,0,0.2) !important; }
+body.light-theme #iosAppInbox > div:first-child { background: #f2f2f7 !important; }
+body.light-theme #inboxConversationList { background: #fff !important; }
+body.light-theme #inboxThreadView { background: #fff !important; }
+body.light-theme #inboxThreadView > div:first-child { background: rgba(255,255,255,0.9) !important; border-bottom-color: rgba(0,0,0,0.08) !important; }
+body.light-theme #inboxThreadName { color: #1a1a2e !important; }
+body.light-theme #inboxSearchInput { background: rgba(0,0,0,0.06) !important; color: #1a1a2e !important; }
+body.light-theme #inboxSearchInput::placeholder { color: #aeaeb2 !important; }
+body.light-theme .imsg-name { color: #1a1a2e !important; }
+body.light-theme .imsg-bubble.inbound { background: #e9e9eb !important; color: #1a1a2e !important; border-color: transparent !important; }
+body.light-theme .imsg-filter-pill { background: rgba(0,0,0,0.06) !important; color: #636366 !important; }
+body.light-theme .imsg-filter-pill:hover:not(.active) { background: rgba(0,0,0,0.1) !important; }
+body.light-theme .imsg-convo-row:hover { background: rgba(0,0,0,0.03) !important; }
+body.light-theme .imsg-convo-row::after { background: rgba(0,0,0,0.06) !important; }
+body.light-theme #inboxChannelSelect { background: rgba(0,0,0,0.04) !important; border-color: rgba(0,0,0,0.1) !important; color: #1a1a2e !important; }
+body.light-theme #iosAppCalendar { background: #f2f2f7 !important; color: #1a1a2e !important; }
+body.light-theme #iosAppCalendar .ios-nav-bar { background: #ffffff !important; border-bottom-color: rgba(255,59,48,0.12) !important; }
+body.light-theme #iosCalMonthTitle { color: #1a1a2e !important; }
+body.light-theme .ios-cal-picker-bar { background: #f8f8f8 !important; border-bottom-color: rgba(0,0,0,0.08) !important; }
+body.light-theme .ios-cal-picker-icon { color: #9ca3af !important; }
+body.light-theme .ios-cal-picker-select { background: rgba(0,0,0,0.04) !important; border-color: rgba(0,0,0,0.10) !important; color: #1f2937 !important; font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Segoe UI',system-ui,sans-serif !important; font-weight:500 !important; }
+body.light-theme #iosCalGoogleBtn { background: rgba(0,0,0,0.04) !important; border-color: rgba(0,0,0,0.1) !important; color: #636366 !important; }
+body.light-theme #iosCalDateHeader { border-top-color: rgba(0,0,0,0.08) !important; }
+body.light-theme #iosCalSlotArea { background: #f2f2f7 !important; color: #1a1a2e !important; }
+body.light-theme #iosCalGrid { color: #1a1a2e !important; }
+body.light-theme #iosCalSlots { color: #1a1a2e !important; }
+body.light-theme .dlr-panel-14 { color: #ffffff !important; }
+body.light-theme .dlr-panel-15 { color: #ffffff !important; }
+body.light-theme #iosAppDiscord > div:first-child { background: #f2f3f5 !important; border-bottom-color: rgba(0,0,0,0.08) !important; }
+body.light-theme #iosDiscordContent { background: #f2f3f5 !important; }
+body.light-theme #iosDiscordChannelName { color: #2e3338 !important; }
+body.light-theme #iosDiscordServerPicker { border-bottom-color: rgba(0,0,0,0.06) !important; }
+body.light-theme #iosDiscordChat > div:last-child { background: #e3e5e8 !important; border-top-color: rgba(0,0,0,0.08) !important; }
+body.light-theme #iosDiscordReplyText { color: #2e3338 !important; background: rgba(0,0,0,0.04) !important; }
+body.light-theme #iosAppDiscord .ios-home-indicator-bar { background: #f2f3f5 !important; }
+body.light-theme #iosAppDiscord .ios-home-indicator { background: rgba(0,0,0,0.2) !important; }
+body.light-theme #iosAppSlack > div:first-child { background: #fff !important; border-bottom-color: rgba(0,0,0,0.08) !important; }
+body.light-theme #iosSlackContent { background: #fff !important; }
+body.light-theme #iosSlackChannelName { color: #1a1a2e !important; }
+body.light-theme #iosSlackWorkspaceHeader { border-bottom-color: rgba(0,0,0,0.06) !important; }
+body.light-theme #iosSlackTeamDisplay { color: #1a1a2e !important; }
+body.light-theme #iosSlackChat > div:last-child { background: #f1f1f1 !important; border-top-color: rgba(0,0,0,0.08) !important; }
+body.light-theme #iosSlackReplyText { color: #1a1a2e !important; background: rgba(0,0,0,0.04) !important; }
+body.light-theme #iosSlackReplyText::placeholder { color: #aeaeb2 !important; }
+body.light-theme #iosAppSlack .ios-home-indicator-bar { background: #fff !important; }
+body.light-theme #iosAppSlack .ios-home-indicator { background: rgba(0,0,0,0.2) !important; }
+body.light-theme .ios-wallpaper { background:
+                        radial-gradient(ellipse at 30% 20%, rgba(88,86,214,0.32) 0%, transparent 50%),
+                        radial-gradient(ellipse at 70% 60%, rgba(52,199,89,0.24) 0%, transparent 50%),
+                        radial-gradient(ellipse at 50% 90%, rgba(0,122,255,0.28) 0%, transparent 50%),
+                        radial-gradient(ellipse at 80% 20%, rgba(255,55,95,0.22) 0%, transparent 40%),
+                        radial-gradient(ellipse at 20% 70%, rgba(175,82,222,0.26) 0%, transparent 45%),
+                        linear-gradient(160deg, #f0f4ff 0%, #e8f4fb 50%, #eeeeff 100%) !important; }
+body.light-theme .iphone-frame .ios-status-bar { color: #1a1a2e !important; }
+body.light-theme .iphone-frame .ios-time { color: #fff !important; }
+body.light-theme .iphone-frame .ios-status-icons,
+                    body.light-theme .iphone-frame .ios-status-icons i { color: #ffffff !important; }
+body.light-theme .iphone-frame .iphone-screen { background: #f2f2f7 !important; }
+body.light-theme .iphone-frame .ios-app-label { color: #1a1a2e !important; text-shadow: 0 1px 3px rgba(255,255,255,0.9) !important; }
+body.light-theme .iphone-frame .ios-icon { box-shadow: 0 2px 8px rgba(0,0,0,0.15), 0 1px 3px rgba(0,0,0,0.08) !important; }
+body.light-theme .iphone-frame .ios-home .ios-home-indicator { background: rgba(0,0,0,0.25) !important; }
+body.light-theme .iphone-frame .ios-home .ios-home-indicator-bar { background: transparent !important; }
+body.light-theme .iphone-frame .ios-app-view { background: #f2f2f7 !important; color: #1a1a2e; }
+body.light-theme .iphone-frame .ios-nav-bar { background: #f8f8f8 !important; border-bottom-color: rgba(0,0,0,0.1) !important; }
+body.light-theme .iphone-frame .ios-nav-name { color: #1a1a2e !important; }
+body.light-theme .iphone-frame .ios-nav-title { color: #1a1a2e !important; }
+body.light-theme .iphone-frame .ios-nav-subtitle { color: #636366 !important; }
+body.light-theme .iphone-frame .ios-thread-scroll { background: #ffffff !important; }
+body.light-theme .iphone-frame .ios-thread-scroll .dlr-bubble.inbound { background: #e9e9eb !important; border: none !important; color: #1a1a2e !important; }
+body.light-theme .iphone-frame .ios-thread-scroll .dlr-date-sep span { background: rgba(0,0,0,0.06) !important; color: #636366 !important; }
+body.light-theme .iphone-frame .ios-thread-scroll .dlr-msg-meta { color: #636366 !important; }
+body.light-theme .iphone-frame .ios-thread-scroll .dlr-type-badge { background: rgba(0,0,0,0.06) !important; border-color: rgba(0,0,0,0.08) !important; color: #636366 !important; }
+body.light-theme .iphone-frame .ios-composer { background: #f8f8f8 !important; border-top-color: rgba(0,0,0,0.1) !important; }
+body.light-theme .iphone-frame .ios-qr-chip { background: rgba(0,0,0,0.06) !important; border-color: rgba(0,0,0,0.1) !important; color: #636366 !important; }
+body.light-theme .iphone-frame .ios-qr-chip:hover { background: rgba(0,122,255,0.1) !important; color: #007AFF !important; border-color: rgba(0,122,255,0.2) !important; }
+body.light-theme .iphone-frame .ios-quick-options-btn { background: rgba(0,0,0,0.06) !important; border-color: rgba(0,0,0,0.1) !important; color: #636366 !important; }
+body.light-theme .iphone-frame .ios-empty-title { color: #1a1a2e !important; }
+body.light-theme .iphone-frame .ios-empty-sub { color: #636366 !important; }
+body.light-theme .iphone-frame .ios-empty-icon { background: rgba(0,122,255,0.08) !important; border-color: rgba(0,122,255,0.15) !important; }
+body.light-theme .dlr-kpi-pill{background:rgba(0,0,0,0.03) !important;border-color:rgba(0,0,0,0.06) !important;}
+body.light-theme .dlr-kpi-pill:hover{background:rgba(0,0,0,0.06) !important;}
+body.light-theme .dlr-kpi-val{color:#1a1a2e !important;}
+body.light-theme .dlr-kpi-sep{background:rgba(0,0,0,0.08) !important;}
+body.light-theme .dlr-kpi-pickup .dlr-kpi-val{color:var(--lt-accent) !important;}
+body.light-theme .dlr-kpi-2min .dlr-kpi-val{color:#00cc6a !important;}
+body.light-theme .dlr-kpi-10min .dlr-kpi-val{color:#e05020 !important;}
+body.light-theme #dlrTopBarHeader:hover { background: rgba(0,0,0,0.02); }
+body.light-theme .dlr-topbar-chevron { color: #999; }
+body.light-theme .dlr-topbar-chevron.open { color: #059669; }
+body.light-theme .dlr-top-bar { background: #ffffff !important; border-color: rgba(0,0,0,0.08) !important; }
+body.light-theme .dlr-col { background: #ffffff !important; border-color: rgba(0,0,0,0.08) !important; }
+body.light-theme .dlr-col-hdr { border-bottom-color: rgba(0,0,0,0.06) !important; }
+body.light-theme .dlr-col-hdr h6 { color: var(--lt-accent) !important; }
+body.light-theme .dlr-contact-row { border-bottom-color: rgba(0,0,0,0.03) !important; }
+body.light-theme .dlr-contact-row:hover { background: rgba(0,0,0,0.02) !important; }
+body.light-theme .dlr-contact-row.active { background: rgba(5,150,105,0.06) !important; border-left-color: var(--lt-accent) !important; }
+body.light-theme .dlr-export-overlay { background:rgba(0,0,0,0.25); }
+body.light-theme .dlr-export-card { background:#ffffff; backdrop-filter:none; -webkit-backdrop-filter:none; border-color:rgba(0,0,0,0.10); box-shadow:0 8px 32px rgba(0,0,0,0.12); }
+body.light-theme .dlr-export-hdr { border-bottom-color:rgba(0,0,0,0.08); }
+body.light-theme .dlr-export-hdr h5 { color:#1a1a2e; }
+body.light-theme .dlr-export-hdr .dlr-export-close { color:#a0aec0; }
+body.light-theme .dlr-export-hdr .dlr-export-close:hover { color:#1a1a2e; }
+body.light-theme .dlr-export-label { color:#4a5568; }
+body.light-theme .dlr-export-input { background:rgba(0,0,0,0.03); border-color:rgba(0,0,0,0.1); color:#1a1a2e; }
+body.light-theme .dlr-export-input:focus { border-color:rgba(0,150,200,0.4); }
+body.light-theme .dlr-export-input::placeholder { color:#a0aec0; }
+body.light-theme .dlr-export-tags-wrap { background:rgba(0,0,0,0.02); border-color:rgba(0,0,0,0.08); }
+body.light-theme .dlr-export-tag-chip { background:rgba(0,0,0,0.04) !important; border-color:rgba(0,0,0,0.1) !important; color:#4a5568 !important; }
+body.light-theme .dlr-export-tag-chip:hover { background:rgba(0,0,0,0.07) !important; }
+body.light-theme .dlr-export-tag-chip.active { background:rgba(0,150,200,0.12) !important; border-color:#00cc6a !important; color:#0077aa !important; }
+body.light-theme .dlr-export-info { background:rgba(0,150,200,0.06); border-color:rgba(0,150,200,0.12); }
+body.light-theme .dlr-export-info span { color:#0077aa; }
+body.light-theme .dlr-export-footer { border-top-color:rgba(0,0,0,0.08); }
+body.light-theme .dlr-export-cancel { background:rgba(0,0,0,0.04); border-color:rgba(0,0,0,0.1); color:#4a5568; }
+body.light-theme .dlr-export-cancel:hover { background:rgba(0,0,0,0.08); color:#1a1a2e; }
+body.light-theme .dlr-export-select { background-color:rgba(0,0,0,0.03); border-color:rgba(0,0,0,0.1); color:#1a1a2e; }
+body.light-theme .mvp-overlay { background:rgba(0,0,0,0.22); }
+body.light-theme .mvp-panel { background:linear-gradient(135deg, rgba(255,255,255,0.88) 0%, rgba(255,255,255,0.75) 100%); border-color:rgba(0,0,0,0.08) rgba(0,0,0,0.04) rgba(0,0,0,0.04) rgba(0,0,0,0.06); box-shadow:0 24px 60px rgba(0,0,0,0.12), inset 0 1px 0 rgba(255,255,255,0.85); }
+body.light-theme .mvp-header { border-bottom-color:rgba(0,0,0,0.07); }
+body.light-theme .mvp-title { color:#1a1a2e; }
+body.light-theme .mvp-count { color:#a0aec0; }
+body.light-theme .mvp-search { background:rgba(0,0,0,0.04); border-color:rgba(0,0,0,0.1); color:#1a1a2e; }
+body.light-theme .mvp-search:focus { border-color:rgba(0,150,200,0.4); }
+body.light-theme .mvp-search::placeholder { color:#a0aec0; }
+body.light-theme .mvp-pipe-hdr { color:#374151; }
+body.light-theme .mvp-pipe-hdr:hover { background:rgba(0,0,0,0.04); }
+body.light-theme .mvp-pipe-hdr.selected { color:var(--lt-accent); background:rgba(0,170,94,0.08); }
+body.light-theme .mvp-pipe-arrow { color:#a0aec0; }
+body.light-theme .mvp-stage-item { color:#6b7280; }
+body.light-theme .mvp-stage-item:hover { background:rgba(0,0,0,0.04); color:#374151; }
+body.light-theme .mvp-stage-item.selected { color:var(--lt-accent); background:rgba(0,170,94,0.07); }
+body.light-theme .mvp-stage-dot { background:rgba(0,0,0,0.15); }
+body.light-theme .mvp-stage-item.selected .mvp-stage-dot { background:var(--lt-accent); }
+body.light-theme .mvp-none { color:#a0aec0; }
+body.light-theme .mvp-footer { border-top-color:rgba(0,0,0,0.07); }
+body.light-theme .mvp-dest { color:#a0aec0; }
+body.light-theme .mvp-cancel { background:rgba(0,0,0,0.04); border-color:rgba(0,0,0,0.1); color:#6b7280; }
+body.light-theme .mvp-cancel:hover { background:rgba(0,0,0,0.08); color:#1a1a2e; }
+body.light-theme .mvp-move { background:rgba(0,170,94,0.12); border-color:rgba(0,170,94,0.3); color:var(--lt-accent); }
+body.light-theme .mvp-move:hover:not(:disabled) { background:rgba(0,170,94,0.2); }
+body.light-theme .mvp-row-btn { background:rgba(0,0,0,0.04); border-color:rgba(0,0,0,0.1); color:#9ca3af; }
+body.light-theme .mvp-row-btn:hover { background:rgba(0,150,200,0.08); border-color:rgba(0,150,200,0.2); color:#0077aa; }
+body.light-theme .dlr-move-bulk-btn { background:rgba(0,0,0,0.04); border-color:rgba(0,0,0,0.1); color:#9ca3af; }
+body.light-theme .dlr-move-bulk-btn:hover:not(:disabled) { background:rgba(0,150,200,0.08); border-color:rgba(0,150,200,0.2); color:#0077aa; }
+body.light-theme .ios-calls-tab-bar{border-bottom-color:rgba(0,0,0,0.08);}
+body.light-theme .ios-calls-tab.active{color:var(--lt-accent);border-bottom-color:var(--lt-accent);}
+body.light-theme .dlr-cm-overlay{background:rgba(0,0,0,0.3);}
+body.light-theme .dlr-cm-card{background:#fff;border-color:#e0e0e0;}
+body.light-theme .dlr-cm-header{border-bottom-color:rgba(0,0,0,0.08);}
+body.light-theme .dlr-cm-title{color:#111;}

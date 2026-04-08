@@ -1,0 +1,108 @@
+/* dialer — 4K / HD (min-width: 2200px) */
+@media (min-width: 2200px) {
+                        /* Column headers */
+                        .dlr-col-hdr { padding: clamp(10px, 0.6vw, 18px) clamp(14px, 0.8vw, 24px); }
+                        .dlr-col-hdr h6 { font-size:max(0.95rem,0.7vw); }
+
+                        /* Contact rows */
+                        .dlr-contact-row { padding: clamp(8px, 0.5vw, 15px) clamp(12px, 0.7vw, 20px); gap: clamp(8px, 0.5vw, 15px); }
+
+                        /* Message bubbles (outside phone) */
+                        .dlr-msg-bubble { font-size:max(0.95rem,0.7vw); padding: clamp(8px, 0.5vw, 15px) clamp(12px, 0.7vw, 20px); }
+                        .dlr-bubble { font-size:max(0.95rem,0.7vw); padding: clamp(10px, 0.6vw, 18px) clamp(14px, 0.8vw, 24px); }
+
+                        /* Field labels and values */
+                        .dlr-field-label { font-size:max(0.78rem,0.55vw); }
+                        .dlr-field-value { font-size:max(0.92rem,0.65vw); margin-bottom: clamp(8px, 0.5vw, 15px); }
+
+                        /* Tab buttons */
+                        .dlr-tab-btn { font-size:max(0.95rem,0.7vw); padding: clamp(9px, 0.55vw, 16px) clamp(16px, 0.9vw, 28px); }
+
+                        /* Date separators */
+                        .dlr-date-sep span { font-size:max(0.78rem,0.55vw); padding: clamp(4px, 0.25vw, 8px) clamp(14px, 0.8vw, 24px); }
+
+                        /* Message meta */
+                        .dlr-msg-meta { font-size:max(0.72rem,0.5vw); }
+                        .dlr-type-badge { font-size:max(0.68rem,0.48vw); }
+
+                        /* Quick reply buttons */
+                        .dlr-qr-btn { font-size:max(0.82rem,0.58vw); padding: clamp(6px, 0.38vw, 11px) clamp(14px, 0.8vw, 24px); }
+
+                        /* Stats panel */
+                        .dlr-kpi-val { font-size:max(1.6rem,1.1vw); }
+                        .dlr-kpi-label { font-size:max(0.72rem,0.5vw); }
+                        .dlr-kpi-sub { font-size:max(0.82rem,0.58vw); }
+                        .dlr-kpi-card { padding: clamp(12px, 0.7vw, 20px) clamp(16px, 0.9vw, 28px); }
+                        .dlr-bar-label { font-size:max(0.88rem,0.62vw); }
+                        .dlr-bar-count { font-size:max(0.88rem,0.62vw); }
+                        .dlr-bar-track { height: clamp(10px, 0.6vw, 18px); }
+
+                        /* Smart filter headers */
+                        .igb-filter-hdr { padding: clamp(6px, 0.38vw, 11px) clamp(12px, 0.7vw, 20px); }
+                        .igb-filter-hdr .igb-filter-icon { font-size:max(0.68rem,0.48vw); }
+                        .igb-filter-hdr .igb-filter-label { font-size:max(0.72rem,0.5vw); }
+                        .igb-filter-hdr .igb-filter-count { font-size:max(0.65rem,0.46vw); }
+
+                        /* Lead score ring */
+                        .igb-score-ring { width: clamp(80px, 4.6vw, 140px); height: clamp(80px, 4.6vw, 140px); }
+                        .igb-score-num { font-size:max(1.1rem,0.8vw); }
+                        .igb-score-sub { font-size:max(0.77rem,0.55vw); }
+
+                        /* Intel pills */
+                        .igb-intel-pill { font-size:max(0.78rem,0.55vw); padding: clamp(4px, 0.25vw, 8px) clamp(10px, 0.6vw, 18px); }
+                        .igb-intel-pill i { font-size:max(0.72rem,0.5vw); }
+
+                        /* AI summary card */
+                        .igb-summary-card { padding: clamp(12px, 0.7vw, 20px) clamp(14px, 0.8vw, 24px); margin-bottom: clamp(12px, 0.7vw, 20px); }
+                        .igb-summary-hdr i { font-size:max(0.72rem,0.5vw); }
+                        .igb-summary-hdr span { font-size:max(0.72rem,0.5vw); }
+                        .igb-summary-body { font-size:max(0.82rem,0.58vw); }
+
+                        /* Facts list */
+                        .igb-facts-list li { font-size:max(0.8rem,0.57vw); padding: clamp(4px, 0.25vw, 8px) 0; }
+
+                        /* Action strip */
+                        .igb-action-btn { font-size:max(0.78rem,0.55vw); padding: clamp(7px, 0.42vw, 13px) clamp(4px, 0.25vw, 8px); }
+
+                        /* Engagement timeline */
+                        .igb-tl-dot { width: clamp(12px, 0.7vw, 20px); height: clamp(12px, 0.7vw, 20px); }
+                        .igb-tl-label { font-size:max(0.68rem,0.48vw); max-width: clamp(70px, 4vw, 120px); }
+
+                        /* Call badge */
+                        .dlr-call-badge { font-size:max(0.72rem,0.5vw); padding: clamp(1px, 0.08vw, 3px) clamp(6px, 0.38vw, 11px); }
+
+                        /* Engagement dots */
+                        .igb-engage-dots .igb-dot { width: clamp(6px, 0.38vw, 11px); height: clamp(6px, 0.38vw, 11px); }
+
+                        /* iMessage inbox elements */
+                        .imsg-convo-row { padding: clamp(10px, 0.6vw, 18px) clamp(16px, 0.9vw, 28px); gap: clamp(12px, 0.7vw, 20px); }
+                        .imsg-name { font-size:max(0.85rem,0.6vw); }
+                        .imsg-preview { font-size:max(0.75rem,0.53vw); }
+                        .imsg-time { font-size:max(0.65rem,0.46vw); }
+                        .imsg-filter-pill { font-size:max(0.7rem,0.5vw); padding: clamp(5px, 0.32vw, 9px) clamp(14px, 0.8vw, 24px); }
+                        .imsg-bubble { font-size:max(0.8rem,0.57vw); padding: clamp(9px, 0.55vw, 16px) clamp(14px, 0.8vw, 24px); }
+
+                        /* Dialer search & pipeline filter */
+                        #dialerSearch { font-size:max(0.92rem,0.65vw) !important; padding: clamp(6px, 0.38vw, 11px) clamp(8px, 0.5vw, 15px) clamp(6px, 0.38vw, 11px) clamp(28px, 1.6vw, 48px) !important; }
+                        #dialerPipelineFilter { font-size:max(0.85rem,0.6vw) !important; padding: clamp(5px, 0.32vw, 9px) clamp(8px, 0.5vw, 15px) !important; }
+
+                        /* 3-col layout spacing */
+                        .dlr-3col-layout { gap: clamp(8px, 0.5vw, 15px) !important; }
+
+                        /* Phone keypad */
+                        .dlr-kbd-key { padding: clamp(8px, 0.5vw, 15px) clamp(4px, 0.25vw, 8px); }
+                        .dlr-kbd-key span { font-size:max(1rem,0.73vw); }
+                        .dlr-kbd-key sub { font-size:max(0.42rem,0.3vw); }
+                        .dtmf-key { padding: clamp(10px, 0.6vw, 18px); font-size:max(1rem,0.73vw); }
+
+                        /* Quick options menu */
+                        .ios-quick-options-menu button { padding: clamp(10px, 0.6vw, 18px) clamp(12px, 0.7vw, 20px); font-size:max(0.82rem,0.58vw); }
+                        .ios-quick-options-menu button i { font-size:max(0.8rem,0.57vw); }
+                        .ios-brand-label { font-size:max(0.82rem,0.58vw); }
+                        .ios-quick-options-btn { font-size:max(0.82rem,0.58vw); padding: clamp(8px, 0.5vw, 15px) clamp(14px, 0.8vw, 24px); }
+
+                        /* Compose input wrap */
+                        .ios-compose-input-wrap { border-radius: clamp(16px, 0.9vw, 28px); }
+                        .ios-compose-footer { padding: 0 clamp(10px, 0.6vw, 18px) clamp(3px, 0.2vw, 6px); }
+                        .ios-quick-replies { padding: clamp(5px, 0.32vw, 9px) clamp(8px, 0.5vw, 15px) clamp(2px, 0.13vw, 4px); gap: clamp(5px, 0.32vw, 9px); }
+                    }

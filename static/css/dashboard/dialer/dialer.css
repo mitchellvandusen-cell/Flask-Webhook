@@ -1,0 +1,39 @@
+/*
+ * ═══════════════════════════════════════════════════════════════
+ * Omnisconn Dialer — Main CSS Entry Point
+ * ═══════════════════════════════════════════════════════════════
+ *
+ * Load order matters. dark/ first (default), then light/ overrides,
+ * then media/ breakpoints last so they win over both themes.
+ *
+ *  dark/
+ *    base.css    — core dialer components (columns, bubbles, DTMF, stats, filters, AI intel)
+ *    power.css   — power dialer components (utility classes, app icons, number picker)
+ *    intel.css   — intelligence / middle column (AI summary, NBA pills, call insights)
+ *
+ *  light/
+ *    base.css    — body.light-theme overrides for core components
+ *    power.css   — body.light-theme overrides for power dialer
+ *    intel.css   — body.light-theme overrides for intelligence column
+ *
+ *  media/
+ *    mobile.css  — @media (max-width: 768px) + @media (min-width: 769px) — mobile layout
+ *    tablet.css  — @media (max-width: 991px) + (max-width: 575px) — intel column tablet
+ *    hd.css      — @media (min-width: 2200px) — 4K / projector proportional scaling
+ * ═══════════════════════════════════════════════════════════════
+ */
+
+/* ── Dark (default) ───────────────────────────────────────── */
+@import url('dark/base.css');
+@import url('dark/power.css');
+@import url('dark/intel.css');
+
+/* ── Light theme overrides ───────────────────────────────── */
+@import url('light/base.css');
+@import url('light/power.css');
+@import url('light/intel.css');
+
+/* ── Responsive / media breakpoints (always last) ──────── */
+@import url('media/mobile.css');
+@import url('media/tablet.css');
+@import url('media/hd.css');

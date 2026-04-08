@@ -1,0 +1,730 @@
+/* dialer base — dark (default) theme */
+@keyframes dialerPulse { 0%,100%{opacity:1;transform:scale(1);} 50%{opacity:.5;transform:scale(.8);} }
+.dtmf-key{background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);color:#fff;border-radius:8px;padding:10px;font-size:max(1rem,0.88vw);font-weight:700;cursor:pointer;transition:background .15s;}
+.dtmf-key:hover{background:rgba(0,255,136,0.15);}
+.dlr-col{display:flex;flex-direction:column;overflow:hidden;}
+.dlr-col-hdr{padding:10px 14px;border-bottom:1px solid rgba(255,255,255,0.06);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;}
+.dlr-col-hdr h6{margin:0;font-weight:700;font-size:max(0.95rem,0.83vw);color:#00ff88;}
+.dlr-col-body{flex:1;overflow-y:auto;padding:0;}
+.dlr-contact-row{display:flex;align-items:center;gap:8px;padding:8px 12px;cursor:pointer;transition:background .12s;border-bottom:1px solid rgba(255,255,255,0.02);}
+.dlr-contact-row:hover{background:rgba(255,255,255,0.03);}
+.dlr-contact-row.active{background:rgba(0,255,136,0.06);border-left:2px solid #00ff88;}
+.dlr-msg-bubble{max-width:85%;padding:8px 12px;border-radius:12px;font-size:max(0.95rem,0.83vw);line-height:1.4;margin-bottom:2px;}
+.dlr-msg-lead{background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.08);color:#ddd;border-bottom-left-radius:4px;}
+.dlr-msg-bot{background:rgba(0,255,136,0.08);border:1px solid rgba(0,255,136,0.12);color:#ccc;border-bottom-right-radius:4px;margin-left:auto;}
+.dlr-field-label{font-size:max(0.78rem,0.68vw);color:#666;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:1px;}
+.dlr-field-value{font-size:max(0.92rem,0.81vw);color:#ddd;margin-bottom:8px;}
+.dlr-tab-btn{background:none;border:none;color:#666;font-size:max(0.95rem,0.83vw);font-weight:600;padding:9px 16px;cursor:pointer;border-bottom:2px solid transparent;transition:all .15s;}
+.dlr-tab-btn.active{color:#00ff88;border-bottom-color:#00ff88;}
+.dlr-tab-btn:hover{color:#aaa;}
+/* Thread UI */
+.dlr-date-sep{text-align:center;margin:16px 0 12px;user-select:none;}
+.dlr-date-sep span{background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.06);border-radius:20px;padding:4px 14px;font-size:max(0.78rem,0.68vw);color:#666;letter-spacing:0.3px;}
+.dlr-msg-row{display:flex;flex-direction:column;margin-bottom:4px;}
+.dlr-msg-row.outbound{align-items:flex-end;}
+.dlr-msg-row.inbound{align-items:flex-start;}
+.dlr-msg-row.outbound + .dlr-msg-row.inbound,
+                    .dlr-msg-row.inbound + .dlr-msg-row.outbound{margin-top:10px;}
+.dlr-bubble{max-width:86%;padding:10px 14px;border-radius:16px;font-size:max(0.95rem,0.83vw);line-height:1.5;word-break:break-word;position:relative;}
+.dlr-bubble.inbound{background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.07);color:#ddd;border-bottom-left-radius:4px;}
+.dlr-bubble.outbound{background:rgba(0,180,80,0.14);border:1px solid rgba(74,222,128,0.14);color:#e8ffe8;border-bottom-right-radius:4px;}
+.dlr-bubble.outbound.pending{opacity:0.6;}
+.dlr-bubble.outbound.sent{background:rgba(0,180,80,0.17);border-color:rgba(74,222,128,0.2);}
+.dlr-msg-meta{display:flex;align-items:center;gap:6px;padding:3px 4px 0;font-size:max(0.75rem,0.66vw);color:#555;}
+.dlr-msg-row.outbound .dlr-msg-meta{justify-content:flex-end;}
+.dlr-type-badge{display:inline-flex;align-items:center;gap:3px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.08);border-radius:4px;padding:2px 6px;font-size:max(0.75rem,0.66vw);color:#777;font-weight:700;letter-spacing:0.3px;}
+.dlr-status-icon{font-size:max(0.78rem,0.68vw);}
+.dlr-status-icon.sent{color:#007AFF;}
+.dlr-status-icon.pending{color:#888;}
+.dlr-status-icon.error{color:#ef4444;}
+/* Quick reply buttons */
+.dlr-qr-btn{background:rgba(0,255,136,0.06);border:1px solid rgba(0,255,136,0.12);color:#5bb;border-radius:14px;padding:6px 14px;font-size:max(0.82rem,0.72vw);cursor:pointer;white-space:nowrap;flex-shrink:0;transition:background .15s,color .15s;}
+.dlr-qr-btn:hover{background:rgba(0,255,136,0.14);color:#00ff88;}
+/* Phone keypad */
+.dlr-kbd-key{background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);color:#e0e0e0;border-radius:8px;padding:8px 4px;font-size:max(0.9rem,0.79vw);cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1;transition:background .1s,transform .08s;user-select:none;}
+.dlr-kbd-key:hover{background:rgba(0,255,136,0.12);border-color:rgba(0,255,136,0.2);color:#fff;}
+.dlr-kbd-key:active{transform:scale(0.92);background:rgba(0,255,136,0.2);}
+.dlr-kbd-key span{font-weight:700;font-size:max(1rem,0.88vw);}
+.dlr-kbd-key sub{font-size:max(0.75rem,0.66vw);color:#888;letter-spacing:0.5px;margin-top:1px;}
+/* Char counter color states */
+.dlr-char-ok{color:#444;}
+.dlr-char-warn{color:#ffa500;}
+.dlr-char-danger{color:#ef4444;font-weight:700;}
+/* Stats panel */
+.dlr-kpi-card{background:#111111;border:1px solid #1e1e1e;border-radius:10px;padding:12px 16px;text-align:center;min-width:0;}
+.dlr-kpi-val{font-size:max(1.6rem,1.40vw);font-weight:800;color:#fff;line-height:1.1;font-family:'JetBrains Mono',monospace;}
+.dlr-kpi-label{font-size:max(0.75rem,0.66vw);color:#999;text-transform:uppercase;letter-spacing:0.5px;margin-top:2px;}
+.dlr-kpi-sub{font-size:max(0.82rem,0.72vw);color:#888;margin-top:2px;}
+.dlr-bar-row{display:flex;align-items:center;gap:10px;margin-bottom:5px;}
+.dlr-bar-label{font-size:max(0.88rem,0.77vw);color:#ccc;min-width:60px;text-align:right;}
+.dlr-bar-track{flex:1;height:10px;background:#1a1a1a;border-radius:5px;overflow:hidden;}
+.dlr-bar-fill{height:100%;border-radius:5px;transition:width .4s ease;}
+.dlr-bar-count{font-size:max(0.88rem,0.77vw);color:#ddd;min-width:36px;text-align:right;font-family:'JetBrains Mono',monospace;}
+.dlr-daily-bar{background:rgba(0,255,136,0.3);border-radius:3px 3px 0 0;min-height:2px;transition:height .3s ease;}
+.dlr-daily-bar:hover{background:rgba(0,255,136,0.6);}
+.dlr-stat-period{transition:all .15s;}
+.dlr-stat-period.active{background:rgba(0,255,136,0.15)!important;color:#00ff88!important;}
+/* iOS Stats App — active period badge (replaces period pills) */
+.ios-stats-period-badge{padding:3px 10px 3px 12px;margin:4px 12px 0;flex-shrink:0;display:inline-block;font-size:max(0.68rem,0.60vw);font-weight:700;letter-spacing:0.04em;text-transform:uppercase;color:#00ff88;background:rgba(0,255,136,0.08);border-left:2px solid rgba(0,255,136,0.40);border-radius:0 4px 4px 0;}
+.dlr-call-badge{display:inline-flex;align-items:center;justify-content:center;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);color:#888;border-radius:4px;padding:1px 6px;font-size:max(0.7rem,0.61vw);font-weight:600;flex-shrink:0;line-height:1.3;white-space:nowrap;}
+/* ── Recordings filter button ── */
+.ios-rec-filter-btn { transition: color 0.15s, background 0.15s; border-radius: 8px; }
+.ios-rec-filter-btn:hover { background: rgba(0,122,255,0.12); }
+.ios-rec-filter-btn.active { color: #00ff88 !important; }
+/* ── Recordings filter panel ── */
+.ios-rec-filter-panel { display: none; flex-direction: column; gap: 8px; padding: 10px 14px 12px; background: #111; border-bottom: 1px solid rgba(255,255,255,0.06); }
+.ios-rec-filter-panel.open { display: flex; }
+.ios-rec-filter-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.ios-rec-filter-label { font-size: max(0.68rem,0.60vw); color: #666; text-transform: uppercase; letter-spacing: 0.05em; white-space: nowrap; flex-shrink: 0; }
+.ios-rec-filter-select { background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1); border-radius: 7px; color: #e0e0e0; font-size: max(0.72rem,0.63vw); padding: 4px 8px; cursor: pointer; flex: 1; min-width: 0; outline: none; transition: border-color 0.15s; }
+.ios-rec-filter-select:focus { border-color: rgba(0,255,136,0.4); }
+/* ── Recording action buttons (play / download / transcript / transcribe) ── */
+.dlr-rec-action-btn { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 8px; border: 1px solid transparent; font-size: max(0.68rem,0.60vw); cursor: pointer; transition: transform 0.12s, box-shadow 0.12s, background 0.12s; flex-shrink: 0; text-decoration: none; }
+.dlr-rec-action-btn:hover { transform: translateY(-1px); }
+.dlr-rec-action-play { background: rgba(0,255,136,0.12); color: #00ff88; border-color: rgba(0,255,136,0.28); }
+.dlr-rec-action-play:hover { background: rgba(0,255,136,0.22); box-shadow: 0 3px 10px rgba(0,255,136,0.2); }
+.dlr-rec-action-download { background: rgba(59,130,246,0.12); color: #60a5fa; border-color: rgba(59,130,246,0.28); }
+.dlr-rec-action-download:hover { background: rgba(59,130,246,0.22); box-shadow: 0 3px 10px rgba(59,130,246,0.2); }
+.dlr-rec-action-transcript { background: rgba(168,85,247,0.12); color: #c084fc; border-color: rgba(168,85,247,0.28); }
+.dlr-rec-action-transcript:hover { background: rgba(168,85,247,0.22); box-shadow: 0 3px 10px rgba(168,85,247,0.2); }
+.dlr-rec-action-transcribe { background: rgba(251,146,60,0.12); color: #fb923c; border-color: rgba(251,146,60,0.28); }
+.dlr-rec-action-transcribe:hover { background: rgba(251,146,60,0.22); box-shadow: 0 3px 10px rgba(251,146,60,0.2); }
+/* Caller Number Picker — Liquid Glass dropdown */
+.dlr-top-bar{overflow:visible;z-index:10;}
+.dialer-from-number-wrap{display:flex;align-items:center;gap:6px;margin-top:4px;position:relative;}
+.dialer-from-number-icon{font-size:max(0.72rem,0.63vw);color:#555;flex-shrink:0;}
+.dialer-from-number-label{font-size:max(0.74rem,0.65vw);color:#555;white-space:nowrap;flex-shrink:0;}
+.dfn-trigger{display:flex;align-items:center;gap:6px;background:#111111;backdrop-filter:none;-webkit-backdrop-filter:none;border:1px solid #222222;border-radius:8px;padding:5px 10px;cursor:pointer;flex:1;min-width:0;transition:all .18s;}
+.dfn-trigger:hover{background:var(--glass-bg-strong);}
+.dfn-trigger-text{font-size:max(0.78rem,0.68vw);font-weight:500;color:#aaa;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1;}
+.dfn-trigger-arrow{font-size:max(0.55rem,0.48vw);color:#555;transition:transform .2s;}
+.dfn-trigger.open .dfn-trigger-arrow{transform:rotate(180deg);}
+.dfn-menu{display:none;position:absolute;top:calc(100% + 4px);left:0;right:0;z-index:999;background:#0e0e0e;backdrop-filter:none;-webkit-backdrop-filter:none;border:1px solid #222222;border-radius:10px;padding:4px;box-shadow:0 16px 40px -8px rgba(0,0,0,0.6),inset 0 1px 1px rgba(255,255,255,0.12);max-height:220px;overflow-y:auto;}
+.dfn-menu.show{display:block;}
+.dfn-item{display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:6px;font-size:max(0.78rem,0.68vw);font-weight:500;color:#999;cursor:pointer;transition:background .15s,color .15s;}
+.dfn-item:hover{background:rgba(255,255,255,0.06);color:#ddd;}
+.dfn-item.active{color:#ddd;}
+.dfn-dot{width:6px;height:6px;border-radius:50%;background:transparent;flex-shrink:0;transition:background .15s;}
+.dfn-item.active .dfn-dot{background:#00ff88;}
+.dfn-item-label{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.dfn-item-sub{color:#555;font-size:max(0.72rem,0.63vw);flex-shrink:0;}
+/* Light theme */
+/* ═══════════════════════════════════════════════
+                       Jump to Contact
+                       ═══════════════════════════════════════════════ */
+@keyframes jtcFlash {
+                        0% { background: rgba(0,255,136,0.2); }
+                        100% { background: transparent; }
+                    }
+@keyframes jtcPanelFlash {
+                        0% { box-shadow: inset 0 0 20px rgba(0,255,136,0.15); }
+                        100% { box-shadow: none; }
+                    }
+.dlr-contact-row.jtc-flash { animation: jtcFlash 0.6s ease-out; }
+.jtc-panel-flash { animation: jtcPanelFlash 0.6s ease-out; }
+#jtcPill {
+                        position: fixed;
+                        bottom: 24px;
+                        left: 50%;
+                        transform: translateX(-50%);
+                        z-index: 9999;
+                        display: none;
+                        align-items: center;
+                        gap: 8px;
+                        padding: 8px 18px;
+                        background: linear-gradient(135deg, rgba(0,255,136,0.15), rgba(0,255,136,0.1));
+                        border: 1px solid rgba(0,255,136,0.35);
+                        border-radius: 24px;
+                        backdrop-filter: none;
+                        -webkit-backdrop-filter: none;
+                        cursor: pointer;
+                        transition: transform 0.15s, box-shadow 0.15s;
+                        box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+                    }
+#jtcPill:hover { transform: translateX(-50%) scale(1.04); box-shadow: 0 6px 28px rgba(0,255,136,0.2); }
+#jtcPill .jtc-dot { width: 8px; height: 8px; border-radius: 50%; background: #00ff88; animation: dialerPulse 1.5s infinite; flex-shrink: 0; }
+#jtcPill .jtc-name { font-weight: 700; font-size: max(0.82rem,0.72vw); color: #fff; max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#jtcPill .jtc-status { font-size: max(0.75rem,0.66vw); color: #00ff88; }
+#jtcPill .jtc-icon { color: #00ff88; font-size: max(0.78rem,0.68vw); }
+.dlr-queue-row-clickable { cursor: pointer; transition: background 0.12s; }
+.dlr-queue-row-clickable:hover { background: rgba(0,255,136,0.06) !important; }
+/* ═══════════════════════════════════════════════
+                       Omnisconn Dialer Enhancements
+                       ═══════════════════════════════════════════════ */
+/* ── 3-Dot Engagement Indicator ── */
+.igb-engage-dots { display:inline-flex; gap:3px; flex-shrink:0; margin-left:4px; }
+.igb-engage-dots .igb-dot { width:6px; height:6px; border-radius:50%; background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.1); transition:all .3s; }
+.igb-engage-dots .igb-dot.lit { background:#00ff88; border-color:#00ff88; box-shadow:0 0 4px rgba(0,255,136,0.4); }
+.igb-engage-dots .igb-dot.lit-warm { background:#ffa500; border-color:#ffa500; box-shadow:0 0 4px rgba(255,165,0,0.4); }
+.igb-engage-dots .igb-dot.lit-hot { background:#4ade80; border-color:#4ade80; box-shadow:0 0 4px rgba(74,222,128,0.4); }
+/* ── Live Status Dot ── */
+.igb-live-dot { position:absolute; bottom:0; right:0; width:8px; height:8px; border-radius:50%; border:1.5px solid rgba(8,8,16,0.8); }
+.igb-live-dot.live-call { background:#4ade80; animation:dialerPulse 1.5s infinite; }
+.igb-live-dot.has-callback { background:#ffa500; }
+.igb-live-dot.idle { background:#444; }
+/* ── Smart Filter Group Headers ── */
+.igb-filter-hdr { display:flex; align-items:center; gap:6px; padding:6px 12px; background:rgba(0,255,136,0.03); border-bottom:1px solid rgba(0,255,136,0.08); cursor:pointer; user-select:none; }
+.igb-filter-hdr:hover { background:rgba(0,255,136,0.06); }
+.igb-filter-hdr .igb-filter-icon { color:#00ff88; font-size:max(.75rem,0.66vw); transition:transform .2s; }
+.igb-filter-hdr .igb-filter-icon.collapsed { transform:rotate(-90deg); }
+.igb-filter-hdr .igb-filter-label { font-size:max(.75rem,0.66vw); font-weight:700; color:#00ff88; text-transform:uppercase; letter-spacing:.5px; }
+.igb-filter-hdr .igb-filter-count { font-size:max(.75rem,0.66vw); color:#555; font-family:'JetBrains Mono',monospace; margin-left:auto; }
+.igb-filter-hdr .igb-filter-brand { font-size:max(.75rem,0.66vw); color:#333; letter-spacing:.3px; }
+/* ── Lead Score Ring (middle column) ── */
+.igb-score-ring { position:relative; width:80px; height:80px; flex-shrink:0; }
+.igb-score-ring svg { width:100%; height:100%; transform:rotate(-90deg); }
+.igb-score-ring .igb-ring-bg { fill:none; stroke:rgba(255,255,255,0.06); stroke-width:6; }
+.igb-score-ring .igb-ring-fg { fill:none; stroke-width:6; stroke-linecap:round; transition:stroke-dashoffset .8s ease, stroke .3s; }
+.igb-score-label { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; }
+.igb-score-num { font-size:max(1.1rem,0.96vw); font-weight:800; font-family:'JetBrains Mono',monospace; line-height:1; }
+.igb-score-sub { font-size:max(.8rem,0.70vw); color:#666; text-transform:uppercase; letter-spacing:.3px; }
+/* ── Quick Intel Pills ── */
+.igb-intel-row { display:flex; flex-wrap:wrap; gap:7px; margin-bottom:14px; }
+.igb-intel-pill { display:inline-flex; align-items:center; gap:5px; background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.08); border-radius:20px; padding:4px 10px; font-size:max(0.78rem,0.68vw); color:#bbb; white-space:nowrap; }
+.igb-intel-pill i { font-size:max(0.75rem,0.66vw); color:#00ff88; }
+.igb-intel-pill .igb-pill-val { font-weight:700; color:#e5e5e5; font-family:'JetBrains Mono',monospace; }
+/* ── Engagement Timeline ── */
+.igb-timeline { display:flex; align-items:center; gap:0; margin-bottom:14px; padding:10px 4px; background:rgba(255,255,255,0.015); border:1px solid rgba(255,255,255,0.04); border-radius:10px; }
+.igb-tl-node { display:flex; flex-direction:column; align-items:center; flex-shrink:0; position:relative; z-index:1; }
+.igb-tl-dot { width:12px; height:12px; border-radius:50%; border:2px solid rgba(255,255,255,0.12); background:rgba(255,255,255,0.04); transition:all .3s; }
+.igb-tl-dot.active { background:#00ff88; border-color:#00ff88; box-shadow:0 0 8px rgba(0,255,136,0.35); }
+.igb-tl-dot.completed { background:#4ade80; border-color:#4ade80; box-shadow:0 0 8px rgba(74,222,128,0.25); }
+.igb-tl-label { font-size:max(0.75rem,0.66vw); color:#777; margin-top:5px; white-space:nowrap; max-width:70px; overflow:hidden; text-overflow:ellipsis; text-align:center; font-weight:500; }
+.igb-tl-line { flex:1; height:2px; background:rgba(255,255,255,0.08); min-width:12px; }
+.igb-tl-line.completed { background:#00ff88; }
+/* ── AI Summary Card ── */
+.igb-summary-card { background:rgba(0,255,136,0.03); border:1px solid rgba(0,255,136,0.08); border-radius:10px; padding:12px 14px; margin-bottom:12px; }
+.igb-summary-hdr { display:flex; align-items:center; gap:6px; margin-bottom:6px; }
+.igb-summary-hdr i { color:#00ff88; font-size:max(0.75rem,0.66vw); }
+.igb-summary-hdr span { font-size:max(0.75rem,0.66vw); font-weight:700; color:#00ff88; text-transform:uppercase; letter-spacing:.5px; }
+.igb-summary-body { font-size:max(0.82rem,0.72vw); color:#ccc; line-height:1.5; }
+/* ── Facts list ── */
+.igb-facts-list { list-style:none; margin:0; padding:0; }
+.igb-facts-list li { padding:4px 0; font-size:max(0.8rem,0.70vw); color:#ccc; line-height:1.4; border-bottom:1px solid rgba(255,255,255,0.03); display:flex; align-items:baseline; gap:6px; }
+.igb-facts-list li::before { content:'\2022'; color:#4ade80; font-size:max(0.75rem,0.66vw); flex-shrink:0; }
+.igb-facts-list li:last-child { border-bottom:none; }
+/* ── Action Strip ── */
+.igb-action-strip { display:flex; gap:6px; padding:10px 0; margin-bottom:10px; border-bottom:1px solid rgba(255,255,255,0.04); }
+.igb-action-btn { flex:1; display:flex; align-items:center; justify-content:center; gap:5px; padding:7px 4px; border-radius:8px; border:none; font-weight:700; font-size:max(0.78rem,0.68vw); cursor:pointer; transition:all .15s; }
+.igb-action-btn:hover { filter:brightness(1.2); }
+.igb-action-btn.act-call { background:#00ff88; color:#000; font-weight:700; }
+.igb-action-btn.act-sms { background:rgba(0,255,136,0.12); border:1px solid rgba(0,255,136,0.2); color:#00ff88; }
+.igb-action-btn.act-queue { background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.08); color:#aaa; }
+.igb-action-btn.act-schedule { background:rgba(255,59,48,0.12); border:1px solid rgba(255,59,48,0.25); color:#FF3B30; }
+.igb-action-btn.act-workflow { background:rgba(139,92,246,0.12); border:1px solid rgba(139,92,246,0.25); color:#a78bfa; }
+/* ═══════════════════════════════════════════════
+                       iPhone 15 Pro — CSS (scaled 25% down)
+                       ═══════════════════════════════════════════════ */
+.iphone-frame{width:100%;max-width:max(8rem, 15.31vw);max-height:59vh;aspect-ratio:393/852;position:relative;display:flex;align-items:center;justify-content:center;}
+.iphone-bezel{width:100%;height:100%;border-radius:clamp(39px, 2.03vw, 74px);background:linear-gradient(145deg,#78797e 0%,#48494d 20%,#36373b 50%,#48494d 80%,#78797e 100%);padding:2px;position:relative;box-shadow:0 0 0 1px rgba(255,255,255,0.06),0 25px 60px rgba(0,0,0,0.6),inset 0 1px 0 rgba(255,255,255,0.15);}
+/* Side buttons (cosmetic) — use percentage positions for scaling */
+.iphone-btn-right{position:absolute;right:-3px;top:21.2%;width:3px;height:7.5%;background:linear-gradient(to right,#48494d,#5a5b5f);border-radius:0 2px 2px 0;}
+.iphone-btn-left1{position:absolute;left:-3px;top:16.5%;width:3px;height:3.3%;background:linear-gradient(to left,#48494d,#5a5b5f);border-radius:2px 0 0 2px;}
+.iphone-btn-left2{position:absolute;left:-3px;top:21.2%;width:3px;height:5.8%;background:linear-gradient(to left,#48494d,#5a5b5f);border-radius:2px 0 0 2px;}
+.iphone-screen{width:100%;height:100%;border-radius:clamp(37px, 1.93vw, 70px);background:#000;overflow:hidden;position:relative;display:flex;flex-direction:column;}
+/* Status Bar */
+.ios-status-bar{height:clamp(46px, 2.4vw, 86px);flex-shrink:0;display:flex;align-items:center;justify-content:space-between;padding:0 clamp(21px, 1.09vw, 40px);position:relative;z-index:10;color:#fff;font-size:max(0.85rem,0.7vw);font-weight:600;}
+.ios-time{font-weight:700;font-size:max(0.95rem,0.78vw);letter-spacing:-0.3px;}
+.ios-dynamic-island{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:clamp(100px, 5.5vw, 180px);height:clamp(28px, 1.5vw, 50px);background:#000;border-radius:clamp(20px, 1.04vw, 38px);z-index:20;}
+/* Dial Mode — positioned on home screen between notch and app grid */
+.ios-dial-mode-bar{display:flex;align-items:center;justify-content:center;gap:clamp(8px, 0.6vw, 14px);padding:clamp(8px, 0.5vw, 14px) clamp(16px, 1vw, 28px);position:relative;z-index:2;flex-shrink:0;}
+.ios-dm-label{font-size:max(0.6rem,0.5vw);color:#fff;font-family:'JetBrains Mono','Inter',sans-serif;white-space:nowrap;letter-spacing:1.2px;font-weight:700;text-transform:uppercase;}
+.ios-dm-tabs{display:flex;gap:4px;background:rgba(0,0,0,0.5);border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:3px;}
+.ios-dm-btn{background:transparent;border:1px solid transparent;color:rgba(255,255,255,0.45);font-size:max(0.68rem,0.58vw);font-weight:800;padding:5px clamp(12px, 0.7vw, 20px);border-radius:6px;cursor:pointer;font-family:'Inter',sans-serif;transition:all .15s;white-space:nowrap;letter-spacing:0.5px;text-transform:uppercase;}
+.ios-dm-btn:hover{color:rgba(255,255,255,0.7);}
+.ios-dm-btn.ios-dm-active{background:#00ff88;color:#000;border-color:#00ff88;box-shadow:0 0 12px rgba(0,255,136,0.35);text-shadow:none;}
+.ios-status-icons{display:flex;align-items:center;gap:5px;}
+/* Home Screen */
+.ios-home{flex:1;display:flex;flex-direction:column;position:relative;overflow:hidden;}
+.ios-wallpaper{position:absolute;inset:0;background:
+                        radial-gradient(ellipse at 30% 20%, rgba(88,86,214,0.7) 0%, transparent 50%),
+                        radial-gradient(ellipse at 70% 60%, rgba(52,199,89,0.5) 0%, transparent 50%),
+                        radial-gradient(ellipse at 50% 90%, rgba(0,122,255,0.6) 0%, transparent 50%),
+                        radial-gradient(ellipse at 80% 20%, rgba(255,55,95,0.4) 0%, transparent 40%),
+                        radial-gradient(ellipse at 20% 70%, rgba(175,82,222,0.5) 0%, transparent 45%),
+                        linear-gradient(160deg, #1c1c3a 0%, #0d1b2a 50%, #0a0e1a 100%);
+                    z-index:0;}
+.ios-app-grid{flex:1;display:grid;grid-template-columns:repeat(3,1fr);align-items:start;justify-items:center;gap:clamp(16px, 0.83vw, 30px) clamp(12px, 0.63vw, 23px);padding:clamp(8px, 0.42vw, 16px) clamp(16px, 0.83vw, 30px);position:relative;z-index:1;align-content:start;}
+.ios-app-icon{display:flex;flex-direction:column;align-items:center;gap:5px;background:none;border:none;cursor:pointer;position:relative;transition:transform 0.15s;-webkit-tap-highlight-color:transparent;touch-action:manipulation;}
+.ios-app-icon:hover{transform:scale(1.08);}
+.ios-app-icon:active{transform:scale(0.95);}
+/* iOS-style Edit Mode: press-and-hold to rearrange */
+@keyframes iosJiggle {
+                        0%,100% { transform: rotate(-1.4deg) translate(0,0); }
+                        25%    { transform: rotate(1.4deg) translate(0.5px,-0.5px); }
+                        50%    { transform: rotate(-1.4deg) translate(-0.5px,0.5px); }
+                        75%    { transform: rotate(1.4deg) translate(0.5px,0.5px); }
+                    }
+.ios-app-grid.editing { touch-action: none; }
+.ios-app-grid.editing .ios-app-icon {
+                        animation: iosJiggle 0.22s linear infinite;
+                        cursor: grab;
+                    }
+.ios-app-grid.editing .ios-app-icon:nth-child(2n) { animation-delay: -0.11s; animation-direction: reverse; }
+.ios-app-grid.editing .ios-app-icon:nth-child(3n) { animation-delay: -0.07s; }
+.ios-app-grid.editing .ios-app-icon:hover { transform: none; }
+.ios-app-grid.editing .ios-app-icon:active { transform: none; }
+.ios-app-grid .ios-app-icon.dragging {
+                        animation: none !important;
+                        transform: scale(1.18) !important;
+                        opacity: 0.92;
+                        filter: drop-shadow(0 10px 20px rgba(0,0,0,0.5));
+                        cursor: grabbing;
+                    }
+.ios-icon{width:clamp(64px, 3.33vw, 122px);height:clamp(64px, 3.33vw, 122px);border-radius:clamp(14px, 0.73vw, 27px);display:flex;align-items:center;justify-content:center;font-size:max(2.1rem,1.75vw);color:#fff;box-shadow:0 4px 12px rgba(0,0,0,0.3);}
+.ios-icon-messages{background:linear-gradient(180deg,#65D66A 0%,#34C759 100%);}
+.ios-icon-phone{background:linear-gradient(180deg,#65D66A 0%,#34C759 100%);}
+.ios-icon-voicemail{background:linear-gradient(180deg,#FF9F0A 0%,#FF9500 100%);}
+.ios-app-label{font-size:max(0.72rem,0.6vw);color:#fff;font-weight:500;text-shadow:0 1px 3px rgba(0,0,0,0.6);letter-spacing:-0.1px;text-align:center;max-width:clamp(80px, 4.2vw, 150px);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.ios-badge{position:absolute;top:-4px;right:-4px;background:#FF3B30;color:#fff;font-size:max(0.65rem,0.52vw);font-weight:800;min-width:clamp(20px, 1.04vw, 38px);height:clamp(20px, 1.04vw, 38px);border-radius:clamp(10px, 0.52vw, 19px);display:flex;align-items:center;justify-content:center;padding:0 5px;border:2px solid #000;z-index:2;}
+/* Home Indicator */
+.ios-home-indicator-bar{flex-shrink:0;display:flex;justify-content:center;padding:6px 0 4px;position:relative;z-index:1;}
+.ios-home-indicator{width:clamp(100px, 5.21vw, 190px);height:clamp(3px, 0.16vw, 6px);border-radius:2px;background:rgba(255,255,255,0.25);}
+.ios-home-indicator-dark{background:rgba(255,255,255,0.15);}
+/* App Views (common) */
+.ios-app-view{position:absolute;inset:0;top:0;background:#000;display:flex;flex-direction:column;z-index:5;animation:iosAppOpen 0.3s cubic-bezier(0.2,0.9,0.3,1);}
+@keyframes iosAppOpen{0%{opacity:0;transform:scale(0.88);}100%{opacity:1;transform:scale(1);}}
+@keyframes iosAppClose{0%{opacity:1;transform:scale(1);}100%{opacity:0;transform:scale(0.88);}}
+/* Nav Bar */
+.ios-nav-bar{flex-shrink:0;display:flex;align-items:center;gap:clamp(6px, 0.31vw, 11px);padding:clamp(52px, 2.7vw, 96px) clamp(10px, 0.52vw, 19px) clamp(8px, 0.42vw, 15px);background:#121212;backdrop-filter:none;-webkit-backdrop-filter:none;border-bottom:1px solid rgba(255,255,255,0.06);}
+.ios-back-btn{background:none;border:none;color:#007AFF;font-size:max(1rem,0.83vw);cursor:pointer;padding:4px 8px 4px 4px;display:flex;align-items:center;gap:3px;flex-shrink:0;border-radius:6px;transition:background 0.15s;}
+.ios-back-btn:hover{background:rgba(0,122,255,0.1);}
+.ios-back-btn .ios-back-label{font-size:max(0.75rem,0.62vw);font-weight:500;}
+.ios-nav-title{flex:1;display:flex;align-items:center;gap:clamp(6px, 0.31vw, 11px);min-width:0;}
+.ios-nav-name{font-weight:700;font-size:max(0.88rem,0.73vw);color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.ios-nav-subtitle{font-size:max(0.72rem,0.6vw);color:#8E8E93;margin-top:1px;}
+.ios-nav-action{background:none;border:none;color:#007AFF;font-size:max(0.9rem,0.75vw);cursor:pointer;padding:3px;flex-shrink:0;}
+.ios-contact-avatar-sm{width:clamp(28px, 1.46vw, 53px);height:clamp(28px, 1.46vw, 53px);border-radius:50%;background:linear-gradient(135deg,#5856D6,#AF52DE);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:max(0.68rem,0.56vw);color:#fff;flex-shrink:0;}
+/* Empty State */
+.ios-empty-state{text-align:center;padding:clamp(60px, 3.13vw, 114px) clamp(18px, 0.94vw, 34px);}
+.ios-empty-icon{width:clamp(42px, 2.19vw, 80px);height:clamp(42px, 2.19vw, 80px);border-radius:50%;background:rgba(0,122,255,0.08);border:1px solid rgba(0,122,255,0.15);display:flex;align-items:center;justify-content:center;margin:0 auto clamp(9px, 0.47vw, 17px);font-size:max(1.3rem,1.08vw);color:#007AFF;}
+.ios-empty-title{color:#fff;font-size:max(0.82rem,0.68vw);font-weight:600;margin-bottom:3px;}
+.ios-empty-sub{color:#8E8E93;font-size:max(0.68rem,0.56vw);}
+/* Messages Thread */
+.ios-thread-scroll{flex:1;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;background:#000;}
+.ios-thread-scroll::-webkit-scrollbar{width:0;}
+/* Override bubble styles for iMessage look */
+.ios-thread-scroll .dlr-bubble.outbound{background:#007AFF!important;border:none!important;color:#fff!important;border-radius:clamp(18px, 0.94vw, 34px)!important;border-bottom-right-radius:clamp(4px, 0.21vw, 8px)!important;}
+.ios-thread-scroll .dlr-bubble.inbound{background:#1C1C1E!important;border:1px solid rgba(255,255,255,0.08)!important;color:#fff!important;border-radius:clamp(18px, 0.94vw, 34px)!important;border-bottom-left-radius:clamp(4px, 0.21vw, 8px)!important;}
+.ios-thread-scroll .dlr-date-sep span{background:rgba(255,255,255,0.06)!important;border:none!important;color:#8E8E93!important;font-size:max(0.82rem,0.68vw)!important;}
+.ios-thread-scroll .dlr-msg-meta{color:#8E8E93!important;font-size:max(0.78rem,0.65vw)!important;}
+.ios-thread-scroll .dlr-type-badge{background:rgba(255,255,255,0.06)!important;border-color:rgba(255,255,255,0.1)!important;color:#8E8E93!important;font-size:max(0.75rem,0.63vw)!important;}
+.ios-thread-scroll .dlr-bubble{font-size:max(0.88rem,0.73vw)!important;padding:clamp(10px, 0.52vw, 19px) clamp(14px, 0.73vw, 27px)!important;}
+/* iMessage Composer */
+.ios-composer{flex-shrink:0;background:#121212;backdrop-filter:none;-webkit-backdrop-filter:none;border-top:1px solid rgba(255,255,255,0.06);}
+.ios-quick-replies{display:flex;align-items:center;gap:5px;padding:5px 8px 2px;overflow-x:auto;scrollbar-width:none;}
+.ios-quick-replies::-webkit-scrollbar{display:none;}
+.ios-ai-btn{display:flex;align-items:center;gap:5px;flex-shrink:0;background:linear-gradient(135deg,rgba(0,122,255,0.2),rgba(88,86,214,0.15));border:1px solid rgba(0,122,255,0.35);color:#007AFF;border-radius:clamp(14px, 0.73vw, 27px);padding:clamp(8px, 0.42vw, 15px) clamp(14px, 0.73vw, 27px);font-size:max(0.884rem,0.73vw);font-weight:700;cursor:pointer;white-space:nowrap;}
+.ios-qr-chip{flex-shrink:0;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.08);color:#8E8E93;border-radius:clamp(14px, 0.73vw, 27px);padding:clamp(8px, 0.42vw, 15px) clamp(13px, 0.68vw, 25px);font-size:max(0.845rem,0.7vw);cursor:pointer;white-space:nowrap;transition:all .15s;}
+.ios-qr-chip:hover{background:rgba(0,122,255,0.12);color:#007AFF;border-color:rgba(0,122,255,0.2);}
+.ios-brand-label{color:#007AFF;font-size:max(0.82rem,0.72vw);font-weight:700;white-space:nowrap;letter-spacing:0.02em;}
+.ios-quick-options-btn{display:flex;align-items:center;gap:5px;flex-shrink:0;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.10);color:#8E8E93;border-radius:14px;padding:8px 14px;font-size:max(0.82rem,0.72vw);font-weight:600;cursor:pointer;white-space:nowrap;transition:all .15s;}
+.ios-quick-options-btn:hover{background:rgba(0,122,255,0.12);color:#007AFF;border-color:rgba(0,122,255,0.25);}
+.ios-quick-options-menu{display:none;position:fixed;min-width:210px;background:#161618;border:1px solid rgba(255,255,255,0.10);border-radius:14px;padding:5px;z-index:10000;box-shadow:0 8px 28px rgba(0,0,0,0.55),0 0 0 0.5px rgba(255,255,255,0.04);}
+.ios-quick-options-menu.open{display:flex;flex-direction:column;gap:1px;}
+.ios-quick-options-menu button{display:flex;align-items:center;gap:9px;width:100%;background:transparent;border:none;color:#d8d8d8;padding:10px 13px;font-size:max(0.8rem,0.70vw);font-weight:500;border-radius:9px;cursor:pointer;text-align:left;transition:background .12s,color .12s;font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text',sans-serif;}
+.ios-quick-options-menu button:hover{background:rgba(0,122,255,0.14);color:#ffffff;}
+.ios-quick-options-menu button i{color:#007AFF;width:16px;text-align:center;font-size:max(0.78rem,0.68vw);flex-shrink:0;}
+@keyframes qoSlideUp{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:translateY(0);}}
+@keyframes qoSlideDown{from{opacity:0;transform:translateY(-6px);}to{opacity:1;transform:translateY(0);}}
+/* ═══════════════════════════════════════════════
+                       Mobile-Only Elements — Hidden on Desktop
+                       Use min-width media query so these ONLY apply on
+                       desktop and cannot be overridden by JS inline styles.
+                       ═══════════════════════════════════════════════ */
+/* Intel column: hidden by default, shown when contact selected */
+#dlrColIntel { display: none !important; }
+#dlrColIntel.dlr-col-intel-visible { display: flex !important; flex-direction: column; }
+/* Phone column: center iPhone in available space */
+#dlrColPhone {
+                        flex: 1 1 0%;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        min-height: 0;
+                    }
+/* When intel column is hidden, symmetric padding */
+#dlrColIntel:not(.dlr-col-intel-visible) ~ #dlrColPhone {
+                        padding-left: 5%;
+                        padding-right: 5%;
+                    }
+/* When intel column is visible, tighter padding */
+#dlrColIntel.dlr-col-intel-visible ~ #dlrColPhone {
+                        padding-left: 0.75rem;
+                        padding-right: 0.75rem;
+                    }
+/* ═══════════════════════════════════════════════
+                       Mobile Dialer Layout — App-Like Experience
+                       ═══════════════════════════════════════════════ */
+.ios-channel-row{display:flex;align-items:center;gap:5px;padding:2px 9px 0;}
+.ios-channel-label{font-size:max(0.62rem,0.52vw);color:#8E8E93;font-weight:600;white-space:nowrap;}
+.ios-channel-select{-webkit-appearance:none;appearance:none;display:inline-flex;align-items:center;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);color:#8E8E93;padding:4px 8px;border-radius:10px;font-size:max(0.62rem,0.52vw);font-weight:600;outline:none;cursor:pointer;white-space:nowrap;line-height:1;height:auto;}
+.ios-channel-note{font-size:max(0.56rem,0.47vw);color:#8E8E93;}
+/* ═══ iMessage Composer (redesigned) ═══════════════════════════════════
+                       Layout:  [+]  [iMessage ..................  🎤 / ↑]
+                         · Left: 32px circular +, opens a menu with AI Reply, Quick Options,
+                           channel selector, and char/status meta. Rotates 45° when open.
+                         · Center: rounded-pill textarea. Grows vertically with content
+                           (max 120px). Mic/send button is inside the pill, bottom-right.
+                         · Right edge of pill: mic icon when empty (speech-to-text),
+                           swaps to a green send arrow when any character is typed.
+                         · Enter sends (Shift+Enter = newline). Works dark + light theme.
+                       ─────────────────────────────────────────────────────────────────── */
+.ios-composer {
+                        display:flex; flex-direction:column; flex-shrink:0;
+                        background:#000;
+                        border-top:1px solid rgba(255,255,255,0.07);
+                        padding:10px 12px 12px;
+                    }
+.ios-compose-row {
+                        display:flex; align-items:flex-end; gap:8px;
+                        position:relative;
+                    }
+/* ── Plus button ──────────────────────────────────────────── */
+.ios-compose-plus {
+                        flex-shrink:0;
+                        width:32px; height:32px; border-radius:50%;
+                        background:rgba(255,255,255,0.08);
+                        border:none; cursor:pointer;
+                        color:#60a5fa;
+                        display:flex; align-items:center; justify-content:center;
+                        font-size:max(0.95rem,0.83vw);
+                        transition:transform 220ms cubic-bezier(.2,.9,.3,1), background 160ms ease, color 160ms ease;
+                        margin-bottom:4px;
+                    }
+.ios-compose-plus:hover { background:rgba(0,122,255,0.18); color:#93c5fd; }
+.ios-compose-plus.is-active {
+                        transform:rotate(45deg);
+                        background:rgba(0,122,255,0.24);
+                        color:#fff;
+                    }
+/* ── Plus menu (dropup) ───────────────────────────────────── */
+.ios-plus-menu {
+                        position:absolute;
+                        bottom:calc(100% + 10px);
+                        left:0;
+                        min-width:232px;
+                        background:#1c1c1e;
+                        border:1px solid rgba(255,255,255,0.10);
+                        border-radius:14px;
+                        padding:6px;
+                        box-shadow:0 24px 60px rgba(0,0,0,0.6), 0 0 0 1px rgba(0,122,255,0.06);
+                        display:none;
+                        z-index:250;
+                        transform-origin:bottom left;
+                    }
+.ios-plus-menu.is-open {
+                        display:block;
+                        animation:iosPlusMenuIn 200ms cubic-bezier(.2,.9,.3,1);
+                    }
+@keyframes iosPlusMenuIn {
+                        from { opacity:0; transform:translateY(8px) scale(0.96); }
+                        to   { opacity:1; transform:translateY(0) scale(1); }
+                    }
+.ios-plus-menu button {
+                        display:flex; align-items:center; gap:11px;
+                        width:100%; padding:10px 12px;
+                        background:transparent; border:none;
+                        color:#f5f5f5;
+                        font-size:max(0.84rem,0.73vw); font-weight:500;
+                        text-align:left; cursor:pointer;
+                        border-radius:8px;
+                        transition:background 120ms ease, color 120ms ease;
+                    }
+.ios-plus-menu button:hover { background:rgba(0,122,255,0.14); color:#93c5fd; }
+.ios-plus-menu button i {
+                        width:18px; text-align:center;
+                        color:#8E8E93; font-size:max(0.88rem,0.77vw);
+                        transition:color 120ms ease;
+                    }
+.ios-plus-menu button:hover i { color:#93c5fd; }
+/* AI Reply gets the signature gradient treatment */
+.ios-plus-menu #dlrAiDraftBtn {
+                        background:linear-gradient(135deg,rgba(0,122,255,0.12),rgba(124,58,237,0.10));
+                        color:#93c5fd; font-weight:700;
+                    }
+.ios-plus-menu #dlrAiDraftBtn i { color:#93c5fd; }
+.ios-plus-menu #dlrAiDraftBtn:hover {
+                        background:linear-gradient(135deg,rgba(0,122,255,0.22),rgba(124,58,237,0.18));
+                        color:#cfd8ff;
+                    }
+.ios-plus-menu-divider {
+                        height:1px; background:rgba(255,255,255,0.08); margin:6px 10px;
+                    }
+.ios-plus-menu-channel {
+                        display:flex; align-items:center; justify-content:space-between;
+                        padding:10px 12px;
+                        font-size:max(0.74rem,0.65vw); color:#8E8E93;
+                        border-top:1px solid rgba(255,255,255,0.06);
+                        margin-top:4px;
+                    }
+.ios-plus-menu-channel select {
+                        background:rgba(255,255,255,0.06);
+                        border:1px solid rgba(255,255,255,0.12);
+                        border-radius:6px;
+                        padding:4px 10px;
+                        font-size:max(0.72rem,0.63vw); color:#f5f5f5;
+                        outline:none; cursor:pointer;
+                    }
+.ios-plus-menu-meta {
+                        display:flex; align-items:center; justify-content:space-between;
+                        padding:8px 12px 4px;
+                        font-size:max(0.66rem,0.58vw);
+                        color:#636366;
+                        font-family:'SF Mono',ui-monospace,'JetBrains Mono',monospace;
+                        border-top:1px solid rgba(255,255,255,0.06);
+                        margin-top:4px;
+                    }
+.ios-plus-menu-meta .ios-sms-status:empty { display:none; }
+/* ── Pill input wrap ──────────────────────────────────────── */
+.ios-compose-input-wrap {
+                        flex:1; min-width:0;
+                        position:relative;
+                        background:#1c1c1e;
+                        border:1px solid rgba(255,255,255,0.12);
+                        border-radius:20px;
+                        padding:6px 40px 6px 14px;
+                        min-height:34px;
+                        display:flex; align-items:center;
+                        transition:border-color 160ms ease;
+                    }
+.ios-compose-input-wrap:focus-within { border-color:rgba(0,122,255,0.55); }
+.ios-compose-input {
+                        width:100%;
+                        background:transparent;
+                        border:none; outline:none;
+                        color:#f5f5f5;
+                        font-size:max(0.9rem,0.79vw); line-height:1.4;
+                        resize:none;
+                        max-height:120px;
+                        font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Helvetica Neue','Inter',sans-serif;
+                        padding:2px 0;
+                    }
+.ios-compose-input::placeholder { color:#636366; }
+/* ── Mic / Send button (swap inside pill) ─────────────────── */
+.ios-compose-mic,
+                    .ios-compose-send {
+                        position:absolute;
+                        right:4px; bottom:4px;
+                        width:26px; height:26px;
+                        border-radius:50%; border:none;
+                        display:flex; align-items:center; justify-content:center;
+                        cursor:pointer;
+                        font-size:max(0.78rem,0.68vw);
+                        transition:all 180ms ease;
+                    }
+.ios-compose-mic {
+                        background:transparent;
+                        color:#8E8E93;
+                    }
+.ios-compose-mic:hover { background:rgba(0,122,255,0.14); color:#60a5fa; }
+.ios-compose-mic.is-listening {
+                        background:#ef4444;
+                        color:#fff;
+                        animation:iosMicPulse 1.3s ease-in-out infinite;
+                    }
+@keyframes iosMicPulse {
+                        0%, 100% { box-shadow:0 0 0 0 rgba(239,68,68,0.55); }
+                        50%      { box-shadow:0 0 0 7px rgba(239,68,68,0); }
+                    }
+.ios-compose-send {
+                        background:#00c853;              /* iMessage green */
+                        color:#fff;
+                        box-shadow:0 2px 10px rgba(0,200,83,0.35);
+                    }
+.ios-compose-send:hover { background:#00b34a; transform:scale(1.06); box-shadow:0 4px 14px rgba(0,200,83,0.55); }
+.ios-compose-send:active { transform:scale(0.92); }
+.ios-compose-send:disabled { opacity:0.35; cursor:not-allowed; transform:none; box-shadow:none; }
+/* Legacy char count / status — now lives inside the plus menu */
+.ios-sms-status { display:inline-block; }
+.ios-char-count { display:inline-block; }
+/* ═══ End composer ═════════════════════════════════════════════════ */
+/* Call Log */
+.ios-call-log-scroll{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;background:#000;}
+.ios-call-log-scroll::-webkit-scrollbar{width:0;}
+/* Voicemail */
+.ios-voicemail-scroll{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;background:#000;}
+.ios-voicemail-scroll::-webkit-scrollbar{width:0;}
+/* iMessage Inbox */
+.imsg-filter-pill{background:rgba(255,255,255,0.06);border:none;border-radius:14px;padding:4px 10px;font-size:max(0.7rem,0.61vw);font-weight:600;color:#8E8E93;cursor:pointer;white-space:nowrap;transition:all 0.2s;flex:1;text-align:center;min-width:0;}
+.imsg-filter-pill.active{background:#007AFF;color:#fff;}
+.imsg-filter-pill:hover:not(.active){background:rgba(255,255,255,0.1);}
+.imsg-convo-row{display:flex;align-items:center;gap:12px;padding:10px 16px;cursor:pointer;transition:background 0.15s;position:relative;}
+.imsg-convo-row:hover{background:rgba(255,255,255,0.03);}
+.imsg-convo-row:active{background:rgba(255,255,255,0.06);}
+.imsg-convo-row::after{content:'';position:absolute;bottom:0;left:68px;right:0;height:1px;background:rgba(255,255,255,0.06);}
+.imsg-convo-row:last-child::after{display:none;}
+.imsg-avatar{width:clamp(44px, 2.29vw, 84px);height:clamp(44px, 2.29vw, 84px);border-radius:50%;background:linear-gradient(135deg,#5856D6,#AF52DE);display:flex;align-items:center;justify-content:center;font-size:max(0.8rem,0.67vw);font-weight:700;color:#fff;flex-shrink:0;letter-spacing:-0.3px;}
+.imsg-unread-dot{width:10px;height:10px;border-radius:50%;background:#007AFF;flex-shrink:0;}
+.imsg-convo-unread{background:rgba(0,122,255,0.04);}
+.imsg-convo-unread:hover{background:rgba(0,122,255,0.08);}
+@keyframes imsgPulse{0%,100%{box-shadow:0 0 0 0 rgba(0,122,255,0.5);}50%{box-shadow:0 0 0 4px rgba(0,122,255,0);}}
+.imsg-time{font-size:max(0.75rem,0.66vw);color:#8E8E93;white-space:nowrap;flex-shrink:0;}
+.imsg-name{font-size:max(0.85rem,0.74vw);font-weight:600;color:#fff;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.imsg-preview{font-size:max(0.75rem,0.66vw);color:#8E8E93;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;white-space:normal;line-height:1.3;max-height:2.6em;}
+.imsg-chevron{color:#C7C7CC;font-size:max(0.7rem,0.61vw);flex-shrink:0;}
+/* Inbox thread bubbles */
+.imsg-bubble{max-width:78%;padding:9px 14px;border-radius:18px;font-size:max(0.8rem,0.70vw);line-height:1.4;word-wrap:break-word;}
+.imsg-bubble.outbound{background:#007AFF;color:#fff;border-bottom-right-radius:6px;margin-left:auto;}
+.imsg-bubble.inbound{background:#1C1C1E;color:#fff;border:1px solid rgba(255,255,255,0.08);border-bottom-left-radius:6px;margin-right:auto;}
+.imsg-bubble-time{font-size:max(0.7rem,0.61vw);margin-top:3px;opacity:0.5;text-align:right;}
+.imsg-date-sep{text-align:center;padding:12px 0 6px;font-size:max(0.75rem,0.66vw);color:#8E8E93;font-weight:600;}
+.imsg-call-pill{text-align:center;padding:4px 0;}
+.imsg-call-pill span{font-size:max(0.75rem,0.66vw);color:#8E8E93;background:rgba(255,255,255,0.04);padding:4px 12px;border-radius:10px;display:inline-flex;align-items:center;gap:4px;}
+/* ═══ Modern Scrollbar Styling ═══ */
+/* iPhone app scrollbars — thin, translucent, rounded */
+#inboxConversationList::-webkit-scrollbar,
+                    #inboxThreadMessages::-webkit-scrollbar{width:3px;}
+#inboxConversationList::-webkit-scrollbar-track,
+                    #inboxThreadMessages::-webkit-scrollbar-track{background:transparent;}
+#inboxConversationList::-webkit-scrollbar-thumb,
+                    #inboxThreadMessages::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.12);border-radius:3px;}
+#inboxConversationList::-webkit-scrollbar-thumb:hover,
+                    #inboxThreadMessages::-webkit-scrollbar-thumb:hover{background:rgba(255,255,255,0.25);}
+#inboxConversationList,#inboxThreadMessages{scrollbar-width:thin;scrollbar-color:rgba(255,255,255,0.12) transparent;}
+/* Contact list column scrollbar */
+.dlr-col-body::-webkit-scrollbar{width:4px;}
+.dlr-col-body::-webkit-scrollbar-track{background:transparent;margin:4px 0;}
+.dlr-col-body::-webkit-scrollbar-thumb{background:rgba(0,255,136,0.15);border-radius:4px;transition:background 0.2s;}
+.dlr-col-body::-webkit-scrollbar-thumb:hover{background:rgba(0,255,136,0.3);}
+.dlr-col-body{scrollbar-width:thin;scrollbar-color:rgba(0,255,136,0.15) transparent;}
+/* Contact Information column scrollbar */
+.dlr-col-hide-btn{background:none;border:none;color:#555;cursor:pointer;padding:2px 6px;border-radius:4px;font-size:max(0.8rem,0.70vw);transition:color .15s;flex-shrink:0;line-height:1;}
+.dlr-col-hide-btn:hover{color:var(--accent);}
+#dlrDetailContent::-webkit-scrollbar{width:4px;}
+#dlrDetailContent::-webkit-scrollbar-track{background:transparent;}
+#dlrDetailContent::-webkit-scrollbar-thumb{background:rgba(91,127,255,0.15);border-radius:4px;}
+#dlrDetailContent::-webkit-scrollbar-thumb:hover{background:rgba(91,127,255,0.3);}
+/* ═══════════════════════════════════════════════
+                       4K / Ultra-High-DPI Scaling (2200px+)
+                       Ensures all dialer elements scale proportionally
+                       on large/high-resolution displays.
+                       ═══════════════════════════════════════════════ */
+/* ═══════════════════════════════════════════════
+                       iPhone Column — Center in column
+                       ═══════════════════════════════════════════════ */
+#dlrColPhone { padding: clamp(8px, 0.5vw, 18px) clamp(12px, 0.8vw, 28px); }
+/* ═══════════════════════════════════════════════
+                       Light Theme — iPhone & Dialer Overrides
+                       ═══════════════════════════════════════════════ */
+/* Call History and Recordings scroll areas */
+/* Light theme — phone interior elements */
+/* Light theme — iMessage composer */
+/* Send button stays iMessage green in both themes — on purpose */
+/* Light theme — Inbox app */
+/* Light theme — Calendar app */
+/* Calendar picker sub-header */
+.ios-cal-picker-bar { display:flex;align-items:center;gap:8px;padding:8px 12px;flex-shrink:0;background:#0a0a0a;border-bottom:1px solid rgba(255,255,255,0.06);overflow:hidden; }
+.ios-cal-picker-icon { color:rgba(255,255,255,0.35);font-size:max(0.8rem,0.70vw);flex-shrink:0;width:16px;text-align:center; }
+.ios-cal-picker-select { flex:1;min-width:0;background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.10);color:#e8e8e8;border-radius:8px;padding:6px 10px;font-size:max(0.8rem,0.70vw);font-weight:500;font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Segoe UI',system-ui,sans-serif;outline:none;cursor:pointer;width:0;transition:border-color 0.15s; }
+.ios-cal-picker-select:focus { border-color:rgba(0,255,136,0.35); }
+/* Light theme — Discord/Slack Connect buttons always white text */
+/* Light theme — Discord app */
+/* Light theme — Slack app */
+/* Light theme — phone home screen wallpaper: bright, vibrant, elegant */
+/* Status bar dark text on light wallpaper — but clock stays white */
+/* App icon labels: dark with light shadow so readable on bright wallpaper */
+/* Icon shadows: softer — no heavy depth on light background */
+/* Home indicator pill */
+/* Light theme — all app views (Messages, Calls, Recordings, Voicemail) */
+/* Messages thread */
+/* Composer bar */
+/* Empty states */
+/* ── KPI Banner Pills ── */
+.dlr-kpi-pill{display:flex;align-items:center;gap:5px;padding:5px 10px;border-radius:8px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.07);white-space:nowrap;transition:background .15s;}
+.dlr-kpi-pill:hover{background:rgba(255,255,255,0.07);}
+.dlr-kpi-icon{font-size:max(0.72rem,0.63vw);color:#666;flex-shrink:0;}
+.dlr-kpi-val{font-size:max(1.05rem,0.92vw);font-weight:700;color:#fff;line-height:1;min-width:18px;text-align:center;}
+.dlr-kpi-lbl{font-size:max(0.68rem,0.60vw);color:#666;text-transform:uppercase;letter-spacing:0.4px;font-weight:600;}
+.dlr-kpi-sep{width:1px;height:24px;background:rgba(255,255,255,0.07);flex-shrink:0;}
+/* pickup accent */
+.dlr-kpi-pickup .dlr-kpi-icon{color:var(--accent);}
+.dlr-kpi-pickup .dlr-kpi-val{color:var(--accent);}
+/* 2-min accent */
+.dlr-kpi-2min .dlr-kpi-icon{color:#00ff88;}
+.dlr-kpi-2min .dlr-kpi-val{color:#00ff88;}
+/* 10-min accent */
+.dlr-kpi-10min .dlr-kpi-icon{color:#ff6b35;}
+.dlr-kpi-10min .dlr-kpi-val{color:#ff6b35;}
+/* Light theme overrides */
+/* Mobile: hide banner on small screens */
+/* Collapsible top bar */
+#dlrTopBarHeader { transition: background 0.15s; }
+#dlrTopBarHeader:hover { background: rgba(255,255,255,0.03); }
+.dlr-topbar-chevron { transform: rotate(0deg); color: #444; font-size: max(0.55rem,0.48vw); transition: transform 0.2s, color 0.15s; }
+.dlr-topbar-chevron.open { transform: rotate(180deg); color: #00ff88; }
+/* Light theme — dialer panels */
+/* ── Export Modal — Dark (glassmorphism) ── */
+.dlr-export-overlay { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); backdrop-filter:none; -webkit-backdrop-filter:none; z-index:10000; align-items:center; justify-content:center; }
+.dlr-export-card { background:#111111; backdrop-filter:none; -webkit-backdrop-filter:none; border:1px solid #222222; border-radius:20px; max-width:540px; width:92%; max-height:85vh; overflow:hidden; display:flex; flex-direction:column; box-shadow:0 32px 80px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.15); }
+.dlr-export-hdr { padding:16px 20px; border-bottom:1px solid rgba(255,255,255,0.08); display:flex; align-items:center; justify-content:space-between; }
+.dlr-export-hdr h5 { margin:0; font-weight:700; color:#fff; }
+.dlr-export-hdr .dlr-export-close { background:none; border:none; color:#666; cursor:pointer; font-size:max(1.2rem,1.05vw); transition:color 0.2s; }
+.dlr-export-hdr .dlr-export-close:hover { color:#fff; }
+.dlr-export-body { padding:16px 20px; overflow-y:auto; flex:1; }
+.dlr-export-label { font-size:max(0.75rem,0.66vw); font-weight:600; color:#aaa; margin-bottom:4px; display:block; }
+.dlr-export-input { width:100%; padding:8px 12px; background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.1); border-radius:10px; color:#eee; font-size:max(0.85rem,0.74vw); transition:border-color 0.2s; }
+.dlr-export-input:focus { outline:none; border-color:rgba(0,255,136,0.4); }
+.dlr-export-input::placeholder { color:#555; }
+.dlr-export-tags-wrap { display:flex; flex-wrap:wrap; gap:6px; min-height:32px; padding:8px; background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.08); border-radius:10px; }
+.dlr-export-tag-chip { padding:3px 10px; border-radius:20px; font-size:max(0.72rem,0.63vw); font-weight:600; cursor:pointer; border:1px solid rgba(255,255,255,0.1); background:rgba(255,255,255,0.04); color:#aaa; transition:all 0.15s; }
+.dlr-export-tag-chip:hover { background:rgba(255,255,255,0.08); }
+.dlr-export-tag-chip.active { background:rgba(0,255,136,0.15) !important; border-color:#00ff88 !important; color:#00ff88 !important; }
+.dlr-export-info { padding:10px 14px; background:rgba(0,255,136,0.06); border:1px solid rgba(0,255,136,0.12); border-radius:10px; }
+.dlr-export-info span { color:#00ff88; font-size:max(0.8rem,0.70vw); font-weight:600; }
+.dlr-export-footer { padding:14px 20px; border-top:1px solid rgba(255,255,255,0.08); display:flex; justify-content:flex-end; gap:8px; }
+.dlr-export-cancel { padding:8px 16px; border-radius:10px; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.1); color:#aaa; font-size:max(0.85rem,0.74vw); cursor:pointer; transition:all 0.2s; }
+.dlr-export-cancel:hover { background:rgba(255,255,255,0.1); color:#fff; }
+.dlr-export-submit { padding:8px 20px; border-radius:10px; background:#00ff88; border:none; color:#000; font-weight:700; font-size:max(0.85rem,0.74vw); cursor:pointer; transition:transform 0.15s, box-shadow 0.15s; }
+.dlr-export-submit:hover { transform:translateY(-1px); box-shadow:0 4px 16px rgba(0,255,136,0.3); }
+/* ── Export Modal — Light theme ── */
+/* ── Move Pipeline Panel — Dark ── */
+.mvp-overlay { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.45); backdrop-filter:none; -webkit-backdrop-filter:none; z-index:99999; align-items:center; justify-content:center; }
+.mvp-overlay.open { display:flex; }
+.mvp-panel { background:#111111; backdrop-filter:none; -webkit-backdrop-filter:none; border:1px solid #222222; border-radius:18px; width:340px; max-width:92vw; max-height:80vh; display:flex; flex-direction:column; box-shadow:0 24px 60px -8px rgba(0,0,0,0.6), inset 0 1px 1px rgba(255,255,255,0.14); overflow:hidden; }
+.mvp-header { padding:14px 18px 10px; display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid rgba(255,255,255,0.07); flex-shrink:0; }
+.mvp-title { font-weight:700; font-size:max(0.92rem,0.81vw); color:#eee; }
+.mvp-count { font-size:max(0.75rem,0.66vw); color:#666; }
+.mvp-search-wrap { padding:10px 12px 6px; flex-shrink:0; }
+.mvp-search { width:100%; padding:7px 12px; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1); border-radius:8px; color:#ddd; font-size:max(0.82rem,0.72vw); outline:none; transition:border-color .18s; box-sizing:border-box; }
+.mvp-search:focus { border-color:rgba(0,255,136,0.35); }
+.mvp-search::placeholder { color:#555; }
+.mvp-list { flex:1; overflow-y:auto; padding:6px 8px; }
+.mvp-pipe-item { border-radius:8px; margin-bottom:3px; overflow:hidden; }
+.mvp-pipe-hdr { display:flex; align-items:center; gap:8px; padding:8px 10px; cursor:pointer; border-radius:8px; transition:background .14s; font-size:max(0.83rem,0.73vw); font-weight:600; color:#bbb; }
+.mvp-pipe-hdr:hover { background:rgba(255,255,255,0.05); }
+.mvp-pipe-hdr.selected { color:#00ff88; background:rgba(0,255,136,0.07); }
+.mvp-pipe-arrow { font-size:max(0.6rem,0.53vw); color:#555; transition:transform .18s; margin-left:auto; }
+.mvp-pipe-hdr.open .mvp-pipe-arrow { transform:rotate(180deg); }
+.mvp-stages { display:none; padding:2px 0 4px 22px; }
+.mvp-stages.open { display:block; }
+.mvp-stage-item { padding:6px 10px; border-radius:6px; font-size:max(0.8rem,0.70vw); color:#888; cursor:pointer; transition:background .14s, color .14s; display:flex; align-items:center; gap:6px; }
+.mvp-stage-item:hover { background:rgba(255,255,255,0.05); color:#ccc; }
+.mvp-stage-item.selected { color:#00ff88; background:rgba(0,255,136,0.07); }
+.mvp-stage-dot { width:6px; height:6px; border-radius:50%; background:rgba(255,255,255,0.2); flex-shrink:0; }
+.mvp-stage-item.selected .mvp-stage-dot { background:#00ff88; }
+.mvp-none { text-align:center; padding:24px; font-size:max(0.8rem,0.70vw); color:#555; }
+.mvp-footer { padding:12px 16px; border-top:1px solid rgba(255,255,255,0.07); display:flex; align-items:center; justify-content:flex-end; gap:8px; flex-shrink:0; }
+.mvp-dest { flex:1; font-size:max(0.75rem,0.66vw); color:#666; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.mvp-cancel { padding:7px 14px; border-radius:8px; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1); color:#aaa; font-size:max(0.82rem,0.72vw); cursor:pointer; transition:all .15s; }
+.mvp-cancel:hover { background:rgba(255,255,255,0.09); color:#ddd; }
+.mvp-move { padding:7px 18px; border-radius:8px; background:rgba(0,255,136,0.15); border:1px solid rgba(0,255,136,0.3); color:#00ff88; font-size:max(0.82rem,0.72vw); font-weight:700; cursor:pointer; transition:all .15s; }
+.mvp-move:hover:not(:disabled) { background:rgba(0,255,136,0.25); box-shadow:0 4px 14px rgba(0,255,136,0.2); }
+.mvp-move:disabled { opacity:.4; cursor:default; }
+.mvp-row-btn { padding:1px 7px; border-radius:4px; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1); color:#888; font-size:max(0.7rem,0.61vw); font-weight:600; cursor:pointer; transition:all .14s; white-space:nowrap; flex-shrink:0; }
+.mvp-row-btn:hover { background:rgba(0,255,136,0.1); border-color:rgba(0,255,136,0.25); color:#00ff88; }
+/* Equal-size for Add-to-Queue / Move-Pipeline buttons */
+.dlr-action-btn-equal { border-radius:4px !important; padding:3px 9px !important; font-size:max(0.73rem,0.64vw) !important; font-weight:600 !important; line-height:1.4 !important; cursor:pointer; height:24px; display:inline-flex; align-items:center; box-sizing:border-box; }
+.dlr-move-bulk-btn { border-radius:4px; padding:2px 8px; font-size:max(0.75rem,0.66vw); font-weight:600; cursor:pointer; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.12); color:#aaa; transition:all .15s; }
+.dlr-move-bulk-btn:hover:not(:disabled) { background:rgba(0,255,136,0.1); border-color:rgba(0,255,136,0.25); color:#00ff88; }
+.dlr-move-bulk-btn:disabled { opacity:.4; cursor:default; }
+/* ── Move Pipeline Panel — Light theme ── */
+/* Call History tabs */
+.ios-calls-tab-bar{display:flex;gap:0;border-bottom:1px solid rgba(255,255,255,0.08);flex-shrink:0;}
+.ios-calls-tab{flex:1;background:none;border:none;color:#666;font-size:max(0.62rem,0.65vw);font-weight:600;padding:8px 4px 7px;cursor:pointer;font-family:'Inter',sans-serif;border-bottom:2px solid transparent;margin-bottom:-1px;transition:all .15s;}
+.ios-calls-tab.active{color:var(--accent);border-bottom-color:var(--accent);}
+/* ── Contact Management Modal ── */
+.dlr-cm-overlay{position:fixed;inset:0;z-index:9000;background:rgba(0,0,0,0.55);display:none;align-items:center;justify-content:center;}
+.dlr-cm-card{width:360px;border-radius:2px;padding:0;overflow:hidden;background:#111;border:1px solid #242424;}
+.dlr-cm-header{padding:14px 16px 12px;border-bottom:1px solid rgba(255,255,255,0.08);display:flex;align-items:center;justify-content:space-between;}
+.dlr-cm-title{font-weight:700;font-size:max(1rem,0.88vw);color:#fff;}
