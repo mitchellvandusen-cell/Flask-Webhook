@@ -223,7 +223,7 @@
 .iphone-btn-left2{position:absolute;left:-3px;top:21.2%;width:3px;height:5.8%;background:linear-gradient(to left,#48494d,#5a5b5f);border-radius:2px 0 0 2px;}
 .iphone-screen{width:100%;height:100%;border-radius:1.93vw;background:#000;overflow:hidden;position:relative;display:flex;flex-direction:column;}
 /* Status Bar */
-.ios-status-bar{height:3.2vw;flex-shrink:0;display:flex;align-items:flex-end;justify-content:space-between;padding:0 1.5vw 0.35vw;position:relative;z-index:10;color:#fff;font-size:max(0.85rem,0.7vw);font-weight:600;}
+.ios-status-bar{height:2.8vw;flex-shrink:0;display:flex;align-items:flex-end;justify-content:space-between;padding:0 1.5vw 0.3vw;position:relative;z-index:10;color:#fff;font-size:max(0.85rem,0.7vw);font-weight:600;}
 .ios-time{font-weight:700;font-size:max(0.95rem,0.78vw);letter-spacing:-0.3px;}
 .ios-dynamic-island{position:absolute;top:0.5vw;left:50%;transform:translateX(-50%);width:4.8vw;height:1.35vw;background:#000;border-radius:1.04vw;z-index:20;}
 /* Dial Mode — clean separator between status bar and app grid */
@@ -282,7 +282,7 @@
 .ios-home-indicator{width:5.21vw;height:0.16vw;border-radius:2px;background:rgba(255,255,255,0.25);}
 .ios-home-indicator-dark{background:rgba(255,255,255,0.15);}
 /* App Views (common) */
-.ios-app-view{position:absolute;inset:0;top:0;background:#000;display:flex;flex-direction:column;z-index:5;animation:iosAppOpen 0.3s cubic-bezier(0.2,0.9,0.3,1);padding-top:3.4vw;}
+.ios-app-view{position:absolute;inset:0;top:0;background:#000;display:flex;flex-direction:column;z-index:5;animation:iosAppOpen 0.3s cubic-bezier(0.2,0.9,0.3,1);padding-top:3.0vw;}
 @keyframes iosAppOpen{0%{opacity:0;transform:scale(0.88);}100%{opacity:1;transform:scale(1);}}
 @keyframes iosAppClose{0%{opacity:1;transform:scale(1);}100%{opacity:0;transform:scale(0.88);}}
 /* Nav Bar */
