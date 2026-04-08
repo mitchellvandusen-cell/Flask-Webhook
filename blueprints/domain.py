@@ -8,6 +8,13 @@
 #   POST /api/domain/cancel          — Cancel domain subscription
 #   POST /api/domain/contact-form    — Public: receive lead form submissions (rate-limited)
 #   POST /api/domain/auto-reply      — Internal: Twilio email auto-reply (secret-authenticated)
+#   GET  /api/domain/sections        — Read section config from KV (page builder)
+#   POST /api/domain/sections        — Save section order/toggles/content to KV
+#   POST /api/domain/section-ai      — AI copy generation via xAI Grok
+#   POST /api/domain/photo           — Upload profile photo (base64)
+#   GET  /api/domain/reviews         — List pending + approved reviews
+#   POST /api/domain/reviews/approve — Approve/reject a review
+#   POST /api/domain/sync-carriers   — Sync carriers from voice_config to KV
 
 import hashlib
 import json
@@ -1393,3 +1400,460 @@ def domain_auto_reply():
     else:
         logger.error(f"[Domain] Auto-reply failed: {to_email} → {from_email}")
         return jsonify({'status': 'error', 'replied': False}), 500
+
+
+# ═══════════════════════════════════════════════════════════════
+# PAGE BUILDER — Section Config, AI Generation, Photos, Reviews
+# ═══════════════════════════════════════════════════════════════
+
+def _default_faq_items():
+    """Pre-written FAQ items for insurance agents."""
+    return [
+        {'q': 'How much does life insurance cost?',
+         'a': 'Life insurance costs vary based on your age, health, coverage amount, and policy type. Many term life policies start at $20-30 per month. I can provide a personalized quote based on your specific situation.',
+         'visible': True},
+        {'q': 'Do I need a medical exam?',
+         'a': 'Not always. Many carriers offer no-exam policies with simplified underwriting. The options available depend on your age, health history, and coverage amount.',
+         'visible': True},
+        {'q': 'How long does it take to get approved?',
+         'a': 'Approval timelines range from 24 hours for simplified-issue policies to 4-6 weeks for fully underwritten policies that require a medical exam.',
+         'visible': True},
+        {'q': 'Can I change my policy later?',
+         'a': 'Yes. Most term policies include a conversion option that lets you switch to permanent coverage without a new medical exam. You can also adjust coverage amounts at renewal.',
+         'visible': True},
+        {'q': 'What happens if I miss a payment?',
+         'a': 'Most policies include a 30-day grace period. If you miss a payment, your coverage continues during that window. After the grace period, reinstatement options are typically available within 3-5 years.',
+         'visible': True},
+        {'q': 'Is my information secure?',
+         'a': 'Absolutely. Your personal information is encrypted and never sold or shared with third parties. I follow strict privacy guidelines to protect your data.',
+         'visible': True},
+    ]
+
+
+def _default_sections():
+    """Return the default section structure for a new page builder config."""
+    return [
+        {'type': 'hero', 'enabled': True, 'order': 0},
+        {'type': 'about', 'enabled': False, 'order': 1, 'content': ''},
+        {'type': 'services', 'enabled': False, 'order': 2, 'content': '', 'service_types': []},
+        {'type': 'why_me', 'enabled': False, 'order': 3, 'content': '', 'value_props': []},
+        {'type': 'carriers', 'enabled': False, 'order': 4},
+        {'type': 'testimonials', 'enabled': False, 'order': 5, 'items': []},
+        {'type': 'faq', 'enabled': False, 'order': 6, 'items': _default_faq_items()},
+        {'type': 'contact_form', 'enabled': True, 'order': 7},
+        {'type': 'footer', 'enabled': True, 'order': 8},
+    ]
+
+
+def _cf_get_agent_config(domain):
+    """Read agent config from Workers KV."""
+    kv_ns_id = os.getenv('CLOUDFLARE_KV_NAMESPACE_ID', '')
+    if not kv_ns_id:
+        return None
+    try:
+        resp = requests.get(
+            f'{CLOUDFLARE_API_BASE}/accounts/{CLOUDFLARE_ACCOUNT_ID}/storage/kv/namespaces/{kv_ns_id}/values/{domain}',
+            headers={'Authorization': f'Bearer {CLOUDFLARE_API_TOKEN}'},
+            timeout=30,
+        )
+        if resp.status_code == 200:
+            return resp.json()
+        return None
+    except Exception as e:
+        logger.warning(f"[Domain] KV read failed for {domain}: {e}")
+        return None
+
+
+_SECTION_AI_PROMPTS = {
+    'about': {
+        'system': (
+            "You are a professional copywriter for insurance agent websites. "
+            "Write a warm, trustworthy 2-3 paragraph bio (~150-200 words) for a life insurance agent. "
+            "Use their name naturally. No AI slop — no 'passionate about', 'dedicated to excellence', "
+            "'committed to providing'. Write like a real person, not a LinkedIn profile. "
+            "Tone: confident, approachable, human. End with something that invites contact."
+        ),
+        'questions': [
+            {'key': 'experience', 'q': 'How long have you been in insurance?',
+             'options': ['1-3 years', '3-10 years', '10+ years']},
+            {'key': 'motivation', 'q': 'What got you into insurance?',
+             'options': ['Help families', 'Financial freedom', 'Career change', 'Family business']},
+            {'key': 'specialty', 'q': "What's your specialty?",
+             'options': ['Final expense', 'Term life', 'IUL', 'Medicare', 'Retirement planning']},
+            {'key': 'differentiator', 'q': 'What makes you different from other agents?',
+             'options': ['Always available', 'Education-first approach', 'Local presence', 'Bilingual']},
+            {'key': 'approach', 'q': 'How do you work with clients?',
+             'options': ['No-pressure', 'Consultative', 'Fast & efficient', 'Long-term relationship']},
+        ],
+    },
+    'services': {
+        'system': (
+            "You are a professional copywriter for insurance agent websites. "
+            "Write a concise services overview (1 paragraph intro + a bulleted list of services with "
+            "one-line descriptions). Professional but warm tone. No fluff. "
+            "Each service bullet: service name in bold, then a clear one-sentence description of what it is "
+            "and who it's for. Max 6 services."
+        ),
+        'questions': [
+            {'key': 'coverage_types', 'q': 'What types of coverage do you offer?',
+             'options': ['Term Life', 'Whole Life', 'IUL', 'Final Expense', 'Annuities', 'Medicare', 'Group Benefits'],
+             'multi': True},
+            {'key': 'clients', 'q': 'Who are your typical clients?',
+             'options': ['Young families', 'Seniors', 'Business owners', 'Middle-income earners']},
+            {'key': 'key_message', 'q': "What's the most important thing clients should know about coverage?",
+             'options': []},
+        ],
+    },
+    'why_me': {
+        'system': (
+            "You are a professional copywriter for insurance agent websites. "
+            "Write exactly 3 or 4 value proposition cards. Each card has: "
+            "a short headline (3-5 words), and a 1-2 sentence description. "
+            "Return as JSON array: [{\"headline\": \"...\", \"description\": \"...\"}]. "
+            "No AI slop. Confident, specific, human tone. "
+            "Based on the agent's actual strengths, not generic insurance platitudes."
+        ),
+        'questions': [
+            {'key': 'appreciation', 'q': 'What do clients appreciate most about working with you?',
+             'options': ['Responsiveness', 'Clear explanations', 'No pressure', 'Competitive rates']},
+            {'key': 'credentials', 'q': 'Any credentials or achievements?',
+             'options': ['MDRT', 'Top producer', 'Certifications', '100+ families helped']},
+            {'key': 'promise', 'q': "What's your promise to clients?",
+             'options': []},
+        ],
+    },
+}
+
+
+@domain_bp.route('/api/domain/sections', methods=['GET'])
+@login_required
+def get_sections():
+    """Get current section config for the layout editor."""
+    conn = get_db_connection()
+    if not conn:
+        return jsonify({'error': 'Database unavailable'}), 503
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT voice_config FROM subscribers WHERE email = %s", (current_user.email,))
+        row = cur.fetchone()
+        cur.close()
+        if not row:
+            return jsonify({'error': 'Not found'}), 404
+        vc = row['voice_config'] or {}
+        wp = vc.get('web_presence', {})
+        if not wp.get('domain'):
+            return jsonify({'error': 'No domain provisioned'}), 400
+
+        # Read existing KV config via Cloudflare API
+        domain = wp['domain']
+        config = _cf_get_agent_config(domain)
+        if not config:
+            return jsonify({'error': 'KV config not found'}), 404
+
+        # Return sections (or default structure if none exist yet)
+        sections = config.get('sections', _default_sections())
+        return jsonify({
+            'domain': domain,
+            'sections': sections,
+            'photo_url': config.get('photo_url', ''),
+            'agent_name': config.get('agent_name', ''),
+            'phone_display': config.get('phone_display', ''),
+            'dba_name': config.get('dba_name', ''),
+            'carriers': config.get('carriers', []),
+            'review_page_enabled': config.get('review_page_enabled', False),
+        })
+    finally:
+        return_db_connection(conn)
+
+
+@domain_bp.route('/api/domain/sections', methods=['POST'])
+@login_required
+def save_sections():
+    """Save section order, toggles, and content to KV."""
+    conn = get_db_connection()
+    if not conn:
+        return jsonify({'error': 'Database unavailable'}), 503
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT voice_config FROM subscribers WHERE email = %s", (current_user.email,))
+        row = cur.fetchone()
+        cur.close()
+        if not row:
+            return jsonify({'error': 'Not found'}), 404
+        vc = row['voice_config'] or {}
+        wp = vc.get('web_presence', {})
+        domain = wp.get('domain', '')
+        if not domain:
+            return jsonify({'error': 'No domain provisioned'}), 400
+
+        data = request.json or {}
+        sections = data.get('sections', [])
+
+        # Validate section structure
+        valid_types = {'hero', 'about', 'services', 'why_me', 'carriers',
+                       'testimonials', 'faq', 'contact_form', 'footer'}
+        for s in sections:
+            if s.get('type') not in valid_types:
+                return jsonify({'error': f"Invalid section type: {s.get('type')}"}), 400
+
+        # Read current KV config, merge sections in, write back
+        config = _cf_get_agent_config(domain) or {}
+        config['sections'] = sections
+        if 'review_page_enabled' in data:
+            config['review_page_enabled'] = bool(data['review_page_enabled'])
+
+        _cf_store_agent_config(domain, config)
+        return jsonify({'status': 'ok'})
+    finally:
+        return_db_connection(conn)
+
+
+@domain_bp.route('/api/domain/section-ai', methods=['POST'])
+@login_required
+def generate_section_ai():
+    """Generate AI copy for a section using xAI Grok."""
+    from llm_caller import generate_clean_reply
+    from tasks import client as xai_client
+
+    data = request.json or {}
+    section_type = data.get('section_type', '')
+    answers = data.get('answers', {})
+
+    if section_type not in _SECTION_AI_PROMPTS:
+        return jsonify({'error': f'No AI support for section: {section_type}'}), 400
+
+    if not xai_client:
+        return jsonify({'error': 'AI service unavailable'}), 503
+
+    prompt_config = _SECTION_AI_PROMPTS[section_type]
+
+    # Get agent context for personalization
+    conn = get_db_connection()
+    if not conn:
+        return jsonify({'error': 'Database unavailable'}), 503
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT voice_config FROM subscribers WHERE email = %s", (current_user.email,))
+        row = cur.fetchone()
+        cur.close()
+        if not row:
+            return jsonify({'error': 'Not found'}), 404
+        vc = row['voice_config'] or {}
+        wp = vc.get('web_presence', {})
+        agent_name = wp.get('agent_name', '')
+        dba_name = wp.get('dba_name', '')
+    finally:
+        return_db_connection(conn)
+
+    # Build user prompt from answers
+    answer_lines = []
+    for q_config in prompt_config['questions']:
+        key = q_config['key']
+        val = answers.get(key, '')
+        if val:
+            answer_lines.append(f"- {q_config['q']} {val}")
+
+    user_prompt = (
+        f"Agent name: {agent_name}\n"
+        f"Business name: {dba_name}\n"
+        f"\nAnswers:\n" + '\n'.join(answer_lines)
+    )
+
+    try:
+        content = generate_clean_reply(
+            client=xai_client,
+            system_prompt=prompt_config['system'],
+            user_message=user_prompt,
+            max_tokens=500,
+        )
+        return jsonify({'content': content, 'section_type': section_type})
+    except Exception as e:
+        logger.error(f"[Domain] AI generation failed for {section_type}: {e}")
+        return jsonify({'error': 'AI generation failed. Please try again.'}), 500
+
+
+@domain_bp.route('/api/domain/photo', methods=['POST'])
+@login_required
+def upload_photo():
+    """Upload profile photo (base64) to KV config."""
+    conn = get_db_connection()
+    if not conn:
+        return jsonify({'error': 'Database unavailable'}), 503
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT voice_config FROM subscribers WHERE email = %s", (current_user.email,))
+        row = cur.fetchone()
+        cur.close()
+        if not row:
+            return jsonify({'error': 'Not found'}), 404
+        vc = row['voice_config'] or {}
+        wp = vc.get('web_presence', {})
+        domain = wp.get('domain', '')
+        if not domain:
+            return jsonify({'error': 'No domain provisioned'}), 400
+
+        data = request.json or {}
+        photo_data = data.get('photo_url', '')
+
+        # Validate: must be base64 data URI, max 2MB
+        if photo_data and not photo_data.startswith('data:image/'):
+            return jsonify({'error': 'Invalid image format'}), 400
+        if len(photo_data) > 2 * 1024 * 1024 * 1.37:  # base64 overhead ~37%
+            return jsonify({'error': 'Photo must be under 2MB'}), 400
+
+        config = _cf_get_agent_config(domain) or {}
+        config['photo_url'] = photo_data
+        _cf_store_agent_config(domain, config)
+
+        return jsonify({'status': 'ok'})
+    finally:
+        return_db_connection(conn)
+
+
+@domain_bp.route('/api/domain/reviews', methods=['GET'])
+@login_required
+def get_reviews():
+    """List pending + approved reviews from KV."""
+    conn = get_db_connection()
+    if not conn:
+        return jsonify({'error': 'Database unavailable'}), 503
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT voice_config FROM subscribers WHERE email = %s", (current_user.email,))
+        row = cur.fetchone()
+        cur.close()
+        if not row:
+            return jsonify({'error': 'Not found'}), 404
+        vc = row['voice_config'] or {}
+        wp = vc.get('web_presence', {})
+        domain = wp.get('domain', '')
+        if not domain:
+            return jsonify({'error': 'No domain'}), 400
+
+        # Read reviews from KV (separate key from main config)
+        kv_ns_id = os.getenv('CLOUDFLARE_KV_NAMESPACE_ID', '')
+        reviews = []
+        if kv_ns_id:
+            try:
+                resp = requests.get(
+                    f'{CLOUDFLARE_API_BASE}/accounts/{CLOUDFLARE_ACCOUNT_ID}/storage/kv/namespaces/{kv_ns_id}/values/reviews:{domain}',
+                    headers={'Authorization': f'Bearer {CLOUDFLARE_API_TOKEN}'},
+                    timeout=30,
+                )
+                if resp.status_code == 200:
+                    reviews = resp.json()
+            except Exception:
+                pass
+
+        return jsonify({'reviews': reviews, 'domain': domain})
+    finally:
+        return_db_connection(conn)
+
+
+@domain_bp.route('/api/domain/reviews/approve', methods=['POST'])
+@login_required
+def approve_review():
+    """Approve or reject a pending review."""
+    conn = get_db_connection()
+    if not conn:
+        return jsonify({'error': 'Database unavailable'}), 503
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT voice_config FROM subscribers WHERE email = %s", (current_user.email,))
+        row = cur.fetchone()
+        cur.close()
+        if not row:
+            return jsonify({'error': 'Not found'}), 404
+        vc = row['voice_config'] or {}
+        domain = vc.get('web_presence', {}).get('domain', '')
+        if not domain:
+            return jsonify({'error': 'No domain'}), 400
+
+        data = request.json or {}
+        review_index = data.get('index')
+        approved = data.get('approved', False)
+        delete = data.get('delete', False)
+
+        kv_ns_id = os.getenv('CLOUDFLARE_KV_NAMESPACE_ID', '')
+        if not kv_ns_id:
+            return jsonify({'error': 'KV not configured'}), 500
+
+        # Read current reviews
+        try:
+            resp = requests.get(
+                f'{CLOUDFLARE_API_BASE}/accounts/{CLOUDFLARE_ACCOUNT_ID}/storage/kv/namespaces/{kv_ns_id}/values/reviews:{domain}',
+                headers={'Authorization': f'Bearer {CLOUDFLARE_API_TOKEN}'},
+                timeout=30,
+            )
+            reviews = resp.json() if resp.status_code == 200 else []
+        except Exception:
+            reviews = []
+
+        if review_index is None or review_index >= len(reviews):
+            return jsonify({'error': 'Invalid review index'}), 400
+
+        if delete:
+            reviews.pop(review_index)
+        else:
+            reviews[review_index]['approved'] = approved
+
+        # Write reviews back to KV
+        requests.put(
+            f'{CLOUDFLARE_API_BASE}/accounts/{CLOUDFLARE_ACCOUNT_ID}/storage/kv/namespaces/{kv_ns_id}/values/reviews:{domain}',
+            headers={
+                'Authorization': f'Bearer {CLOUDFLARE_API_TOKEN}',
+                'Content-Type': 'application/json',
+            },
+            data=json.dumps(reviews),
+            timeout=30,
+        )
+
+        # Also update testimonials in main config so the landing page renders them
+        config = _cf_get_agent_config(domain) or {}
+        sections = config.get('sections', _default_sections())
+        for s in sections:
+            if s.get('type') == 'testimonials':
+                s['items'] = [r for r in reviews if r.get('approved')]
+                break
+        config['sections'] = sections
+        _cf_store_agent_config(domain, config)
+
+        return jsonify({'status': 'ok', 'reviews': reviews})
+    finally:
+        return_db_connection(conn)
+
+
+@domain_bp.route('/api/domain/sync-carriers', methods=['POST'])
+@login_required
+def sync_carriers():
+    """Sync contracted carriers from voice_config to domain KV."""
+    conn = get_db_connection()
+    if not conn:
+        return jsonify({'error': 'Database unavailable'}), 503
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT voice_config FROM subscribers WHERE email = %s", (current_user.email,))
+        row = cur.fetchone()
+        cur.close()
+        if not row:
+            return jsonify({'error': 'Not found'}), 404
+        vc = row['voice_config'] or {}
+        wp = vc.get('web_presence', {})
+        domain = wp.get('domain', '')
+        if not domain or wp.get('status') != 'active':
+            return jsonify({'status': 'skipped', 'reason': 'No active domain'})
+
+        # Get carrier names from voice_config
+        carrier_keys = vc.get('contracted_carriers', [])
+        # Map keys to display names using carrier_list
+        from carrier_list import CARRIER_MAP
+        carrier_names = [CARRIER_MAP.get(k, k) for k in carrier_keys if CARRIER_MAP.get(k)]
+
+        # Update KV config
+        config = _cf_get_agent_config(domain) or {}
+        config['carriers'] = carrier_names
+        _cf_store_agent_config(domain, config)
+
+        return jsonify({'status': 'ok', 'carriers': carrier_names})
+    finally:
+        return_db_connection(conn)
