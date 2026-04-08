@@ -1913,8 +1913,45 @@ def spam_protection_status():
     profile_approved = (protection_active and profile_exists
                         and profile_review_status in ('twilio-approved', 'compliant', 'approved'))
 
-    # Include CNAM Trust Product status
+    # Live-validate CNAM and Voice Integrity Trust Products before building response
     cnam = (vc or {}).get('cnam', {})
+    cnam_tp_sid = cnam.get('trust_product_sid', '')
+    if cnam_tp_sid and sub_auth_token and sub_sid:
+        try:
+            _cnam_client = twilio_provisioning.get_sub_account_client_native(sub_sid, sub_auth_token)
+            _cnam_live = _cnam_client.trusthub.v1.trust_products(cnam_tp_sid).fetch()
+            if _cnam_live.status != cnam.get('status', ''):
+                cnam['status'] = _cnam_live.status
+                vc['cnam'] = cnam
+                _save_voice_config(current_user.email, vc)
+        except Exception as _cnam_e:
+            if '404' in str(_cnam_e).lower() or 'not found' in str(_cnam_e).lower():
+                logger.warning(f"[spam-protection] CNAM TP {cnam_tp_sid} deleted — clearing cache")
+                vc.pop('cnam', None)
+                cnam = {}
+                _save_voice_config(current_user.email, vc)
+            else:
+                logger.warning(f"[spam-protection] CNAM live check failed: {_cnam_e}")
+
+    ni = (vc or {}).get('number_integrity', {})
+    ni_tp_sid = ni.get('trust_product_sid', '')
+    if ni_tp_sid and sub_auth_token and sub_sid:
+        try:
+            _ni_live = twilio_provisioning.get_voice_integrity_status(sub_sid, ni_tp_sid, sub_auth_token)
+            _ni_live_status = _ni_live.get('status', '')
+            if _ni_live_status and _ni_live_status != ni.get('status', ''):
+                ni['status'] = _ni_live_status
+                vc['number_integrity'] = ni
+                _save_voice_config(current_user.email, vc)
+        except Exception as _ni_e:
+            if '404' in str(_ni_e).lower() or 'not found' in str(_ni_e).lower():
+                logger.warning(f"[spam-protection] VI TP {ni_tp_sid} deleted — clearing cache")
+                vc.pop('number_integrity', None)
+                ni = {}
+                _save_voice_config(current_user.email, vc)
+            else:
+                logger.warning(f"[spam-protection] VI live check failed: {_ni_e}")
+
     cnam_info = {
         "registered": bool(cnam.get('trust_product_sid')),
         "status": cnam.get('status', 'not_registered'),
@@ -1979,8 +2016,8 @@ def cnam_monitor():
     cnam = (vc or {}).get('cnam', {})
 
     # ── Auto-discover: if no trust_product_sid in local DB, check Twilio ──
+    sub_auth_token = (vc or {}).get('twilio_auth_token', '')
     if not cnam.get('trust_product_sid'):
-        sub_auth_token = (vc or {}).get('twilio_auth_token', '')
         try:
             discovered = twilio_provisioning.discover_cnam_trust_product(
                 sub_account_sid=sub_sid,
@@ -1998,6 +2035,26 @@ def cnam_monitor():
                 logger.info(f"[CNAM] Auto-discovered and synced Trust Product {discovered['trust_product_sid']}")
         except Exception as e:
             logger.warning(f"[CNAM] Auto-discovery failed: {e}")
+    else:
+        # ── Live-validate: verify cached Trust Product still exists on Twilio ──
+        try:
+            client = twilio_provisioning.get_sub_account_client_native(sub_sid, sub_auth_token)
+            live_tp = client.trusthub.v1.trust_products(cnam['trust_product_sid']).fetch()
+            live_status = live_tp.status
+            if live_status != cnam.get('status', ''):
+                cnam['status'] = live_status
+                vc['cnam'] = cnam
+                _save_voice_config(current_user.email, vc)
+                logger.info(f"[CNAM] Live status updated: {live_status}")
+        except Exception as e:
+            err_str = str(e).lower()
+            if '404' in err_str or 'not found' in err_str:
+                logger.warning(f"[CNAM] Trust Product {cnam['trust_product_sid']} deleted on Twilio — clearing cache")
+                vc.pop('cnam', None)
+                cnam = {}
+                _save_voice_config(current_user.email, vc)
+            else:
+                logger.warning(f"[CNAM] Live validation failed, using cached: {e}")
 
     cnam_display_name = cnam.get('cnam_display_name', business_name[:15].strip() if business_name else '')
 

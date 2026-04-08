@@ -2573,35 +2573,14 @@ def submit_trust_hub_registration(email: str) -> dict:
                     (json.dumps(fresh_vc), email))
         conn.commit()
 
-        # ── Voice Integrity (if profile created and evaluation wasn't noncompliant) ──
+        # ── Voice Integrity: deferred until profile approved ──
+        # VI requires an approved Secondary Customer Profile. Creating it now
+        # (while profile is pending-review) causes VI to get rejected. The cron
+        # job refresh_pending_trust_hub_profiles() auto-creates VI when the
+        # profile reaches twilio-approved status.
         if has_profile and not noncompliant:
-            try:
-                vi_result = tp.create_voice_integrity_trust_product(
-                    sub_account_sid=sub_sid,
-                    business_name=biz_name,
-                    contact_email=trust_hub.get('contact_email') or email,
-                    sub_account_auth_token=sub_auth,
-                    existing_profile_sid=profile_sid,
-                )
-                # Save VI result
-                cur.execute("SELECT voice_config FROM subscribers WHERE email = %s FOR UPDATE", (email,))
-                vi_fresh = cur.fetchone()
-                vi_vc = (vi_fresh['voice_config'] if vi_fresh else {}) or {}
-                vi_vc['number_integrity'] = {
-                    'trust_product_sid': vi_result.get('trust_product_sid', ''),
-                    'profile_sid': vi_result.get('profile_sid', profile_sid),
-                    'end_user_sid': vi_result.get('end_user_sid', ''),
-                    'status': vi_result.get('status', 'draft'),
-                    'business_name': biz_name,
-                    'registered_at': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()),
-                    '_sub_sid': sub_sid,
-                }
-                cur.execute("UPDATE subscribers SET voice_config = %s WHERE email = %s",
-                            (json.dumps(vi_vc), email))
-                conn.commit()
-                logger.info(f"[TrustHub] Voice Integrity created for {email}: {vi_result.get('trust_product_sid')}")
-            except Exception as vi_err:
-                logger.error(f"[TrustHub] Voice Integrity failed for {email}: {vi_err}")
+            logger.info(f"[TrustHub] Voice Integrity deferred for {email} — profile "
+                        f"status is '{review_status}', will auto-create on approval")
 
         # ── Logging ──
         status_label = "success" if has_profile else "error"
@@ -2794,6 +2773,65 @@ def refresh_pending_trust_hub_profiles() -> dict:
                             logger.error(f"[TrustHub Cron] CNAM failed for {email}: {cnam_err}")
                             errs.append(f"{email}: CNAM {cnam_err}")
 
+                    # Auto-create Voice Integrity Trust Product
+                    cur.execute("SELECT voice_config FROM subscribers WHERE email = %s FOR UPDATE", (email,))
+                    vi_row = cur.fetchone()
+                    vi_vc = (vi_row['voice_config'] if vi_row else {}) or {}
+                    existing_ni = vi_vc.get('number_integrity', {})
+                    vi_tp_sid = existing_ni.get('trust_product_sid', '')
+                    vi_status = existing_ni.get('status', '')
+                    vi_needs_creation = (
+                        not vi_tp_sid  # never created (deferred)
+                        or vi_status == 'twilio-rejected'  # was rejected, needs recreation
+                    )
+
+                    if biz_name and vi_needs_creation:
+                        try:
+                            vi_result = tp.create_voice_integrity_trust_product(
+                                sub_account_sid=sub_sid,
+                                business_name=biz_name,
+                                contact_email=contact_email,
+                                sub_account_auth_token=sub_auth,
+                                existing_profile_sid=profile_sid,
+                            )
+                            vi_new_tp_sid = vi_result.get('trust_product_sid', '')
+                            if vi_new_tp_sid:
+                                # Assign all phone numbers
+                                nums = tp.list_phone_numbers(sub_sid)
+                                num_sids = [n.get('sid') for n in (nums or []) if n.get('sid')]
+                                if num_sids:
+                                    tp.assign_numbers_to_voice_integrity(
+                                        sub_account_sid=sub_sid,
+                                        trust_product_sid=vi_new_tp_sid,
+                                        phone_number_sids=num_sids,
+                                        sub_account_auth_token=sub_auth,
+                                        profile_sid=profile_sid,
+                                    )
+                                tp.submit_voice_integrity_for_review(
+                                    sub_account_sid=sub_sid,
+                                    trust_product_sid=vi_new_tp_sid,
+                                    sub_account_auth_token=sub_auth,
+                                )
+                                # Save VI state
+                                vi_vc['number_integrity'] = {
+                                    'trust_product_sid': vi_new_tp_sid,
+                                    'profile_sid': vi_result.get('profile_sid', profile_sid),
+                                    'end_user_sid': vi_result.get('end_user_sid', ''),
+                                    'status': 'pending-review',
+                                    'business_name': biz_name,
+                                    'assigned_numbers': num_sids,
+                                    'assigned_count': len(num_sids),
+                                    'registered_at': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()),
+                                    '_sub_sid': sub_sid,
+                                }
+                                cur.execute("UPDATE subscribers SET voice_config = %s WHERE email = %s",
+                                            (json.dumps(vi_vc), email))
+                                conn.commit()
+                            logger.info(f"[TrustHub Cron] Voice Integrity created for {email}: {vi_new_tp_sid}")
+                        except Exception as vi_err:
+                            logger.error(f"[TrustHub Cron] Voice Integrity failed for {email}: {vi_err}")
+                            errs.append(f"{email}: VI {vi_err}")
+
                     # Success alert
                     save_persistent_alert(
                         email=email,
@@ -2825,11 +2863,91 @@ def refresh_pending_trust_hub_profiles() -> dict:
 
             time.sleep(1)  # Rate limit: 1 subscriber per second
 
+        # ── Second pass: fix approved profiles with rejected/missing Voice Integrity ──
+        # The first pass only checks pending profiles. This catches subscribers whose
+        # profile was already approved but VI was rejected or never created.
+        cur.execute("""
+            SELECT email, voice_config, twilio_sub_account_sid, twilio_sub_account_auth_token,
+                   location_id
+            FROM subscribers
+            WHERE voice_config IS NOT NULL
+              AND twilio_sub_account_sid IS NOT NULL
+              AND COALESCE(voice_config->'trust_hub'->>'review_status', '') IN ('twilio-approved', 'approved')
+              AND (
+                  voice_config->'number_integrity'->>'trust_product_sid' IS NULL
+                  OR COALESCE(voice_config->'number_integrity'->>'status', '') = 'twilio-rejected'
+              )
+        """)
+        vi_fix_rows = cur.fetchall()
+        vi_fixed = 0
+        if vi_fix_rows:
+            logger.info(f"[TrustHub Cron] Found {len(vi_fix_rows)} approved profiles needing VI fix")
+        for row in vi_fix_rows:
+            vi_email = row['email']
+            vi_vc_raw = row['voice_config'] or {}
+            vi_sub_sid = row['twilio_sub_account_sid'] or ''
+            vi_sub_auth = row['twilio_sub_account_auth_token'] or vi_vc_raw.get('twilio_auth_token', '')
+            vi_th = vi_vc_raw.get('trust_hub', {})
+            vi_profile_sid = vi_th.get('profile_sid', '')
+            vi_biz_name = vi_th.get('business_name', '')
+            vi_contact_email = vi_th.get('contact_email') or vi_email
+            if not vi_profile_sid or not vi_biz_name:
+                continue
+            try:
+                vi_result = tp.create_voice_integrity_trust_product(
+                    sub_account_sid=vi_sub_sid,
+                    business_name=vi_biz_name,
+                    contact_email=vi_contact_email,
+                    sub_account_auth_token=vi_sub_auth,
+                    existing_profile_sid=vi_profile_sid,
+                )
+                vi_new_sid = vi_result.get('trust_product_sid', '')
+                if vi_new_sid:
+                    nums = tp.list_phone_numbers(vi_sub_sid)
+                    num_sids = [n.get('sid') for n in (nums or []) if n.get('sid')]
+                    if num_sids:
+                        tp.assign_numbers_to_voice_integrity(
+                            sub_account_sid=vi_sub_sid,
+                            trust_product_sid=vi_new_sid,
+                            phone_number_sids=num_sids,
+                            sub_account_auth_token=vi_sub_auth,
+                            profile_sid=vi_profile_sid,
+                        )
+                    tp.submit_voice_integrity_for_review(
+                        sub_account_sid=vi_sub_sid,
+                        trust_product_sid=vi_new_sid,
+                        sub_account_auth_token=vi_sub_auth,
+                    )
+                    cur.execute("SELECT voice_config FROM subscribers WHERE email = %s FOR UPDATE", (vi_email,))
+                    vi2_fresh = cur.fetchone()
+                    vi2_vc = (vi2_fresh['voice_config'] if vi2_fresh else {}) or {}
+                    vi2_vc['number_integrity'] = {
+                        'trust_product_sid': vi_new_sid,
+                        'profile_sid': vi_result.get('profile_sid', vi_profile_sid),
+                        'end_user_sid': vi_result.get('end_user_sid', ''),
+                        'status': 'pending-review',
+                        'business_name': vi_biz_name,
+                        'assigned_numbers': num_sids,
+                        'assigned_count': len(num_sids),
+                        'registered_at': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()),
+                        '_sub_sid': vi_sub_sid,
+                    }
+                    cur.execute("UPDATE subscribers SET voice_config = %s WHERE email = %s",
+                                (json.dumps(vi2_vc), vi_email))
+                    conn.commit()
+                    vi_fixed += 1
+                logger.info(f"[TrustHub Cron] VI fix: created for {vi_email}: {vi_new_sid}")
+            except Exception as vi_fix_err:
+                logger.error(f"[TrustHub Cron] VI fix failed for {vi_email}: {vi_fix_err}")
+                errs.append(f"{vi_email}: VI fix {vi_fix_err}")
+            time.sleep(1)
+
         result = {
             "checked": checked,
             "approved": approved,
             "rejected": rejected,
             "unchanged": unchanged,
+            "vi_fixed": vi_fixed,
             "errors": errs,
         }
         logger.info(f"[TrustHub Cron] Complete: {result}")
