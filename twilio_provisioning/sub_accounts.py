@@ -150,6 +150,7 @@ def provision_subscriber(subscriber_email: str, location_id: str,
 
     # 4. Enable Voice Insights Advanced Features (non-fatal if fails)
     try:
+        from .voice import enable_voice_insights_advanced
         enable_voice_insights_advanced(sub_sid)
     except Exception as e:
         logger.warning(f"Voice Insights enable failed (non-fatal): {e}")

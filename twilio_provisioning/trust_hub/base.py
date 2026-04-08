@@ -7,6 +7,7 @@ from twilio.base.exceptions import TwilioRestException
 
 from ..client import (
     get_sub_account_client_native,
+    get_master_client,
     _trusthub_update_status,
     TWILIO_ACCOUNT_SID,
 )
@@ -141,14 +142,13 @@ def check_secondary_profile_status(
 
 
 def is_master_account(sub_account_sid: str) -> bool:
-    """DEPRECATED — All subscribers are sub-accounts. Omnisconn (master) is
-    managed via Twilio Console only. Kept for backward compat but always
-    returns False for Trust Hub purposes.
+    """DEPRECATED — All subscribers are sub-accounts, including the platform
+    owner. Omnisconn (master) is managed via Twilio Console only and never
+    goes through the app's Trust Hub flows.
 
-    Master account: uses Primary Business Profile for Voice Integrity (direct customer flow).
-    Sub-account:    uses Secondary Customer Profile linked to Primary (ISV flow).
+    Always returns False. Kept for backward compatibility only.
     """
-    return sub_account_sid == TWILIO_ACCOUNT_SID
+    return False
 
 
 # Carrier analytics engines that Voice Integrity registers with

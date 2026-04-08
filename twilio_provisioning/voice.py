@@ -7,7 +7,7 @@ from twilio.jwt.access_token import AccessToken
 from twilio.jwt.access_token.grants import VoiceGrant
 
 from .client import (
-    get_sub_account_client, get_master_client,
+    get_sub_account_client, get_sub_account_client_native, get_master_client,
     TWILIO_ACCOUNT_SID, TWILIO_API_KEY_SID, TWILIO_API_KEY_SECRET,
     TWILIO_PHONE_NUMBER, _trusthub_update_status
 )

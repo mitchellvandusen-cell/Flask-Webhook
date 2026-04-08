@@ -3,7 +3,8 @@
 import logging
 from twilio.base.exceptions import TwilioRestException
 
-from .client import get_sub_account_client
+from .client import get_sub_account_client, TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN
+from twilio.rest import Client as TwilioClient
 
 logger = logging.getLogger("twilio_provisioning")
 
