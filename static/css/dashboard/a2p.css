@@ -275,10 +275,10 @@ body.light-theme .a2p-status-card {
 }
 
 .a2p-status-card.pending {
-    border-color: rgba(251, 191, 36, 0.3);
+    border-color: rgba(0, 255, 136, 0.25);
 }
 body.light-theme .a2p-status-card.pending {
-    border-color: rgba(245, 158, 11, 0.35);
+    border-color: rgba(5, 150, 105, 0.3);
 }
 
 .a2p-status-card.approved {
@@ -346,35 +346,47 @@ body.light-theme .a2p-status-row-sid {
     text-transform: uppercase;
     letter-spacing: 0.03em;
 }
-.a2p-status-badge.badge-pending {
-    background: rgba(251, 191, 36, 0.12);
-    color: #fbbf24;
-}
-.a2p-status-badge.badge-approved {
+/* Pending = green (brand accent — in progress, not an error) */
+.a2p-status-badge.badge-pending,
+.a2p-status-badge.a2p-badge-pending {
     background: rgba(0, 255, 136, 0.12);
     color: #00ff88;
 }
-.a2p-status-badge.badge-failed {
+/* Approved = green */
+.a2p-status-badge.badge-approved,
+.a2p-status-badge.a2p-badge-approved {
+    background: rgba(0, 255, 136, 0.12);
+    color: #00ff88;
+}
+/* Failed = red */
+.a2p-status-badge.badge-failed,
+.a2p-status-badge.a2p-badge-failed {
     background: rgba(239, 68, 68, 0.12);
     color: #ef4444;
 }
-.a2p-status-badge.badge-none {
+/* Not registered = neutral */
+.a2p-status-badge.badge-none,
+.a2p-status-badge.a2p-badge-off {
     background: rgba(255, 255, 255, 0.04);
     color: #666;
 }
-body.light-theme .a2p-status-badge.badge-pending {
-    background: rgba(245, 158, 11, 0.1);
-    color: #b45309;
-}
-body.light-theme .a2p-status-badge.badge-approved {
+body.light-theme .a2p-status-badge.badge-pending,
+body.light-theme .a2p-status-badge.a2p-badge-pending {
     background: rgba(5, 150, 105, 0.1);
     color: #059669;
 }
-body.light-theme .a2p-status-badge.badge-failed {
+body.light-theme .a2p-status-badge.badge-approved,
+body.light-theme .a2p-status-badge.a2p-badge-approved {
+    background: rgba(5, 150, 105, 0.1);
+    color: #059669;
+}
+body.light-theme .a2p-status-badge.badge-failed,
+body.light-theme .a2p-status-badge.a2p-badge-failed {
     background: rgba(239, 68, 68, 0.1);
     color: #dc2626;
 }
-body.light-theme .a2p-status-badge.badge-none {
+body.light-theme .a2p-status-badge.badge-none,
+body.light-theme .a2p-status-badge.a2p-badge-off {
     background: rgba(0, 0, 0, 0.04);
     color: #9ca3af;
 }
@@ -667,6 +679,349 @@ body.light-theme .a2p-result-success {
     color: var(--lt-accent, #059669);
 }
 
+/* ── Hero section (no-brand / no-campaign state) ── */
+.a2p-hero {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    padding: 56px 32px 40px;
+}
+.a2p-hero-icon {
+    width: 64px;
+    height: 64px;
+    border-radius: 16px;
+    background: #0a0a0a;
+    border: 1px solid #1a1a1a;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    color: var(--accent, #00ff88);
+    margin-bottom: 20px;
+}
+body.light-theme .a2p-hero-icon {
+    background: #fff;
+    border-color: #e5e7eb;
+    color: var(--lt-accent, #059669);
+}
+.a2p-hero-title {
+    font-family: 'Outfit', sans-serif;
+    font-weight: 900;
+    font-size: 1.4rem;
+    letter-spacing: -0.02em;
+    color: #f5f5f5;
+    margin: 0 0 12px;
+}
+body.light-theme .a2p-hero-title {
+    color: #111827;
+}
+.a2p-hero-desc {
+    color: #888;
+    font-size: 0.88rem;
+    line-height: 1.6;
+    max-width: 520px;
+    margin: 0 0 28px;
+}
+body.light-theme .a2p-hero-desc {
+    color: #6b7280;
+}
+.a2p-hero-note {
+    margin-top: 16px;
+    font-size: 0.76rem;
+    color: #555;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+body.light-theme .a2p-hero-note {
+    color: #9ca3af;
+}
+
+/* ── Process steps ── */
+.a2p-hero-steps {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 32px;
+}
+.a2p-step {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    background: #0a0a0a;
+    border: 1px solid #1a1a1a;
+    border-radius: 8px;
+}
+body.light-theme .a2p-step {
+    background: #fff;
+    border-color: #e5e7eb;
+}
+.a2p-step-num {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: var(--accent, #00ff88);
+    color: #000;
+    font-size: 0.7rem;
+    font-weight: 800;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+body.light-theme .a2p-step-num {
+    background: var(--lt-accent, #059669);
+    color: #fff;
+}
+.a2p-step-text {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: #ccc;
+}
+body.light-theme .a2p-step-text {
+    color: #374151;
+}
+.a2p-step-arrow {
+    color: #333;
+    font-size: 0.65rem;
+}
+body.light-theme .a2p-step-arrow {
+    color: #d1d5db;
+}
+
+/* ── Locked state (campaign when brand not approved) ── */
+.a2p-locked-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    padding: 56px 32px 40px;
+}
+.a2p-locked-icon {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: #0a0a0a;
+    border: 1px solid #1a1a1a;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.25rem;
+    color: #555;
+    margin-bottom: 16px;
+}
+body.light-theme .a2p-locked-icon {
+    background: #f9fafb;
+    border-color: #e5e7eb;
+    color: #9ca3af;
+}
+.a2p-locked-title {
+    font-family: 'Outfit', sans-serif;
+    font-weight: 800;
+    font-size: 1.1rem;
+    color: #aaa;
+    margin: 0 0 8px;
+}
+body.light-theme .a2p-locked-title {
+    color: #6b7280;
+}
+.a2p-locked-desc {
+    font-size: 0.85rem;
+    color: #666;
+    max-width: 440px;
+    line-height: 1.5;
+    margin: 0 0 20px;
+}
+body.light-theme .a2p-locked-desc {
+    color: #9ca3af;
+}
+
+/* ── Status card refinement ── */
+.a2p-status-card {
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+}
+.a2p-status-card-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1rem;
+    flex-shrink: 0;
+    background: rgba(0, 255, 136, 0.08);
+    color: var(--accent, #00ff88);
+}
+.a2p-status-card.approved .a2p-status-card-icon {
+    background: rgba(0, 255, 136, 0.08);
+    color: var(--accent, #00ff88);
+}
+.a2p-status-card.failed .a2p-status-card-icon {
+    background: rgba(239, 68, 68, 0.08);
+    color: #ef4444;
+}
+body.light-theme .a2p-status-card.approved .a2p-status-card-icon {
+    background: rgba(5, 150, 105, 0.08);
+    color: var(--lt-accent, #059669);
+}
+.a2p-status-card-body {
+    flex: 1;
+    min-width: 0;
+}
+.a2p-status-card-header {
+    font-family: 'Outfit', sans-serif;
+    font-weight: 800;
+    font-size: 1rem;
+    color: #f5f5f5;
+    margin-bottom: 8px;
+}
+body.light-theme .a2p-status-card-header {
+    color: #111827;
+}
+.a2p-detail-label {
+    font-size: 0.72rem;
+    color: #666;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-right: 8px;
+}
+body.light-theme .a2p-detail-label {
+    color: #9ca3af;
+}
+.a2p-detail-value {
+    font-size: 0.82rem;
+    color: #ccc;
+    font-family: 'JetBrains Mono', monospace;
+    word-break: break-all;
+}
+body.light-theme .a2p-detail-value {
+    color: #4b5563;
+}
+
+/* ── Guidance banners ── */
+.a2p-guidance {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 16px;
+    margin: 16px 0;
+    background: rgba(0, 255, 136, 0.04);
+    border: 1px solid rgba(0, 255, 136, 0.12);
+    border-radius: 8px;
+    font-size: 0.82rem;
+    color: var(--accent, #00ff88);
+}
+body.light-theme .a2p-guidance {
+    background: rgba(5, 150, 105, 0.04);
+    border-color: rgba(5, 150, 105, 0.12);
+    color: var(--lt-accent, #059669);
+}
+.a2p-guidance-success {
+    background: rgba(0, 255, 136, 0.05);
+    border-color: rgba(0, 255, 136, 0.15);
+    color: var(--accent, #00ff88);
+}
+body.light-theme .a2p-guidance-success {
+    background: rgba(5, 150, 105, 0.04);
+    border-color: rgba(5, 150, 105, 0.15);
+    color: var(--lt-accent, #059669);
+}
+.a2p-guidance-error {
+    background: rgba(239, 68, 68, 0.05);
+    border-color: rgba(239, 68, 68, 0.15);
+    color: #fca5a5;
+}
+body.light-theme .a2p-guidance-error {
+    background: rgba(239, 68, 68, 0.04);
+    border-color: rgba(239, 68, 68, 0.15);
+    color: #dc2626;
+}
+
+/* ── Actions row ── */
+.a2p-actions-row {
+    display: flex;
+    gap: 8px;
+    margin-top: 16px;
+}
+
+/* ── Ghost button ── */
+.a2p-ghost-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: #0a0a0a;
+    color: #ccc;
+    border: 1px solid #1e1e1e;
+    border-radius: 8px;
+    padding: 10px 20px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: border-color 0.18s, color 0.18s;
+}
+.a2p-ghost-btn:hover {
+    border-color: rgba(0, 255, 136, 0.35);
+    color: #fff;
+}
+body.light-theme .a2p-ghost-btn {
+    background: #fff;
+    color: #374151;
+    border-color: #e5e7eb;
+}
+body.light-theme .a2p-ghost-btn:hover {
+    border-color: rgba(5, 150, 105, 0.4);
+    color: #111827;
+}
+
+/* ── Brand status page wrapper ── */
+.a2p-brand-status-page {
+    padding: 24px;
+    max-width: 680px;
+    margin: 0 auto;
+}
+
+/* ── Phone number list in campaign form ── */
+.a2p-phone-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    border: 1px solid #1a1a1a;
+    border-radius: 6px;
+    margin-bottom: 4px;
+    font-size: 0.82rem;
+    cursor: pointer;
+    transition: border-color 0.15s;
+}
+.a2p-phone-item:hover {
+    border-color: rgba(0, 255, 136, 0.25);
+}
+body.light-theme .a2p-phone-item {
+    border-color: #e5e7eb;
+}
+body.light-theme .a2p-phone-item:hover {
+    border-color: rgba(5, 150, 105, 0.3);
+}
+.a2p-phone-number {
+    color: #666;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.76rem;
+    margin-left: auto;
+}
+body.light-theme .a2p-phone-number {
+    color: #9ca3af;
+}
+.a2p-phone-empty {
+    padding: 16px;
+    text-align: center;
+    color: #555;
+    font-size: 0.82rem;
+}
+
 /* ── Responsive ── */
 @media (max-width: 640px) {
     .a2p-field-row {
@@ -676,5 +1031,11 @@ body.light-theme .a2p-result-success {
     .a2p-info-tooltip {
         max-width: calc(100vw - 48px);
         min-width: 0;
+    }
+    .a2p-hero-steps {
+        flex-direction: column;
+    }
+    .a2p-step-arrow {
+        transform: rotate(90deg);
     }
 }
