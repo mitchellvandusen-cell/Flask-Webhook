@@ -275,10 +275,10 @@ body.light-theme .a2p-status-card {
 }
 
 .a2p-status-card.pending {
-    border-color: rgba(251, 191, 36, 0.3);
+    border-color: rgba(0, 255, 136, 0.25);
 }
 body.light-theme .a2p-status-card.pending {
-    border-color: rgba(245, 158, 11, 0.35);
+    border-color: rgba(5, 150, 105, 0.3);
 }
 
 .a2p-status-card.approved {
@@ -346,35 +346,47 @@ body.light-theme .a2p-status-row-sid {
     text-transform: uppercase;
     letter-spacing: 0.03em;
 }
-.a2p-status-badge.badge-pending {
-    background: rgba(251, 191, 36, 0.12);
-    color: #fbbf24;
-}
-.a2p-status-badge.badge-approved {
+/* Pending = green (brand accent — in progress, not an error) */
+.a2p-status-badge.badge-pending,
+.a2p-status-badge.a2p-badge-pending {
     background: rgba(0, 255, 136, 0.12);
     color: #00ff88;
 }
-.a2p-status-badge.badge-failed {
+/* Approved = green */
+.a2p-status-badge.badge-approved,
+.a2p-status-badge.a2p-badge-approved {
+    background: rgba(0, 255, 136, 0.12);
+    color: #00ff88;
+}
+/* Failed = red */
+.a2p-status-badge.badge-failed,
+.a2p-status-badge.a2p-badge-failed {
     background: rgba(239, 68, 68, 0.12);
     color: #ef4444;
 }
-.a2p-status-badge.badge-none {
+/* Not registered = neutral */
+.a2p-status-badge.badge-none,
+.a2p-status-badge.a2p-badge-off {
     background: rgba(255, 255, 255, 0.04);
     color: #666;
 }
-body.light-theme .a2p-status-badge.badge-pending {
-    background: rgba(245, 158, 11, 0.1);
-    color: #b45309;
-}
-body.light-theme .a2p-status-badge.badge-approved {
+body.light-theme .a2p-status-badge.badge-pending,
+body.light-theme .a2p-status-badge.a2p-badge-pending {
     background: rgba(5, 150, 105, 0.1);
     color: #059669;
 }
-body.light-theme .a2p-status-badge.badge-failed {
+body.light-theme .a2p-status-badge.badge-approved,
+body.light-theme .a2p-status-badge.a2p-badge-approved {
+    background: rgba(5, 150, 105, 0.1);
+    color: #059669;
+}
+body.light-theme .a2p-status-badge.badge-failed,
+body.light-theme .a2p-status-badge.a2p-badge-failed {
     background: rgba(239, 68, 68, 0.1);
     color: #dc2626;
 }
-body.light-theme .a2p-status-badge.badge-none {
+body.light-theme .a2p-status-badge.badge-none,
+body.light-theme .a2p-status-badge.a2p-badge-off {
     background: rgba(0, 0, 0, 0.04);
     color: #9ca3af;
 }
@@ -840,8 +852,8 @@ body.light-theme .a2p-locked-desc {
     justify-content: center;
     font-size: 1rem;
     flex-shrink: 0;
-    background: rgba(251, 191, 36, 0.1);
-    color: #fbbf24;
+    background: rgba(0, 255, 136, 0.08);
+    color: var(--accent, #00ff88);
 }
 .a2p-status-card.approved .a2p-status-card-icon {
     background: rgba(0, 255, 136, 0.08);
@@ -897,16 +909,16 @@ body.light-theme .a2p-detail-value {
     gap: 10px;
     padding: 12px 16px;
     margin: 16px 0;
-    background: rgba(59, 130, 246, 0.06);
-    border: 1px solid rgba(59, 130, 246, 0.15);
+    background: rgba(0, 255, 136, 0.04);
+    border: 1px solid rgba(0, 255, 136, 0.12);
     border-radius: 8px;
     font-size: 0.82rem;
-    color: #93c5fd;
+    color: var(--accent, #00ff88);
 }
 body.light-theme .a2p-guidance {
-    background: rgba(59, 130, 246, 0.04);
-    border-color: rgba(59, 130, 246, 0.15);
-    color: #2563eb;
+    background: rgba(5, 150, 105, 0.04);
+    border-color: rgba(5, 150, 105, 0.12);
+    color: var(--lt-accent, #059669);
 }
 .a2p-guidance-success {
     background: rgba(0, 255, 136, 0.05);

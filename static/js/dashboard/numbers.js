@@ -1995,7 +1995,7 @@
             // Refresh
             html += '<div class="a2p-actions-row">' +
                 '<button class="a2p-ghost-btn" onclick="a2pRefreshStatus()"><i class="fa-solid fa-arrows-rotate"></i> Refresh Status</button>' +
-                '<button class="a2p-ghost-btn" onclick="a2pSyncFromTwilio()"><i class="fa-solid fa-cloud-arrow-down"></i> Sync from Twilio</button>' +
+                '<button class="a2p-ghost-btn" onclick="a2pSyncFromTwilio()"><i class="fa-solid fa-cloud-arrow-down"></i> Sync Status</button>' +
                 '</div>';
 
             html += '</div>';
@@ -2025,7 +2025,7 @@
 
         async function a2pSyncFromTwilio() {
             try {
-                if (typeof _showDashToast === 'function') _showDashToast(true, 'Syncing A2P status from Twilio...');
+                if (typeof _showDashToast === 'function') _showDashToast(true, 'Syncing A2P status...');
                 var r = await fetch('/voice/a2p/sync', { method: 'POST', headers: {'Content-Type':'application/json'}, body: '{}' });
                 var d = await r.json();
                 if (r.ok) {
