@@ -1223,7 +1223,7 @@ def voice_status():
 
 
 def _queue_insights_fetch(call_sid, call_info):
-    """Queue a background thread to fetch Voice Insights Call Summary ~90s after call ends."""
+    """Queue an RQ job to fetch Voice Insights Call Summary ~90s after call ends."""
     sub_sid = call_info.get('_sub_sid', '')
     location_id = call_info.get('_location_id', '')
     from_number = call_info.get('_from_number', '')
@@ -1241,18 +1241,27 @@ def _queue_insights_fetch(call_sid, call_info):
     except Exception:
         pass
 
-    def _fetch():
-        try:
+    try:
+        from extensions import ensure_redis
+        from rq import Queue
+        from datetime import timedelta
+        redis_conn = ensure_redis()
+        if redis_conn:
+            q = Queue('production', connection=redis_conn)
             from voice.insights import fetch_and_store_call_insights
-            fetch_and_store_call_insights(
+            q.enqueue_in(
+                timedelta(seconds=90),
+                fetch_and_store_call_insights,
                 call_sid=call_sid,
                 sub_account_sid=sub_sid,
                 sub_account_auth_token=auth_token,
                 location_id=location_id,
                 from_number=from_number,
+                job_timeout=120,
+                job_id=f"insights-{call_sid[:20]}",
             )
-        except Exception as e:
-            logger.debug(f"Insights fetch failed for {call_sid}: {e}")
-
-    t = threading.Thread(target=_fetch, daemon=True, name=f"insights-{call_sid[:12]}")
-    t.start()
+            logger.info(f"[Insights] Queued RQ job for {call_sid} (90s delay)")
+        else:
+            logger.warning(f"[Insights] Redis unavailable — skipping insights for {call_sid}")
+    except Exception as e:
+        logger.warning(f"[Insights] Failed to queue RQ job for {call_sid}: {e}")

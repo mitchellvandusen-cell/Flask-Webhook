@@ -15,7 +15,6 @@
 # Pricing: $0.0025/voice minute when Advanced Features enabled
 #
 import json
-import time
 import logging
 
 from db import get_db_connection, return_db_connection
@@ -28,19 +27,13 @@ def fetch_and_store_call_insights(call_sid: str, sub_account_sid: str = None,
                                    location_id: str = None,
                                    from_number: str = None):
     """
-    Background task: fetch Voice Insights Call Summary and store on call_history.
+    RQ task: fetch Voice Insights Call Summary and store on call_history.
 
-    Called from /voice/status after terminal status, delayed ~90 seconds to allow
-    Twilio to assemble the partial summary. Fetches once — the partial summary
-    contains all the fields we need (PDD, SIP code, carrier, quality tags).
-
-    The complete summary (available ~30 min later) adds metrics time-series
-    that we don't need for the dashboard.
+    Enqueued with 90-second delay after terminal call status to allow Twilio
+    to assemble the partial summary. Runs on RQ worker (survives deploys,
+    unlike the old daemon thread approach).
     """
     from twilio_provisioning import fetch_call_insights_summary
-
-    # Wait for partial summary to be available (typically within 90 seconds)
-    time.sleep(90)
 
     summary = fetch_call_insights_summary(
         call_sid,
