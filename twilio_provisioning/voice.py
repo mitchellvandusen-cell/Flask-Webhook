@@ -1,6 +1,7 @@
 """Module extracted from twilio_provisioning.py."""
 
 import logging
+from urllib.parse import quote
 from twilio.base.exceptions import TwilioRestException
 from twilio.jwt.access_token import AccessToken
 from twilio.jwt.access_token.grants import VoiceGrant
