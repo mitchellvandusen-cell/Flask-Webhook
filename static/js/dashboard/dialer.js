@@ -9799,17 +9799,8 @@
             };
             window.omcDialerPopout = mod;
 
-            if (!isIframed) {
-                // Not embedded — nothing to do. The normal dashboard owns voice.
-                mod.showPopoutBanner = function () { /* no-op */ };
-                mod.openPopup = function () { /* no-op */ };
-                mod.isOpen = function () { return false; };
-                mod.dial = function () { return false; };
-                mod.pushQueue = function () { /* no-op */ };
-                return;
-            }
-
-            // ── BroadcastChannel ──────────────────────────────────────────
+            // ── BroadcastChannel (always active — syncs queue to popout
+            //    regardless of whether dashboard is in an iframe) ──────────
             try {
                 mod.bus = new BroadcastChannel('omnisconn-dialer');
             } catch (e) {
@@ -9817,13 +9808,19 @@
             }
 
             function busSend(msg) {
-                if (!mod.bus) return;
-                try { mod.bus.postMessage(msg); } catch (e) { /* closed */ }
+                // BroadcastChannel (works same-origin, same-partition)
+                if (mod.bus) {
+                    try { mod.bus.postMessage(msg); } catch (e) { /* closed */ }
+                }
+                // postMessage to popup window (works cross-partition — bypasses
+                // Chrome's storage partitioning when iframe is cross-site)
+                if (mod.popupWin && !mod.popupWin.closed) {
+                    try { mod.popupWin.postMessage({ _omcDialer: true, ...msg }, '*'); } catch (e) { /* closed */ }
+                }
             }
 
-            if (mod.bus) {
-                mod.bus.onmessage = (ev) => {
-                    const msg = ev.data || {};
+            // Shared message handler (used by both BroadcastChannel and postMessage)
+            function handlePopoutMessage(msg) {
                     switch (msg.type) {
                         case 'POPUP_HELLO':
                         case 'POPUP_DEVICE_READY':
@@ -9923,8 +9920,19 @@
                         default:
                             break;
                     }
-                };
             }
+
+            // Wire BroadcastChannel to shared handler
+            if (mod.bus) {
+                mod.bus.onmessage = (ev) => handlePopoutMessage(ev.data || {});
+            }
+
+            // Wire postMessage to shared handler (cross-partition fallback)
+            window.addEventListener('message', (ev) => {
+                const msg = ev.data;
+                if (!msg || !msg._omcDialer) return;
+                handlePopoutMessage(msg);
+            });
 
             // Ping the popup periodically so we know if it closes, and
             // broadcast queue-run state so the popup's Start/Stop buttons
@@ -9979,6 +9987,50 @@
                 }
             } catch (e) { /* ignore */ }
 
+            // ── Queue streaming (always active — feeds popout via BroadcastChannel)
+            function schedulePushQueue(delay) {
+                if (mod._queuePushTimer) clearTimeout(mod._queuePushTimer);
+                mod._queuePushTimer = setTimeout(() => {
+                    mod._queuePushTimer = null;
+                    try {
+                        if (typeof dialerQueue === 'undefined' || !Array.isArray(dialerQueue)) return;
+                        const slim = dialerQueue.slice(0, 2000).map(c => ({
+                            contactId: c.contactId || c.id,
+                            name: c.name || c.displayName || c.firstName || 'Lead',
+                            firstName: c.firstName,
+                            phone: c.phone,
+                            status: c.status || 'pending',
+                            temperature: c.temperature,
+                            score: c.score,
+                        }));
+                        busSend({ type: 'QUEUE_UPDATE', queue: slim });
+                    } catch (e) { /* non-fatal */ }
+                }, delay || 120);
+            }
+            mod.pushQueue = function () { schedulePushQueue(100); };
+
+            // Auto-push queue whenever dialerRenderQueue runs
+            try {
+                if (typeof dialerRenderQueue === 'function') {
+                    const _origRender = dialerRenderQueue;
+                    window.dialerRenderQueue = function () {
+                        const r = _origRender.apply(this, arguments);
+                        schedulePushQueue(150);
+                        return r;
+                    };
+                    try { dialerRenderQueue = window.dialerRenderQueue; } catch (e) { /* strict mode */ }
+                }
+            } catch (e) { /* ignore — queue streaming is best-effort */ }
+
+            // ── Iframe-only features (popup window, VoIP delegation, banner)
+            if (!isIframed) {
+                mod.showPopoutBanner = function () { /* no-op */ };
+                mod.openPopup = function () { /* no-op */ };
+                mod.isOpen = function () { return false; };
+                mod.dial = function () { return false; };
+                return;
+            }
+
             // ── Window management ─────────────────────────────────────────
             function openPopup() {
                 if (mod.popupWin && !mod.popupWin.closed) {
@@ -10024,43 +10076,6 @@
                 busSend({ type: 'DIAL', contact });
                 return true;
             };
-
-            // Queue streaming — debounced so rapid renders don't flood the bus
-            mod.pushQueue = function () { schedulePushQueue(100); };
-            function schedulePushQueue(delay) {
-                if (mod._queuePushTimer) clearTimeout(mod._queuePushTimer);
-                mod._queuePushTimer = setTimeout(() => {
-                    mod._queuePushTimer = null;
-                    try {
-                        if (typeof dialerQueue === 'undefined' || !Array.isArray(dialerQueue)) return;
-                        const slim = dialerQueue.slice(0, 2000).map(c => ({
-                            contactId: c.contactId || c.id,
-                            name: c.name || c.displayName || c.firstName || 'Lead',
-                            firstName: c.firstName,
-                            phone: c.phone,
-                            status: c.status || 'pending',
-                            temperature: c.temperature,
-                            score: c.score,
-                        }));
-                        busSend({ type: 'QUEUE_UPDATE', queue: slim });
-                    } catch (e) { /* non-fatal */ }
-                }, delay || 120);
-            }
-
-            // Auto-push queue whenever dialerRenderQueue runs
-            try {
-                if (typeof dialerRenderQueue === 'function') {
-                    const _origRender = dialerRenderQueue;
-                    window.dialerRenderQueue = function () {
-                        const r = _origRender.apply(this, arguments);
-                        schedulePushQueue(150);
-                        return r;
-                    };
-                    // CRITICAL: reassign the closure-scoped variable so internal
-                    // callers (dialerAddSelectedToQueue, etc.) hit the wrapper.
-                    try { dialerRenderQueue = window.dialerRenderQueue; } catch (e) { /* strict mode */ }
-                }
-            } catch (e) { /* ignore — queue streaming is best-effort */ }
 
             // ── dialerStartCall wrap ──────────────────────────────────────
             // In iframe mode, redirect voice calls through the popup instead of

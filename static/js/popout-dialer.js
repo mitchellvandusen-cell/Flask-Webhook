@@ -187,14 +187,19 @@
     catch (e) { console.warn('[popout] BroadcastChannel unsupported:', e); }
 
     function sendToIframe(msg) {
-        if (!bus) return;
-        try { bus.postMessage(msg); } catch (e) { /* closed */ }
+        // BroadcastChannel (works same-partition)
+        if (bus) {
+            try { bus.postMessage(msg); } catch (e) { /* closed */ }
+        }
+        // postMessage to opener (works cross-partition — bypasses Chrome storage partitioning)
+        if (window.opener && !window.opener.closed) {
+            try { window.opener.postMessage({ _omcDialer: true, ...msg }, '*'); } catch (e) { /* closed */ }
+        }
     }
 
-    if (bus) {
-        bus.onmessage = (ev) => {
-            const msg = ev.data || {};
-            switch (msg.type) {
+    // Shared message handler (used by both BroadcastChannel and postMessage)
+    function handleBusMessage(msg) {
+        switch (msg.type) {
                 case 'IFRAME_HELLO':
                 case 'IFRAME_PING':
                     lastChannelPingMs = Date.now();
@@ -243,8 +248,19 @@
                 default:
                     break;
             }
-        };
     }
+
+    // Wire BroadcastChannel to shared handler
+    if (bus) {
+        bus.onmessage = (ev) => handleBusMessage(ev.data || {});
+    }
+
+    // Wire postMessage to shared handler (cross-partition fallback)
+    window.addEventListener('message', (ev) => {
+        const msg = ev.data;
+        if (!msg || !msg._omcDialer) return;  // ignore non-dialer messages
+        handleBusMessage(msg);
+    });
 
     setInterval(() => {
         if (lastChannelPingMs && Date.now() - lastChannelPingMs > 12000) setSyncStatus(false);
@@ -284,6 +300,30 @@
             renderQueue();
         } catch (e) { /* ignore */ }
     });
+
+    // ── Poll localStorage as bulletproof fallback (BroadcastChannel + storage
+    //    events can both silently fail in cross-origin iframe scenarios) ──
+    let _lastLsHash = localStorage.getItem('igb_dialer_queue') || '[]';
+    setInterval(() => {
+        try {
+            const raw = localStorage.getItem('igb_dialer_queue') || '[]';
+            // Quick hash check to avoid expensive parse on every tick
+            if (raw === _lastLsHash) return;
+            _lastLsHash = raw;
+            const items = JSON.parse(raw);
+            if (!Array.isArray(items)) return;
+            mirroredQueue = items.map(c => ({
+                contactId: c.contactId || c.id,
+                name: c.name || c.firstName || 'Lead',
+                firstName: c.firstName,
+                phone: c.phone,
+                status: c.status || 'pending',
+                temperature: c.temperature,
+                score: c.score,
+            }));
+            renderQueue();
+        } catch (e) { /* ignore */ }
+    }, 2000);
 
     // ═══ State cascade ════════════════════════════════════════════════════════
     const STATE_CLASSES = ['pop-state-idle','pop-state-dialing','pop-state-ringing',
