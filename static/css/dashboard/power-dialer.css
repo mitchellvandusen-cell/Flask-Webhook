@@ -937,11 +937,11 @@
    ══════════════════════════════════════════════ */
 
 .dlr-discord-nav              { padding: 0.4vw 0 0; flex-shrink: 0; }
-.dlr-discord-nav-row          { display: flex; align-items: center; gap: 0.625rem; padding: 0 1rem 0.625rem; }
+.dlr-discord-nav-row          { display: flex; align-items: center; gap: 0.625rem; padding: 0 1rem 0.625rem; overflow: hidden; }
 .dlr-discord-back-btn         { margin: 0; }
 .dlr-discord-hashtag          { font-size: max(0.85rem,0.74vw); }
-.dlr-discord-channel-name     { font-weight: 700; font-size: max(0.95rem,0.83vw); flex: 1; }
-.dlr-discord-server-name      { font-size: max(0.75rem,0.66vw); }
+.dlr-discord-channel-name     { font-weight: 700; font-size: max(0.95rem,0.83vw); flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.dlr-discord-server-name      { font-size: max(0.75rem,0.66vw); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .dlr-discord-content          { flex: 1; overflow-y: auto; display: flex; flex-direction: column; }
 .dlr-discord-not-connected    { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 1.5rem; text-align: center; }
 .dlr-discord-icon-circle      { width: 4rem; height: 4rem; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-bottom: 1rem; }
@@ -971,11 +971,11 @@
    ══════════════════════════════════════════════ */
 
 .dlr-slack-nav                { padding: 0.4vw 0 0; flex-shrink: 0; }
-.dlr-slack-nav-row            { display: flex; align-items: center; gap: 0.625rem; padding: 0 1rem 0.625rem; }
+.dlr-slack-nav-row            { display: flex; align-items: center; gap: 0.625rem; padding: 0 1rem 0.625rem; overflow: hidden; }
 .dlr-slack-back-btn           { margin: 0; }
 .dlr-slack-hashtag            { font-size: max(0.85rem,0.74vw); }
-.dlr-slack-channel-name       { font-weight: 700; font-size: max(0.95rem,0.83vw); flex: 1; }
-.dlr-slack-workspace-name     { font-size: max(0.75rem,0.66vw); }
+.dlr-slack-channel-name       { font-weight: 700; font-size: max(0.95rem,0.83vw); flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.dlr-slack-workspace-name     { font-size: max(0.75rem,0.66vw); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .dlr-slack-content            { flex: 1; overflow-y: auto; display: flex; flex-direction: column; }
 .dlr-slack-not-connected      { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 1.5rem; text-align: center; }
 .dlr-slack-icon-circle        { width: 4rem; height: 4rem; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-bottom: 1rem; }

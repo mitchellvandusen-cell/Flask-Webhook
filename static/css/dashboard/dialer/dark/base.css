@@ -289,11 +289,12 @@
 .ios-nav-bar{flex-shrink:0;display:flex;align-items:center;gap:0.31vw;padding:0.4vw 0.52vw 0.42vw;background:#121212;backdrop-filter:none;-webkit-backdrop-filter:none;border-bottom:1px solid rgba(255,255,255,0.06);}
 .ios-back-btn{background:none;border:none;color:#007AFF;font-size:max(1rem,0.83vw);cursor:pointer;padding:4px 8px 4px 4px;display:flex;align-items:center;gap:3px;flex-shrink:0;border-radius:6px;transition:background 0.15s;}
 .ios-back-btn:hover{background:rgba(0,122,255,0.1);}
-.ios-back-btn .ios-back-label{font-size:max(0.75rem,0.62vw);font-weight:500;}
-.ios-nav-title{flex:1;display:flex;align-items:center;gap:0.31vw;min-width:0;}
+.ios-back-btn .ios-back-label{font-size:max(0.75rem,0.62vw);font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:4vw;}
+.ios-nav-title{flex:1;display:flex;align-items:center;gap:0.31vw;min-width:0;overflow:hidden;}
 .ios-nav-name{font-weight:700;font-size:max(0.88rem,0.73vw);color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.ios-nav-subtitle{font-size:max(0.72rem,0.6vw);color:#8E8E93;margin-top:1px;}
+.ios-nav-subtitle{font-size:max(0.72rem,0.6vw);color:#8E8E93;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .ios-nav-action{background:none;border:none;color:#007AFF;font-size:max(0.9rem,0.75vw);cursor:pointer;padding:3px;flex-shrink:0;}
+.ios-nav-title>div{min-width:0;overflow:hidden;}
 .ios-contact-avatar-sm{width:1.46vw;height:1.46vw;border-radius:50%;background:linear-gradient(135deg,#5856D6,#AF52DE);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:max(0.68rem,0.56vw);color:#fff;flex-shrink:0;}
 /* Empty State */
 .ios-empty-state{text-align:center;padding:3.13vw 0.94vw;}
