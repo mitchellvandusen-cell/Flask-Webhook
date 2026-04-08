@@ -1602,7 +1602,11 @@ def save_sections():
         if 'review_page_enabled' in data:
             config['review_page_enabled'] = bool(data['review_page_enabled'])
 
-        _cf_store_agent_config(domain, config)
+        try:
+            _cf_store_agent_config(domain, config)
+        except Exception as e:
+            logger.error(f"[PageBuilder] KV write failed for {domain}: {e}")
+            return jsonify({'error': 'Failed to save layout. Please try again.'}), 500
         return jsonify({'status': 'ok'})
     finally:
         return_db_connection(conn)
@@ -1703,7 +1707,11 @@ def upload_photo():
 
         config = _cf_get_agent_config(domain) or {}
         config['photo_url'] = photo_data
-        _cf_store_agent_config(domain, config)
+        try:
+            _cf_store_agent_config(domain, config)
+        except Exception as e:
+            logger.error(f"[PageBuilder] Photo KV write failed: {e}")
+            return jsonify({'error': 'Failed to save photo. Please try again.'}), 500
 
         return jsonify({'status': 'ok'})
     finally:
@@ -1798,25 +1806,35 @@ def approve_review():
             reviews[review_index]['approved'] = approved
 
         # Write reviews back to KV
-        requests.put(
-            f'{CLOUDFLARE_API_BASE}/accounts/{CLOUDFLARE_ACCOUNT_ID}/storage/kv/namespaces/{kv_ns_id}/values/reviews:{domain}',
-            headers={
-                'Authorization': f'Bearer {CLOUDFLARE_API_TOKEN}',
-                'Content-Type': 'application/json',
-            },
-            data=json.dumps(reviews),
-            timeout=30,
-        )
+        try:
+            rv_resp = requests.put(
+                f'{CLOUDFLARE_API_BASE}/accounts/{CLOUDFLARE_ACCOUNT_ID}/storage/kv/namespaces/{kv_ns_id}/values/reviews:{domain}',
+                headers={
+                    'Authorization': f'Bearer {CLOUDFLARE_API_TOKEN}',
+                    'Content-Type': 'application/json',
+                },
+                data=json.dumps(reviews),
+                timeout=30,
+            )
+            if rv_resp.status_code not in (200, 201):
+                logger.error(f"[PageBuilder] Reviews KV write failed: {rv_resp.status_code}")
+                return jsonify({'error': 'Failed to save review changes'}), 500
+        except Exception as e:
+            logger.error(f"[PageBuilder] Reviews KV write error: {e}")
+            return jsonify({'error': 'Failed to save review changes'}), 500
 
         # Also update testimonials in main config so the landing page renders them
-        config = _cf_get_agent_config(domain) or {}
-        sections = config.get('sections', _default_sections())
-        for s in sections:
-            if s.get('type') == 'testimonials':
-                s['items'] = [r for r in reviews if r.get('approved')]
-                break
-        config['sections'] = sections
-        _cf_store_agent_config(domain, config)
+        try:
+            config = _cf_get_agent_config(domain) or {}
+            sections = config.get('sections', _default_sections())
+            for s in sections:
+                if s.get('type') == 'testimonials':
+                    s['items'] = [r for r in reviews if r.get('approved')]
+                    break
+            config['sections'] = sections
+            _cf_store_agent_config(domain, config)
+        except Exception as e:
+            logger.warning(f"[PageBuilder] Testimonials sync failed (reviews saved OK): {e}")
 
         return jsonify({'status': 'ok', 'reviews': reviews})
     finally:
@@ -1852,7 +1870,11 @@ def sync_carriers():
         # Update KV config
         config = _cf_get_agent_config(domain) or {}
         config['carriers'] = carrier_names
-        _cf_store_agent_config(domain, config)
+        try:
+            _cf_store_agent_config(domain, config)
+        except Exception as e:
+            logger.error(f"[PageBuilder] Carrier sync KV write failed: {e}")
+            return jsonify({'error': 'Failed to sync carriers'}), 500
 
         return jsonify({'status': 'ok', 'carriers': carrier_names})
     finally:
