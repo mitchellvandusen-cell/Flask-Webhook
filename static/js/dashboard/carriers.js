@@ -62,6 +62,8 @@
                 _showDashToast(true, 'Carriers saved!');
                 status.style.display = 'inline';
                 setTimeout(() => { status.style.display = 'none'; }, 3000);
+                // Sync carriers to domain KV so the website stays up to date
+                fetch('/api/domain/sync-carriers', {method: 'POST'}).catch(() => {});
             } else {
                 _showDashToast(false, 'Failed to save carriers: ' + (data.error || 'Unknown error'));
             }
