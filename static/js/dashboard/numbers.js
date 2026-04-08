@@ -723,17 +723,23 @@
                     _cnamUpdateCharCount();
                 }
 
-                // Accordion badge
+                // Accordion badge — honor actual Twilio Trust Product status
+                var tpStatus = (d.trust_product || {}).status || 'not_registered';
+                var tpRegistered = (d.trust_product || {}).registered;
                 var cBadge = document.getElementById('smBadgeCnam');
                 if (cBadge) {
-                    if (!displayName) {
+                    if (tpStatus === 'twilio-rejected') {
+                        cBadge.textContent = 'Rejected';
+                        cBadge.className = 'sm-accordion-badge sm-badge-err';
+                    } else if (!tpRegistered || tpStatus === 'not_registered') {
                         cBadge.textContent = 'Not registered';
                         cBadge.className = 'sm-accordion-badge sm-badge-warn';
-                    } else if (allGood) {
+                    } else if (tpStatus === 'twilio-approved' || tpStatus === 'approved') {
                         cBadge.textContent = 'Live — ' + _esc(displayName);
                         cBadge.className = 'sm-accordion-badge sm-badge-ok';
                     } else {
-                        cBadge.textContent = 'Propagating';
+                        // pending-review, in-review, draft
+                        cBadge.textContent = 'Pending Review';
                         cBadge.className = 'sm-accordion-badge sm-badge-pending';
                     }
                     cBadge.style.display = 'inline-block';
@@ -747,14 +753,20 @@
                         return;
                     }
 
+                    var tpIsRejected = tpStatus === 'twilio-rejected';
+                    var tpIsApproved = tpStatus === 'twilio-approved' || tpStatus === 'approved';
+                    var tpIsPending = tpRegistered && !tpIsApproved && !tpIsRejected;
                     var html = '<ul class="sm-numbers-list">';
                     var unregisteredCount = 0;
                     nums.forEach(function(n) {
-                        var isCompliant = n.cnam_compliant;
                         var statusLabel, statusClass;
-                        if (isCompliant) {
+                        if (tpIsRejected && n.assigned_to_trust_product) {
+                            statusLabel = 'Rejected — re-register'; statusClass = 'sm-dot-error';
+                        } else if (n.cnam_compliant) {
                             statusLabel = 'Live at carrier'; statusClass = 'sm-dot-ok';
-                        } else if (n.assigned_to_trust_product) {
+                        } else if (n.assigned_to_trust_product && tpIsPending) {
+                            statusLabel = 'Pending Review'; statusClass = 'sm-dot-pending';
+                        } else if (n.assigned_to_trust_product && tpIsApproved) {
                             statusLabel = 'Propagating (48–72h)'; statusClass = 'sm-dot-pending';
                         } else {
                             statusLabel = 'Not registered'; statusClass = 'sm-dot-off';
@@ -769,13 +781,34 @@
                     html += '</ul>';
                     listEl.innerHTML = html;
 
-                    // Show "Register All" button when unregistered numbers exist
+                    // Show "Register All" button when unregistered numbers exist and TP is approved
                     var regBtn = document.getElementById('cnamRegisterAllBtn');
                     if (regBtn) {
-                        regBtn.style.display = unregisteredCount > 0 ? 'inline-flex' : 'none';
+                        var showRegBtn = unregisteredCount > 0 && tpIsApproved;
+                        regBtn.style.display = showRegBtn ? 'inline-flex' : 'none';
                         regBtn.innerHTML = '<i class="fa-solid fa-plus me-1"></i>Register ' +
                             (unregisteredCount === 1 ? '1 Number' : unregisteredCount + ' Numbers');
                     }
+
+                    // Show rejection banner if Trust Product was rejected
+                    if (tpIsRejected) {
+                        listEl.insertAdjacentHTML('beforebegin',
+                            '<div id="cnamRejectedBanner" class="sm-error" style="margin-bottom:10px;">' +
+                            '<i class="fa-solid fa-circle-xmark me-1"></i>' +
+                            'Your CNAM registration was rejected by Twilio. ' +
+                            'Re-register via <strong>Spam Protection</strong> once your Business Profile is approved.' +
+                            '</div>');
+                    } else {
+                        var oldBanner = document.getElementById('cnamRejectedBanner');
+                        if (oldBanner) oldBanner.remove();
+                    }
+                }
+
+                // Show/hide the name edit section based on registration status
+                var nameCard = document.getElementById('cnamNameCard');
+                if (nameCard) {
+                    // Only show name editing when CNAM Trust Product exists and isn't rejected
+                    nameCard.style.display = (tpRegistered && !tpIsRejected) ? 'block' : 'none';
                 }
             } catch(e) {
                 console.error('[CNAM Monitor]', e);

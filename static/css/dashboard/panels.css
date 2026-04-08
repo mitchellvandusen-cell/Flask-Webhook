@@ -5710,6 +5710,9 @@ body.light-theme .cnam-lookup-btn:hover { background: rgba(5,150,105,0.15); colo
 .sm-dot-pending { background: #fbbf24; box-shadow: 0 0 6px rgba(251,191,36,0.5); }
 body.light-theme .sm-dot-pending { background: #d97706; box-shadow: 0 0 6px rgba(217,119,6,0.4); }
 .sm-dot-off     { background: #555; }
+.sm-dot-error   { background: #ef4444; box-shadow: 0 0 6px rgba(239,68,68,0.5); }
+body.light-theme .sm-dot-error,
+[data-theme="light"] .sm-dot-error { background: #dc2626; box-shadow: 0 0 6px rgba(220,38,38,0.4); }
 
 /* ── Number Health redesign — solid cards, no glass ── */
 .nh-strategy-explainer {
