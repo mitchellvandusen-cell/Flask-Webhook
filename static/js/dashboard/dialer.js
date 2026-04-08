@@ -2357,19 +2357,35 @@
                     }
                 }
 
-                // ── Known Facts (below AI Summary, toggle-controlled, 10-word max per line) ──
+                // ── Known Facts (below AI Summary, toggle-controlled) ──
                 const _showFacts = window.DASHBOARD_BOOT && window.DASHBOARD_BOOT.showKnownFacts !== false;
-                if (_showFacts && eng && eng.facts && eng.facts.length) {
+                if (_showFacts) {
+                    // Filter out legacy message snippets — real facts are short fragments
+                    // like "Married, wife named Sarah" not "Hey Blake, Mitch from Paris Texas..."
+                    var realFacts = (eng && eng.facts || []).filter(function(f) {
+                        if (!f || f.length < 4) return false;
+                        // Skip obvious message snippets (starts with name + comma/space pattern of outreach)
+                        if (/^(Hey |Hi |Hello |Mitch |Start with|No lead resp)/i.test(f)) return false;
+                        // Skip if it looks like a full sentence/message (too many words)
+                        if (f.split(/\s+/).length > 15) return false;
+                        // Skip if it contains "..." (truncated message)
+                        if (f.indexOf('...') !== -1) return false;
+                        return true;
+                    });
                     html += '<div style="margin-top:8px;margin-bottom:10px;">';
                     html += '<div style="font-size:.75rem;font-weight:700;color:#4ade80;margin-bottom:5px;text-transform:uppercase;letter-spacing:.5px;"><i class="fa-solid fa-brain me-1"></i>Known Facts</div>';
-                    html += '<ul class="igb-facts-list">';
-                    eng.facts.forEach(function(f) {
-                        // Frontend 10-word hard cap
-                        var words = f.split(/\s+/);
-                        if (words.length > 10) f = words.slice(0, 10).join(' ');
-                        html += '<li>' + dialerEsc(f) + '</li>';
-                    });
-                    html += '</ul>';
+                    if (realFacts.length) {
+                        html += '<ul class="igb-facts-list">';
+                        realFacts.forEach(function(f) {
+                            // Frontend 10-word hard cap
+                            var words = f.split(/\s+/);
+                            if (words.length > 10) f = words.slice(0, 10).join(' ');
+                            html += '<li>' + dialerEsc(f) + '</li>';
+                        });
+                        html += '</ul>';
+                    } else {
+                        html += '<div style="font-size:.8rem;color:#666;font-style:italic;">Not enough history to have any facts</div>';
+                    }
                     html += '</div>';
                 }
 

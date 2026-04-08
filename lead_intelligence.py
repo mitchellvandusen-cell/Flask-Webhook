@@ -1,11 +1,16 @@
-# lead_intelligence.py - Rule-Based Contact Scoring
+# lead_intelligence.py - Rule-Based Contact Scoring + Fact Extraction
 #
 # Scores contacts using keyword detection + recency + engagement signals.
-# Zero AI cost. Runs in milliseconds. Same output format as before.
+# Zero AI cost for scoring. Runs in milliseconds. Same output format as before.
 # Results cached in contact_intelligence table with temperature-based TTLs.
+#
+# Fact extraction: lightweight LLM call extracts discrete personal facts
+# (married, kids, job, etc.) from conversation history. Runs in background
+# RQ only — zero impact on main SMS pipeline.
 
 import json
 import logging
+import os
 import re
 from datetime import datetime
 from db import get_db_connection, return_db_connection
@@ -1128,6 +1133,37 @@ def batch_analyze_contacts(location_id, contact_ids, limit=5):
 _ensure_intelligence_table()
 
 
+def _filter_real_facts(facts):
+    """
+    Filter out legacy message snippets from contact_facts.
+    Real facts are short fragments like "Married, wife named Sarah".
+    Message snippets are long, start with greetings, or contain ellipsis.
+    """
+    if not facts:
+        return []
+    clean = []
+    for f in facts:
+        if not f or len(f) < 4:
+            continue
+        # Skip obvious message snippets (outreach messages, bot text)
+        if re.match(r'^(Hey |Hi |Hello |Mitch |Start with|No lead resp)', f, re.IGNORECASE):
+            continue
+        # Skip truncated messages (contain "...")
+        if '...' in f:
+            continue
+        # Skip if too many words (real facts are short fragments)
+        if len(f.split()) > 15:
+            continue
+        # Skip if it looks like a full outreach message (contains common bot patterns)
+        lower = f.lower()
+        if any(p in lower for p in ['autocorrect just', 'my dog just', 'my phone just',
+                                     'i promise this is', 'quick question',
+                                     'most folks', 'most people']):
+            continue
+        clean.append(f)
+    return clean
+
+
 def get_contact_intelligence(location_id, contact_id):
     """
     Get contact intelligence dossier.
@@ -1145,7 +1181,7 @@ def get_contact_intelligence(location_id, contact_id):
     cached = _get_cached_analysis(contact_id, ctx.get("last_message_at"))
     if cached:
         logger.debug(f"Intelligence cache HIT for {contact_id}")
-        cached["facts"] = ctx["facts"]
+        cached["facts"] = _filter_real_facts(ctx["facts"])
         cached["pipeline"] = ctx["pipeline"]
         cached["narrative"] = ctx.get("narrative")
         raw_score = cached.get("score", 50)
@@ -1156,13 +1192,142 @@ def get_contact_intelligence(location_id, contact_id):
     result = _rules_score_contact(ctx)
     _save_analysis_cache(contact_id, location_id, result)
 
+    # Extract real facts from conversation in background (no main pipeline impact)
+    _extract_and_save_facts(contact_id, ctx)
+
+    # Re-read facts after extraction (may have new ones)
+    fresh_facts = ctx["facts"]
+    try:
+        conn = get_db_connection()
+        if conn:
+            try:
+                cur = conn.cursor()
+                cur.execute("""
+                    SELECT fact_text FROM contact_facts
+                    WHERE contact_id = %s
+                    ORDER BY created_at ASC
+                """, (contact_id,))
+                fresh_facts = [r['fact_text'] for r in cur.fetchall()]
+                cur.close()
+            finally:
+                return_db_connection(conn)
+    except Exception:
+        pass
+
     return {
         "summary": result.get("summary"),
         "score": {"score": result.get("score", 50), "label": result.get("temperature", "warm")},
         "temperature": result.get("temperature", "warm"),
         "temperature_reason": result.get("temperature_reason", ""),
         "actions": result.get("actions", []),
-        "facts": ctx["facts"],
+        "facts": _filter_real_facts(fresh_facts),
         "pipeline": ctx["pipeline"],
         "narrative": ctx.get("narrative"),
     }
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# ═══ FACT EXTRACTION — Lightweight LLM extraction from conversation ══════════
+# ═══════════════════════════════════════════════════════════════════════════════
+
+_fact_client = None
+
+def _get_fact_client():
+    """Lazy-init xAI client for fact extraction."""
+    global _fact_client
+    if _fact_client is None:
+        api_key = os.getenv("XAI_API_KEY")
+        if api_key:
+            from openai import OpenAI
+            _fact_client = OpenAI(api_key=api_key, base_url="https://api.x.ai/v1")
+    return _fact_client
+
+
+def _extract_and_save_facts(contact_id, ctx):
+    """
+    Extract discrete personal facts from conversation messages via LLM.
+    Runs in background RQ — zero impact on main SMS pipeline latency.
+
+    Extracts facts like: "Married, wife's name is Sarah", "Has 2 kids",
+    "Works at FedEx", "Age 45", "Lives in Dallas TX", "Has term life through employer".
+
+    Only extracts facts the LEAD said about themselves — never bot statements.
+    Skips if no lead messages exist.
+    """
+    messages = ctx.get("messages", [])
+    if not messages:
+        return
+
+    # Only proceed if there are lead messages (not just bot outreach)
+    lead_msgs = [m for m in messages if m.startswith("Lead:")]
+    if not lead_msgs:
+        return
+
+    # Check what facts already exist to avoid redundant LLM calls
+    existing_facts = ctx.get("facts", [])
+
+    # Build conversation text for LLM
+    conversation_text = "\n".join(messages[-20:])  # Last 20 messages
+
+    existing_str = "\n".join(f"- {f}" for f in existing_facts) if existing_facts else "None yet."
+
+    prompt = f"""Read this insurance sales conversation and extract ONLY concrete personal facts that the LEAD revealed about themselves. Return one fact per line, short fragments only (max 10 words each).
+
+ALREADY KNOWN FACTS (do NOT repeat these):
+{existing_str}
+
+CONVERSATION:
+{conversation_text}
+
+RULES:
+- Only facts the LEAD said about themselves (never bot statements or questions)
+- Personal details: name, age, marital status, spouse name, kids, job, employer, city/state
+- Insurance details: current coverage, carrier, policy type, health conditions, budget
+- Life details: hobbies, pets, retirement plans, mortgage, dependents
+- Each fact must be a short fragment like: "Married, wife named Sarah" or "Works at FedEx" or "Has 2 kids ages 5 and 8"
+- Do NOT include: street addresses, zip codes, phone numbers, email addresses
+- Do NOT include messages, questions, or conversation snippets
+- Do NOT include bot/agent statements
+- If no personal facts were revealed by the lead, write ONLY the word: NONE
+
+FACTS:"""
+
+    client = _get_fact_client()
+    if not client:
+        return
+
+    try:
+        response = client.chat.completions.create(
+            model="grok-4-1-fast-non-reasoning",
+            messages=[{"role": "system", "content": prompt}],
+            temperature=0.2,
+            max_tokens=300,
+            timeout=10.0,
+        )
+        raw = response.choices[0].message.content.strip()
+
+        # Strip reasoning artifacts
+        if "<thinking>" in raw:
+            raw = re.sub(r'<thinking>.*?</thinking>', '', raw, flags=re.DOTALL).strip()
+
+        if not raw or raw.upper().strip() == "NONE":
+            return
+
+        new_facts = []
+        for line in raw.split("\n"):
+            line = line.strip()
+            # Remove bullet/numbering prefixes
+            line = re.sub(r'^[-•*]\s*', '', line)
+            line = re.sub(r'^\d+[.)]\s*', '', line)
+            line = line.strip()
+            if line and len(line) > 3 and line.upper() != "NONE" and len(line) < 120:
+                new_facts.append(line)
+
+        if new_facts:
+            from memory import save_new_facts
+            saved = save_new_facts(contact_id, new_facts)
+            if saved > 0:
+                logger.info(f"[FACTS] Extracted {saved} facts for {contact_id}: {new_facts}")
+
+    except Exception as e:
+        logger.warning(f"[FACTS] Extraction failed for {contact_id}: {e}")
