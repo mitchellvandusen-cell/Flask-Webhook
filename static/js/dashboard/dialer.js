@@ -6733,6 +6733,19 @@
         // Background refresh interval (fallback for messages that don't hit webhook)
         let _inboxBgRefreshTimer = null;
 
+        function inboxToggleSearch() {
+            const wrap = document.querySelector('.dlr-msg-search-wrap');
+            if (!wrap) return;
+            const visible = wrap.classList.toggle('visible');
+            if (visible) {
+                const inp = document.getElementById('inboxSearchInput');
+                if (inp) inp.focus();
+            } else {
+                const inp = document.getElementById('inboxSearchInput');
+                if (inp && inp.value) { inp.value = ''; inboxDebounceSearch(); }
+            }
+        }
+
         function inboxRefresh() {
             _inboxOffset = 0;
             _inboxHasMore = false;
