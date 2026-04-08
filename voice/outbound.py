@@ -1188,7 +1188,8 @@ def voice_status():
                 logger.debug(f"GHL call log skipped for {call_sid}: {ghl_call_err}")
 
     # ── Voice Insights: queue background fetch of Call Summary ──
-    if call_status in terminal_statuses and call_sid and call_exists(call_sid):
+    # No call_exists gate — insights must fire even if Redis already cleaned up
+    if call_status in terminal_statuses and call_sid:
         _queue_insights_fetch(call_sid, get_active_call(call_sid) or {})
 
     # ── Fire GHL triggers: AI Call Completed / No Answer ──
@@ -1228,7 +1229,31 @@ def _queue_insights_fetch(call_sid, call_info):
     location_id = call_info.get('_location_id', '')
     from_number = call_info.get('_from_number', '')
 
+    # Fall back to DB if Redis call info was empty (call already cleaned up)
     if not sub_sid:
+        try:
+            conn = get_db_connection()
+            if conn:
+                try:
+                    cur = conn.cursor()
+                    cur.execute("""
+                        SELECT s.twilio_sub_account_sid, s.location_id
+                        FROM call_history ch
+                        JOIN subscribers s ON s.location_id = ch.location_id
+                        WHERE ch.call_sid = %s
+                    """, (call_sid,))
+                    row = cur.fetchone()
+                    if row:
+                        sub_sid = row['twilio_sub_account_sid'] or ''
+                        location_id = row['location_id'] or ''
+                    cur.close()
+                finally:
+                    return_db_connection(conn)
+        except Exception:
+            pass
+
+    if not sub_sid:
+        logger.debug(f"[Insights] No sub_sid for {call_sid} — skipping")
         return
 
     # Look up sub-account auth token for Insights API access
