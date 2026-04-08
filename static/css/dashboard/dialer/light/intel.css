@@ -90,35 +90,7 @@
         #eeeeee 75%);
     background-size: 200% 100%;
 }
-[data-theme="light"] .insights-nav-heading { color: #111111; }
-[data-theme="light"] .insights-empty-icon-color { color: #059669; }
-[data-theme="light"] .insights-row { border-bottom-color: #e0e0e0; }
-[data-theme="light"] .insights-row:hover { background: rgba(0,0,0,0.02); }
-[data-theme="light"] .insights-row-name { color: #111111; }
-[data-theme="light"] .insights-row-dir  { color: #888888; }
-[data-theme="light"] .insights-row-date { color: #999999; }
-[data-theme="light"] .insights-sip-2xx { background: rgba(21,128,61,0.10);   color: #15803d; border-color: rgba(21,128,61,0.25); }
-[data-theme="light"] .insights-sip-3xx { background: rgba(0,86,204,0.10);    color: #0056cc; border-color: rgba(0,86,204,0.25); }
-[data-theme="light"] .insights-sip-4xx { background: rgba(217,119,6,0.10);   color: #b45309; border-color: rgba(217,119,6,0.25); }
-[data-theme="light"] .insights-sip-5xx { background: rgba(220,38,38,0.10);   color: #dc2626; border-color: rgba(220,38,38,0.25); }
-[data-theme="light"] .insights-sip-6xx { background: rgba(126,34,206,0.10);  color: #7e22ce; border-color: rgba(126,34,206,0.25); }
-[data-theme="light"] .insights-pdd          { color: #777777; }
-[data-theme="light"] .insights-carrier      { color: #666666; }
-[data-theme="light"] .insights-disconnected { color: #777777; }
-[data-theme="light"] .insights-tag          { background: rgba(0,0,0,0.04); color: #666666; border-color: rgba(0,0,0,0.08); }
-[data-theme="light"] .insights-card { background: #f8f8f8; border-color: #e0e0e0; }
-[data-theme="light"] .insights-card-title { color: #888888; }
-[data-theme="light"] .insights-metric-row { border-bottom-color: rgba(0,0,0,0.04); }
-[data-theme="light"] .insights-metric-label { color: #666666; }
-[data-theme="light"] .insights-metric-value { color: #111111; }
-[data-theme="light"] .insights-metric-value.sip-ok   { color: #15803d; }
-[data-theme="light"] .insights-metric-value.sip-warn { color: #b45309; }
-[data-theme="light"] .insights-metric-value.sip-err  { color: #dc2626; }
-[data-theme="light"] .insights-hero-sip   { color: #111111; }
-[data-theme="light"] .insights-hero-label { color: #888888; }
-[data-theme="light"] .insights-trust-verified   { background: rgba(21,128,61,0.10); color: #15803d; border-color: rgba(21,128,61,0.25); }
-[data-theme="light"] .insights-trust-unverified { background: rgba(220,38,38,0.10); color: #dc2626; border-color: rgba(220,38,38,0.25); }
-[data-theme="light"] .insights-trust-unknown    { background: rgba(0,0,0,0.04); color: #6b7280; border-color: rgba(0,0,0,0.08); }
+/* Call Insights light theme — all overrides now in middle-column.css */
 [data-theme="light"] .ios-snap-section + .ios-snap-section::before {
     background: linear-gradient(90deg, transparent, rgba(0,0,0,0.06) 20%, rgba(0,150,105,0.12) 50%, rgba(0,0,0,0.06) 80%, transparent);
 }
