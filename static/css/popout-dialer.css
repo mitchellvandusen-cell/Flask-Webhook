@@ -1186,13 +1186,36 @@ body.pop-state-connected .pop-status-glyph { animation: popDotBreathe 2.2s ease-
 .pop-modal-body::-webkit-scrollbar-thumb:hover { background: #2f2f2f; }
 
 /* ── Responsive breakpoints ──────────────────────────────────────────────── */
+
+/* Small width: wrap controls to 4-col, then 2-col list */
 @media (max-width: 500px) {
     .pop-controls { grid-template-columns: repeat(4, 1fr); }
 }
-@media (max-width: 380px) {
-    .pop-controls { grid-template-columns: repeat(3, 1fr); }
+@media (max-width: 320px) {
+    .pop-controls { grid-template-columns: repeat(2, 1fr); }
+    .pop-ctrl { flex-direction: row; gap: 0.5rem; padding: 0.5rem 0.75rem; }
+    .pop-ctrl i { font-size: 0.8rem; }
     .pop-disp-grid { grid-template-columns: repeat(2, 1fr); }
 }
+
+/* Small height: hide keypad by default, scale key sizes down */
+@media (max-height: 600px) {
+    .pop-keypad:not([style*="display"]) { display: none; }
+    .pop-key { padding: 0.5rem 0.25rem; font-size: 1rem; }
+    .pop-call-card { margin: 0.5rem; padding: 0.625rem 0.75rem 0.5rem; }
+    .pop-drawer { margin: 0 0.5rem 0.375rem; }
+    .pop-drawer-toggle { padding: 0.5rem 0.75rem; }
+}
+@media (max-height: 480px) {
+    .pop-contact-avatar { width: 2rem; height: 2rem; font-size: 0.85rem; }
+    .pop-contact-name { font-size: 0.9rem; }
+    .pop-timer { font-size: 1rem; }
+    .pop-ctrl { padding: 0.4rem 0.125rem 0.375rem; }
+    .pop-ctrl i { font-size: 0.78rem; }
+    .pop-footer { padding: 0.375rem 0.75rem; }
+}
+
+/* Larger windows scale up */
 @media (min-width: 600px) {
     html { font-size: 15px; }
 }
