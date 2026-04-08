@@ -2574,5 +2574,3 @@
             // Already handled by the IIFE above
         }
         window.a2pCheckPaymentRedirect = a2pCheckPaymentRedirect;
-
-    })();
