@@ -344,6 +344,72 @@ def save_voicemail_greeting():
         return_db_connection(conn)
 
 
+@recordings_bp.route('/voice/voicemail-drop-twiml/<token>', methods=['GET', 'POST'])
+def voicemail_drop_twiml(token):
+    """
+    Public, token-authenticated TwiML endpoint for voicemail drop.
+    Twilio redirects the active call here after AMD detects machine_end_beep.
+    Plays the subscriber's saved voicemail greeting audio, then hangs up.
+    No login required — Twilio cannot send session cookies.
+    """
+    from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
+
+    _HANGUP_TWIML = '<?xml version="1.0" encoding="UTF-8"?><Response><Hangup/></Response>'
+
+    secret = os.getenv('SESSION_SECRET') or os.getenv('SECRET_KEY') or 'dev-insecure'
+    serializer = URLSafeTimedSerializer(secret, salt='voicemail-drop-v1')
+    try:
+        location_id = serializer.loads(token, max_age=300)  # 5-minute window
+    except SignatureExpired:
+        logger.warning("Voicemail drop TwiML: token expired")
+        return Response(_HANGUP_TWIML, content_type='text/xml')
+    except BadSignature:
+        logger.warning("Voicemail drop TwiML: bad signature")
+        return Response(_HANGUP_TWIML, content_type='text/xml')
+
+    conn = get_db_connection()
+    if not conn:
+        return Response(_HANGUP_TWIML, content_type='text/xml')
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT voice_config FROM subscribers WHERE location_id = %s",
+            (location_id,)
+        )
+        row = cur.fetchone()
+        cur.close()
+        if not row:
+            return Response(_HANGUP_TWIML, content_type='text/xml')
+
+        vc = row.get('voice_config') or {}
+        if isinstance(vc, str):
+            vc = json.loads(vc)
+
+        if not vc.get('voicemail_greeting_data'):
+            logger.warning(f"Voicemail drop TwiML: no greeting saved for {location_id}")
+            return Response(_HANGUP_TWIML, content_type='text/xml')
+
+        # Build a fresh short-lived token for the audio serving endpoint
+        audio_token = serializer.dumps(location_id)
+        domain = os.getenv('YOUR_DOMAIN', '').rstrip('/')
+        audio_url = f"{domain}/voice/voicemail-greeting/public/{audio_token}"
+
+        twiml = (
+            '<?xml version="1.0" encoding="UTF-8"?>'
+            '<Response>'
+            f'<Play>{audio_url}</Play>'
+            '<Hangup/>'
+            '</Response>'
+        )
+        logger.info(f"Voicemail drop TwiML served for location {location_id}")
+        return Response(twiml, content_type='text/xml')
+    except Exception as e:
+        logger.error(f"Voicemail drop TwiML error: {e}")
+        return Response(_HANGUP_TWIML, content_type='text/xml')
+    finally:
+        return_db_connection(conn)
+
+
 @recordings_bp.route('/voice/voicemail-greeting/public/<token>', methods=['GET'])
 def serve_voicemail_greeting_public(token):
     """

@@ -3532,7 +3532,7 @@
 
         function dialerStartPoll() {
             if (dialerPollTimer) clearInterval(dialerPollTimer);
-            let pollCount = 0, errorCount = 0;
+            let pollCount = 0, errorCount = 0, _screenerWarnShown = false;
             const POLL_INTERVAL = 1500; // ms between status checks
             const MAX_POLLS_RINGING = Math.ceil(_dialerRingTimeout / POLL_INTERVAL); // configurable ring timeout
             const MAX_ERRORS = 10;
@@ -3579,11 +3579,24 @@
                     errorCount = 0;
                     const d = await r.json();
                     const el = document.getElementById('dialerCallStatus');
+                    // ── Spam screener 28-second warning ──
+                    // Server sets _screener_warning at 28 s when machine_start was detected
+                    // and the call hasn't resolved. Show once, then let the 30 s hangup fire.
+                    if (d._screener_warning && !_screenerWarnShown) {
+                        _screenerWarnShown = true;
+                        el.textContent = 'Screener — retrying...'; el.style.color = '#ffa500';
+                        if (typeof _showDashToast === 'function') {
+                            _showDashToast(false, 'Spam screener detected — hanging up and retrying');
+                        }
+                    }
+
                     // ── AMD / Voicemail detection (human mode) ──
-                    // Server sets _amd_result when machine detected and auto-hangs up.
-                    // Frontend must: stop poll, mark as no-answer for retry, advance queue.
+                    // Server sets _amd_result when machine detected.
+                    // 'no-answer'        → voicemail detected, hung up — mark for retry
+                    // 'voicemail-dropped' → greeting was played to voicemail — don't retry
                     if (d._amd_result && d.status !== 'ringing' && d.status !== 'initiated') {
-                        console.log(`[Dialer] AMD detected: ${d._amd_result} — action: ${_dialerOnMachineAction}`);
+                        const vmDropped = (d._amd_result === 'voicemail-dropped');
+                        console.log(`[Dialer] AMD detected: ${d._amd_result} — action: ${_dialerOnMachineAction} vmDrop=${vmDropped}`);
                         clearInterval(dialerPollTimer);
                         dialerPollTimer = null;
                         _dialerIncrementDialBadge();
@@ -3591,12 +3604,17 @@
                         _dialerClearCallDurationTimer();
                         _stopRingTone();
                         if (_autoListenActive) { _stopListenStream(); _resetListenBtn(); _autoListenActive = false; }
-                        el.textContent = 'Voicemail'; el.style.color = '#ffa500';
+                        if (vmDropped) {
+                            el.textContent = 'Voicemail Left'; el.style.color = 'var(--accent)';
+                        } else {
+                            el.textContent = 'Voicemail'; el.style.color = '#ffa500';
+                        }
                         _dialerBannerState('ended');
                         _dialerLastCallSid = dialerCallSid;
-                        // Mark queue item as no-answer so retry logic picks it up
                         if (dialerCallIdx >= 0 && dialerCallIdx < dialerQueue.length) {
-                            dialerQueue[dialerCallIdx].status = 'no-answer';
+                            // voicemail-dropped → mark done (no retry after leaving a message)
+                            // no-answer → mark for retry in dialerAdvance
+                            dialerQueue[dialerCallIdx].status = vmDropped ? 'voicemail-dropped' : 'no-answer';
                             if (_dialerAutoDispVoicemail) dialerQueue[dialerCallIdx].disposition = 'voicemail';
                         }
                         dialerCallSid = null;
@@ -4857,7 +4875,7 @@
                 if (qBodyAuto && qBodyAuto.style.display === 'none') qBodyAuto.style.display = 'block';
             }
             if (!dialerQueue.length) { list.innerHTML = '<div style="text-align:center;padding:10px;color:#555;font-size:.75rem;">Empty queue</div>'; return; }
-            const icons = { pending:'<span style="color:#555;">Wait</span>', initiated:'<i class="fa-solid fa-spinner fa-spin" style="color:#00ff88;"></i>', ringing:'<span style="color:#00ff88;">Ring</span>', 'in-progress':'<span style="color:var(--accent);">Live</span>', completed:'<i class="fa-solid fa-check" style="color:var(--accent);"></i>', 'no-answer':'<span style="color:#ffa500;">N/A</span>', busy:'<span style="color:#ffa500;">Busy</span>', failed:'<i class="fa-solid fa-xmark" style="color:#ef4444;"></i>', skipped:'<i class="fa-solid fa-ban" style="color:#ef4444;" title="DnD — skipped"></i>' };
+            const icons = { pending:'<span style="color:#555;">Wait</span>', initiated:'<i class="fa-solid fa-spinner fa-spin" style="color:#00ff88;"></i>', ringing:'<span style="color:#00ff88;">Ring</span>', 'in-progress':'<span style="color:var(--accent);">Live</span>', completed:'<i class="fa-solid fa-check" style="color:var(--accent);"></i>', 'no-answer':'<span style="color:#ffa500;">N/A</span>', busy:'<span style="color:#ffa500;">Busy</span>', failed:'<i class="fa-solid fa-xmark" style="color:#ef4444;"></i>', skipped:'<i class="fa-solid fa-ban" style="color:#ef4444;" title="DnD — skipped"></i>', 'voicemail-dropped':'<i class="fa-solid fa-voicemail" style="color:var(--accent);" title="Voicemail left"></i>' };
             list.innerHTML = dialerQueue.map((q, i) => {
                 const active = dialerQueueRunning && i === dialerCallIdx;
                 return '<div class="dlr-queue-row-clickable" onclick="dialerJumpToContact(\'' + q.id + '\')" style="display:flex;align-items:center;gap:6px;padding:3px 4px;border-radius:4px;font-size:.75rem;' + (active ? 'background:rgba(74,222,128,0.05);' : '') + '">' +
@@ -8416,11 +8434,15 @@
                             if (_dialerAutoDispNoAnswer && serverInfo.status === 'no-answer') {
                                 qi.disposition = 'no_answer';
                             }
-                            if (_dialerAutoDispVoicemail && serverInfo.amd_result) {
-                                // Server sets amd_result='no-answer' for ALL AMD detections (machine_start, fax, etc.)
-                                // The field only exists when AMD was triggered, so its presence means voicemail
-                                qi.disposition = 'voicemail';
-                                qi.status = 'no-answer'; // AMD-detected VM — use no-answer so retry logic picks it up
+                            if (serverInfo.amd_result) {
+                                if (_dialerAutoDispVoicemail) qi.disposition = 'voicemail';
+                                if (serverInfo.amd_result === 'voicemail-dropped') {
+                                    // Greeting was left — mark done, no retry
+                                    qi.status = 'voicemail-dropped';
+                                } else {
+                                    // Voicemail detected but no message left — retry
+                                    qi.status = 'no-answer';
+                                }
                             }
                         }
 

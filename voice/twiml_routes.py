@@ -610,42 +610,249 @@ def warm_transfer_reconnect_twiml():
     return Response(twiml, content_type='text/xml')
 
 
+# States that mean the call resolved on its own — screener thread should not hang up.
+# 'in-progress' means a human connected (possibly through the screener), so we stop too.
+_SCREENER_TERMINAL = frozenset({
+    'in-progress', 'completed', 'busy', 'no-answer',
+    'failed', 'canceled', 'transferred', 'voicemail-dropped',
+})
+
+
+def _screener_timeout_hangup(call_sid: str, sub_sid: str) -> None:
+    """
+    Background daemon thread started when AMD fires 'machine_start' (spam screener detected).
+    Waits 28 s → sets _screener_warning so the dialer UI can notify the agent.
+    Waits 2 s more → hangs up if the call is still active, marks no-answer for retry.
+    If the call resolves on its own (human connects, ring timeout, etc.) before 30 s,
+    the terminal-status check aborts the thread cleanly.
+    """
+    time.sleep(28)
+    if not call_exists(call_sid):
+        return
+    info = get_active_call(call_sid) or {}
+    if info.get('status') in _SCREENER_TERMINAL:
+        return  # resolved naturally — nothing to do
+    # Warn the agent: dialer UI polls this field and shows a toast
+    update_active_call(call_sid, _screener_warning=True)
+    logger.info(f"Screener timeout warning set for {call_sid[:16]}")
+
+    time.sleep(2)
+    if not call_exists(call_sid):
+        return
+    info = get_active_call(call_sid) or {}
+    if info.get('status') in _SCREENER_TERMINAL:
+        return
+    # 30 s elapsed — hang up and let the dialer retry
+    logger.info(f"Screener timeout: hanging up {call_sid[:16]} after 30 s")
+    update_active_call(call_sid, _amd_result='no-answer')
+    try:
+        _twilio_hangup(call_sid, sub_sid)
+    except Exception as e:
+        logger.warning(f"Screener timeout hangup failed for {call_sid[:16]}: {e}")
+    delete_transfer_request(call_sid)
+
+
+def _drop_voicemail(call_sid: str, sub_sid: str, location_id: str, call_info: dict) -> bool:
+    """
+    Play the subscriber's saved voicemail greeting on a live call then hang up.
+    Uses inline TwiML (consistent with manual voicemail drop in call_history.py).
+    Falls back to immediate hangup if the drop fails.
+    Returns True if greeting was played, False if fell back to hangup.
+    """
+    import json
+    from xml.sax.saxutils import escape as xml_escape
+    from itsdangerous import URLSafeTimedSerializer
+    try:
+        secret = os.getenv('SESSION_SECRET') or os.getenv('SECRET_KEY') or 'dev-insecure'
+        serializer = URLSafeTimedSerializer(secret, salt='voicemail-drop-v1')
+        token = serializer.dumps(location_id)
+        host = call_info.get('_host', '')
+        domain = f"https://{host}" if host else os.getenv('YOUR_DOMAIN', '').rstrip('/')
+        audio_url = f"{domain}/voice/voicemail-greeting/public/{token}"
+        twiml = (
+            '<?xml version="1.0" encoding="UTF-8"?>'
+            '<Response>'
+            f'<Play>{xml_escape(audio_url)}</Play>'
+            '<Hangup/>'
+            '</Response>'
+        )
+        client = twilio_provisioning.get_sub_account_client(sub_sid)
+        client.calls(call_sid).update(twiml=twiml)
+        update_active_call(call_sid, _amd_result='voicemail-dropped')
+        logger.info(f"Voicemail drop inline TwiML fired for {call_sid[:16]}")
+        return True
+    except Exception as e:
+        logger.warning(f"Voicemail drop failed for {call_sid[:16]}: {e} — falling back to hangup")
+        if call_exists(call_sid):
+            update_active_call(call_sid, _amd_result='no-answer')
+        try:
+            _twilio_hangup(call_sid, sub_sid)
+        except Exception:
+            pass
+        delete_transfer_request(call_sid)
+        return False
+
+
 @twiml_bp.route('/voice/amd-status', methods=['POST'])
 def amd_status_callback():
     """
     Twilio async AMD callback. Called when machine detection finishes.
-    NOTE: This fires LATE (after full voicemail greeting). Our software
-    voicemail detection in the bridge is much faster. This is a safety net.
-    - machine_end_beep / machine_end_silence / machine_end_other: hang up immediately
-    - machine_start / fax: hang up immediately
-    - human / not_sure: call continues with existing stream
+
+    AnsweredBy values and what we do:
+    - machine_end_beep / machine_end_silence / machine_end_other:
+        TRUE voicemail — greeting fully played.  Check on_machine_action:
+        'voicemail_drop' → redirect call to play saved greeting then hang up.
+        'hangup' (default) → hang up immediately, mark no-answer for retry.
+    - fax:
+        Not a voicemail — hang up immediately.
+    - machine_start:
+        Twilio detected automation early but message is still playing.
+        Could be a spam screener (Google Call Screen, Nomorobo, carrier IVR)
+        where the HUMAN is still on the line waiting to connect.
+        DO NOT hang up — let the call continue. Ring timeout handles cleanup.
+    - human / not_sure:
+        Human answered or ambiguous — call continues with existing media stream.
     """
     call_sid    = request.values.get('CallSid', '')
     answered_by = request.values.get('AnsweredBy', '')
 
     logger.info(f"AMD result: CallSid={call_sid[:16] if call_sid else 'none'} AnsweredBy={answered_by}")
 
-    call_info = get_active_call(call_sid) or {}
+    if not call_sid:
+        return '', 204
+
+    call_info   = get_active_call(call_sid) or {}
     sub_sid_amd = call_info.get('_sub_sid', '')
+    location_id = call_info.get('_location_id', '')
 
-    # Cases where we can leave a voicemail (beep has passed)
-    voicemail_opportunity = {'machine_end_beep', 'machine_end_silence', 'machine_end_other'}
-    # Cases where there's no recording opportunity
-    immediate_hangup = {'machine_start', 'fax'}
+    # TRUE voicemail: greeting has fully played, we heard a beep or end-of-message
+    voicemail_complete = {'machine_end_beep', 'machine_end_silence', 'machine_end_other'}
 
-    all_machine = voicemail_opportunity | immediate_hangup
+    if answered_by in voicemail_complete:
+        if not sub_sid_amd:
+            return '', 204
+        # Look up on_machine_action, max attempts, and greeting data for this subscriber
+        action = 'hangup'
+        has_greeting = False
+        max_attempts = 2  # default matches voice_config default
+        if location_id:
+            try:
+                import json
+                from db import get_db_connection, return_db_connection
+                conn = get_db_connection()
+                if conn:
+                    try:
+                        cur = conn.cursor()
+                        cur.execute(
+                            "SELECT voice_config FROM subscribers WHERE location_id = %s",
+                            (location_id,)
+                        )
+                        row = cur.fetchone()
+                        cur.close()
+                        if row:
+                            vc = row.get('voice_config') or {}
+                            if isinstance(vc, str):
+                                vc = json.loads(vc)
+                            action = vc.get('on_machine_action', 'hangup')
+                            has_greeting = bool(vc.get('voicemail_greeting_data'))
+                            try:
+                                max_attempts = int(vc.get('dial_attempts', 2))
+                            except (ValueError, TypeError):
+                                max_attempts = 2
+                    finally:
+                        return_db_connection(conn)
+            except Exception as e:
+                logger.warning(f"AMD: failed to fetch voice_config for {location_id}: {e}")
 
-    if answered_by in all_machine and sub_sid_amd and call_sid:
-        # Machine detected — hang up immediately and let the dialer retry
-        # Mark FIRST so /voice/status preserves 'no-answer' even if it arrives before hangup completes
-        if call_exists(call_sid):
+        # Voicemail drop only fires on the FINAL attempt so the dialer exhausts
+        # all configured retries before leaving a message.
+        # Attempts 1..N-1 → hang up and let the dialer retry.
+        # Attempt N (final) → drop the greeting.
+        this_attempt = int(call_info.get('attempt', 1))
+        is_final_attempt = (this_attempt >= max_attempts)
+
+        if action == 'voicemail_drop' and has_greeting and is_final_attempt and call_exists(call_sid):
+            _drop_voicemail(call_sid, sub_sid_amd, location_id, call_info)
+        else:
+            # hangup: covers (a) action=hangup, (b) no greeting saved,
+            # (c) voicemail_drop but not yet the final attempt — retry coming
+            if call_exists(call_sid):
+                update_active_call(call_sid, _amd_result='no-answer')
+            try:
+                _twilio_hangup(call_sid, sub_sid_amd)
+            except Exception as e:
+                logger.warning(f"AMD hangup failed for {call_sid}: {e}")
+            delete_transfer_request(call_sid)
+
+    elif answered_by == 'fax':
+        # Fax line — hang up immediately, no voicemail opportunity
+        if sub_sid_amd and call_exists(call_sid):
             update_active_call(call_sid, _amd_result='no-answer')
-        try:
-            _twilio_hangup(call_sid, sub_sid_amd)
-        except Exception as e:
-            logger.warning(f"AMD hangup failed for {call_sid}: {e}")
-        # Clean up any pending transfer request for this call
-        delete_transfer_request(call_sid)
+            try:
+                _twilio_hangup(call_sid, sub_sid_amd)
+            except Exception as e:
+                logger.warning(f"AMD fax hangup failed for {call_sid}: {e}")
+            delete_transfer_request(call_sid)
 
-    # human or not_sure — call continues with existing media stream
+    elif answered_by == 'machine_start':
+        # Possible spam screener (Google Call Screen, Nomorobo, carrier IVR).
+        # Don't hang up — a human may still connect.
+        #
+        # FINAL ATTEMPT + VOICEMAIL DROP exception:
+        # If this is the last configured attempt AND the subscriber has voicemail_drop
+        # enabled with a greeting saved, skip the 30-second screener thread entirely.
+        # The screener thread would hang up at 30s — BEFORE AMD fires machine_end_beep
+        # (~T+10s after the beep) — which would prevent the greeting from ever playing.
+        # Instead, let the call continue; ring timeout cleans up if no voicemail,
+        # and AMD will fire machine_end_beep naturally if voicemail answers.
+        if sub_sid_amd:
+            _skip_screener = False
+            if location_id:
+                try:
+                    import json as _json
+                    from db import get_db_connection as _gdc, return_db_connection as _rdc
+                    _conn = _gdc()
+                    if _conn:
+                        try:
+                            _cur = _conn.cursor()
+                            _cur.execute(
+                                "SELECT voice_config FROM subscribers WHERE location_id = %s",
+                                (location_id,)
+                            )
+                            _row = _cur.fetchone()
+                            _cur.close()
+                            if _row:
+                                _vc = _row.get('voice_config') or {}
+                                if isinstance(_vc, str):
+                                    _vc = _json.loads(_vc)
+                                _action = _vc.get('on_machine_action', 'hangup')
+                                _has_greeting = bool(_vc.get('voicemail_greeting_data'))
+                                try:
+                                    _max_att = int(_vc.get('dial_attempts', 2))
+                                except (ValueError, TypeError):
+                                    _max_att = 2
+                                _this_att = int(call_info.get('attempt', 1))
+                                if (_action == 'voicemail_drop' and _has_greeting
+                                        and _this_att >= _max_att):
+                                    _skip_screener = True
+                                    logger.info(
+                                        f"AMD machine_start: skipping screener thread on "
+                                        f"final attempt {_this_att}/{_max_att} — "
+                                        f"voicemail_drop active, letting AMD handle {call_sid[:16]}"
+                                    )
+                        finally:
+                            _rdc(_conn)
+                except Exception as _e:
+                    logger.warning(f"AMD machine_start: failed to check voice_config for {location_id}: {_e}")
+
+            if not _skip_screener:
+                t = threading.Thread(
+                    target=_screener_timeout_hangup,
+                    args=(call_sid, sub_sid_amd),
+                    daemon=True,
+                    name=f"screener-{call_sid[:8]}",
+                )
+                t.start()
+
+    # human / not_sure → human answered, AI bridge handles it
     return '', 204

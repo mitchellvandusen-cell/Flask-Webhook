@@ -143,6 +143,7 @@ def trigger_outbound_call():
             "contact_id": contact_id,
             "phone": lead_phone,
             "name": lead_name,
+            "attempt": 1,           # AMD callback needs this; API calls are always attempt 1
             "_location_id": location_id,
             "_sub_sid": sub_sid,
             "_host": host,
