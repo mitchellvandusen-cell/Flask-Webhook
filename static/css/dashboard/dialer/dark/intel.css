@@ -169,7 +169,7 @@
    Call Insights App
    ══════════════════════════════════════════════ */
 
-.insights-nav-heading { font-weight: 700; font-size: max(0.95rem,0.83vw); color: #ffffff; }
+.insights-nav-heading { font-weight: 700; font-size: max(0.88rem,0.73vw); color: #ffffff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .insights-empty { padding-top: 3.75rem; }
 .insights-empty-icon-color { color: #0AB4C5; }
 .insights-list { padding: 0; }
