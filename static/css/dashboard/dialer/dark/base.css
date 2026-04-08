@@ -215,7 +215,7 @@
 /* ═══════════════════════════════════════════════
                        iPhone 15 Pro — CSS (scaled 25% down)
                        ═══════════════════════════════════════════════ */
-.iphone-frame{width:100%;max-width:max(8rem, 17vw);max-height:calc(100vh - 15.5rem);aspect-ratio:393/852;position:relative;display:flex;align-items:center;justify-content:center;}
+.iphone-frame{width:100%;max-width:max(8rem, 15vw);max-height:min(calc(100vh - 15.5rem), 32.5vw);aspect-ratio:393/852;position:relative;display:flex;align-items:center;justify-content:center;}
 .iphone-bezel{width:100%;height:100%;border-radius:2.03vw;background:linear-gradient(145deg,#78797e 0%,#48494d 20%,#36373b 50%,#48494d 80%,#78797e 100%);padding:2px;position:relative;box-shadow:0 0 0 1px rgba(255,255,255,0.06),0 25px 60px rgba(0,0,0,0.6),inset 0 1px 0 rgba(255,255,255,0.15);}
 /* Side buttons (cosmetic) — use percentage positions for scaling */
 .iphone-btn-right{position:absolute;right:-3px;top:21.2%;width:3px;height:7.5%;background:linear-gradient(to right,#48494d,#5a5b5f);border-radius:0 2px 2px 0;}
